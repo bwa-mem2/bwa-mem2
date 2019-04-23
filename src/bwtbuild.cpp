@@ -4,7 +4,7 @@
 
 BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
 Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
-    
+
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -17,12 +17,12 @@ GNU General Public License at https://www.gnu.org/licenses/ for more details.
 
 
 TERMS AND CONDITIONS FOR DISTRIBUTION OF THE CODE
-                                             
+
 1. Redistributions of source code must retain the above copyright notice,
-   this list of conditions and the following disclaimer. 
+   this list of conditions and the following disclaimer.
 2. Redistributions in binary form must reproduce the above copyright notice,
    this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution. 
+   and/or other materials provided with the distribution.
 3. Neither the name of Intel Corporation nor the names of its contributors may
    be used to endorse or promote products derived from this software without
    specific prior written permission.
@@ -177,7 +177,7 @@ void pac2nt(const char *fn_pac, std::string &reference_seq)
                 reference_seq += "T";
             break;
             default:
-                printf("ERROR! Value of nt is not in 0,1,2,3!");
+                fprintf(stderr, "ERROR! Value of nt is not in 0,1,2,3!");
                 exit(0);
         }
 	}
@@ -204,7 +204,7 @@ void pac2nt(const char *fn_pac, std::string &reference_seq)
 }
 
 int build_fm_index(const char *ref_file_name, char *binary_seq, int64_t ref_seq_len, int64_t *sa_bwt, int64_t *count) {
-    printf("ref_seq_len = %ld\n", ref_seq_len);
+    fprintf(stderr, "ref_seq_len = %ld\n", ref_seq_len);
     fflush(stdout);
 
     char outname[200];
@@ -214,9 +214,9 @@ int build_fm_index(const char *ref_file_name, char *binary_seq, int64_t ref_seq_
     sprintf(outname, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE);
 #endif
     std::fstream outstream (outname, ios::out | ios::binary);
-    outstream.seekg(0);	
+    outstream.seekg(0);
 
-    printf("count = %ld, %ld, %ld, %ld, %ld\n", count[0], count[1], count[2], count[3], count[4]);
+    fprintf(stderr, "count = %ld, %ld, %ld, %ld, %ld\n", count[0], count[1], count[2], count[3], count[4]);
     fflush(stdout);
 
     uint8_t *bwt;
@@ -235,7 +235,7 @@ int build_fm_index(const char *ref_file_name, char *binary_seq, int64_t ref_seq_
         if(sa_bwt[i] == 0)
         {
             bwt[i] = 4;
-            printf("BWT[%ld] = 4\n", i);
+            fprintf(stderr, "BWT[%ld] = 4\n", i);
         }
         else
         {
@@ -251,7 +251,7 @@ int build_fm_index(const char *ref_file_name, char *binary_seq, int64_t ref_seq_
                 case 3: bwt[i] = 3;
                           break;
                 default:
-                        printf("ERROR! i = %ld, c = %c\n", i, c);
+                        fprintf(stderr, "ERROR! i = %ld, c = %c\n", i, c);
                         exit(1);
             }
         }
@@ -260,8 +260,8 @@ int build_fm_index(const char *ref_file_name, char *binary_seq, int64_t ref_seq_
         bwt[i] = DUMMY_CHAR;
 
 
-    printf("CP_SHIFT = %d, CP_MASK = %d\n", CP_SHIFT, CP_MASK);
-    printf("sizeof CP_OCC = %ld\n", sizeof(CP_OCC));
+    fprintf(stderr, "CP_SHIFT = %d, CP_MASK = %d\n", CP_SHIFT, CP_MASK);
+    fprintf(stderr, "sizeof CP_OCC = %ld\n", sizeof(CP_OCC));
     fflush(stdout);
     // create checkpointed occ
     int64_t cp_occ_size = (ref_seq_len >> CP_SHIFT) + 1;
@@ -290,8 +290,7 @@ int build_fm_index(const char *ref_file_name, char *binary_seq, int64_t ref_seq_
     outstream.write((char*)cp_occ, cp_occ_size * sizeof(CP_OCC));
     outstream.write((char*)sa_bwt, ref_seq_len * sizeof(int64_t));
     outstream.close();
-    printf("max_occ_ind = %ld\n", i >> CP_SHIFT);    
-    fflush(stdout);
+    fprintf(stderr, "max_occ_ind = %ld\n", i >> CP_SHIFT);
 
     _mm_free(cp_occ);
     _mm_free(bwt);
@@ -302,7 +301,7 @@ int build_index(const char *prefix) {
 
     int64_t startTick;
     startTick = __rdtsc();
-       
+
     std::string reference_seq;
     char pac_file_name[200];
     sprintf(pac_file_name, "%s.pac", prefix);
@@ -313,7 +312,7 @@ int build_index(const char *prefix) {
     char binary_ref_name[200];
     sprintf(binary_ref_name, "%s.0123", prefix);
     std::fstream binary_ref_stream (binary_ref_name, ios::out | ios::binary);
-    binary_ref_stream.seekg(0);	
+    binary_ref_stream.seekg(0);
     fprintf(stderr, "init ticks = %ld\n", __rdtsc() - startTick);
     startTick = __rdtsc();
     int64_t i, count[16];
@@ -343,7 +342,7 @@ int build_index(const char *prefix) {
     count[3]=count[0]+count[1]+count[2];
     count[2]=count[0]+count[1];
     count[1]=count[0];
-    count[0]=0;	
+    count[0]=0;
     fprintf(stderr, "ref seq len = %ld\n", pac_len);
     binary_ref_stream.write(binary_ref_seq, pac_len * sizeof(char));
     fprintf(stderr, "binary seq ticks = %ld\n", __rdtsc() - startTick);
