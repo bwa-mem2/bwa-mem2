@@ -345,7 +345,7 @@ void BandedPairWiseSW::scalarBandedSWAWrapper(SeqPair *seqPairArray,
 		max_ins256 = _mm256_blendv_epi16(zero256, max_ins256, cmp256);	\
 		cmp256 = _mm256_cmpgt_epi16(max_ins256, band256_);				\
 		max_ins256 = _mm256_blendv_epi16(max_ins256, band256, cmp256);	\
-		_mm256_store_si256((__m256i *) qlen, max_ins256);				\		
+		_mm256_store_si256((__m256i *) qlen, max_ins256);				\
     }
 
 #define ZSCORE16(i4_256, y4_256)											\
@@ -398,7 +398,7 @@ void BandedPairWiseSW::scalarBandedSWAWrapper(SeqPair *seqPairArray,
 		e11 = _mm256_sub_epi16(e11, gapExtend256);						\
 		e11 = _mm256_max_epi16(val256, e11);							\
 		temp256 = _mm256_sub_epi16(m11, oe_del256);						\
-		val256  = _mm256_max_epi16(temp256, zero256);			\		
+		val256  = _mm256_max_epi16(temp256, zero256);			\
 		f21 = _mm256_sub_epi16(f11, gapExtend256);						\
 		f21 = _mm256_max_epi16(val256, f21);							\
 	}
@@ -2000,14 +2000,14 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 // ----------------------------------------------------------------------------------
 
 // ------------------------ vec 8 --------------------------------------------------
-#define MAX_INSDEL8(qlen512, eb512, band512, band512_)				\	
+#define MAX_INSDEL8(qlen512, eb512, band512, band512_)				\
 {																		\
 	__m512i max_ins512 = _mm512_add_epi8(qlen512, eb_ins512);			\
 	__mmask64 cmp512 = _mm512_cmpgt_epi8_mask(max_ins512, zero512);		\
 	max_ins512 = _mm512_mask_blend_epi8(cmp512, zero512, max_ins512);	\
 	cmp512 = _mm512_cmpgt_epi8_mask(max_ins512, band512_);				\
 	max_ins512 = _mm512_mask_blend_epi8(cmp512, max_ins512, band512);	\
-	_mm512_store_si512((__m512i *) qlen, max_ins512);				\		
+	_mm512_store_si512((__m512i *) qlen, max_ins512);				\
 }
 
 #define ZSCORE8(i4_512, y4_512)											\
@@ -2079,7 +2079,7 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 	max_ins512 = _mm512_mask_blend_epi16(cmp512, zero512, max_ins512);	\
 	cmp512 = _mm512_cmpgt_epi16_mask(max_ins512, band512_);				\
 	max_ins512 = _mm512_mask_blend_epi16(cmp512, max_ins512, band512);	\
-	_mm512_store_si512((__m512i *) qlen, max_ins512);\		
+	_mm512_store_si512((__m512i *) qlen, max_ins512); \
 }
 
 #define ZSCORE16(i4_512, y4_512)											\

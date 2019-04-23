@@ -90,7 +90,7 @@ int kclose(void *a);
 #define usage() {														\
 		fprintf(stderr, "Usage: bwa2 mem -o <output_sam_file> [options] <idxbase> <in1.fq> [in2.fq]\n\n"); \
 		fprintf(stderr, "Algorithm options:\n\n");						\
-		fprintf(stderr, "       -o STR        Output SAM file name\n"); \	
+		fprintf(stderr, "       -o STR        Output SAM file name\n"); \
 		fprintf(stderr, "       -t INT        number of threads [%d]\n", opt->n_threads); \
 		fprintf(stderr, "       -k INT        minimum seed length [%d]\n", opt->min_seed_len); \
 	fprintf(stderr, "       -w INT        band width for banded alignment [%d]\n", opt->w);	\
@@ -237,7 +237,7 @@ int kclose(void *a);
 		if ((rg_line = bwa_set_rg(optarg)) == 0) {					   \
 			free(opt);												   \
 			if (is_o)												   \
-				fclose(aux.fp);\						
+				fclose(aux.fp); \
 				return 1;\
             }\
 		}\
@@ -281,7 +281,7 @@ int kclose(void *a);
 		else {									\
 			free(opt);												   \
 			if (is_o)												   \
-				fclose(aux.fp);\					
+				fclose(aux.fp); \
 			return 1;							\
 		}\
 	}\
@@ -326,7 +326,7 @@ int kclose(void *a);
 			printf("[E::%s] unknown read type '%s'\n", __func__, mode);\
 			free(opt);												   \
 			if (is_o)												   \
-				fclose(aux.fp);\		
+				fclose(aux.fp); \
 			return 1;						\
         }\
 	} else update_a(opt, &opt0);
