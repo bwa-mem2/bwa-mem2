@@ -77,10 +77,6 @@ typedef struct {
 } ktp_data_t;
 
 
-void *kopen(const char *fn, int *_fd);
-int kclose(void *a);
-
-
 #define usage_naive()															\
 	{																	\
 		fprintf(stderr, "\n");											\

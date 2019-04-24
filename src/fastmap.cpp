@@ -381,15 +381,10 @@ static void update_a(mem_opt_t *opt, const mem_opt_t *opt0)
 
 int main_mem(int argc, char *argv[])
 {
-	int			 fd, fd2, i, c, ignore_alt = 0, no_mt_io = 0;
+	int			 i, c, ignore_alt = 0, no_mt_io = 0;
 	int			 fixed_chunk_size		   = -1;
-	void		*ko						   = 0;
 	char		*p, *rg_line			   = 0, *hdr_line = 0;
 	const char	*mode					   = 0;
-	
-#if PAIRED_END
-	void         *ko2 = 0;
-#endif
 	
 	mem_opt_t		*opt, opt0;
 	gzFile			 fp, fp2   = 0;
@@ -491,8 +486,8 @@ int main_mem(int argc, char *argv[])
 			fmi->idx->bns->anns[i].is_alt = 0;
 
 	/* READS file operations */
-	ko = kopen(argv[optind + 1], &fd);
-	if (ko == 0)
+	fp = gzopen(argv[optind + 1], "r");
+	if (fp == 0)
 	{
 		printf("[E::%s] fail to open file `%s'.\n", __func__, argv[optind + 1]);
 		free(opt);
@@ -500,7 +495,6 @@ int main_mem(int argc, char *argv[])
 			fclose(aux.fp);
 		return 1;
 	}
-	fp = gzdopen(fd, "r");	
 	aux.ks = kseq_init(fp);
 	
 #if PAIRED_END
@@ -512,18 +506,16 @@ int main_mem(int argc, char *argv[])
 		}
 		else
 		{
-			ko2 = kopen(argv[optind + 2], &fd2);
-			if (ko2 == 0) {
+			fp2 = gzopen(argv[optind + 2], "r");
+			if (fp2 == 0) {
 				printf("[E::%s] failed to open file `%s'.\n", __func__, argv[optind + 2]);
 				free(opt);
-				kclose(ko);
 				err_gzclose(fp);
 				kseq_destroy(aux.ks);
 				if (is_o) 
 					fclose(aux.fp);				
 				return 1;
 			}
-			fp2 = gzdopen(fd2, "r");
 			aux.ks2 = kseq_init(fp2);
 			opt->flag |= MEM_F_PE;
 			assert(aux.ks2 != 0);
@@ -620,13 +612,12 @@ int main_mem(int argc, char *argv[])
 	free(hdr_line);
 	free(opt);
 	kseq_destroy(aux.ks);	
-	err_gzclose(fp); kclose(ko);
+	err_gzclose(fp);
 
 #if PAIRED_END
 	if (aux.ks2) {
 		kseq_destroy(aux.ks2);
 		err_gzclose(fp2);
-		kclose(ko2);
 	}
 #endif
 	
