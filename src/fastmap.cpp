@@ -90,7 +90,7 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int64_t nreads)
     w.auxSeedBufSize = BATCH_SIZE * AVG_AUX_SEEDS_PER_READ;
 	
 	if (w.regs == NULL || w.chain_ar == NULL) {
-		printf("Memory not allocated!!\nExiting...\n");
+		fprintf(stderr, "Memory not allocated!!\nExiting...\n");
 		exit(0);
 	}
 
@@ -98,8 +98,8 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int64_t nreads)
 		memSize * sizeof(mem_chain_v) +
 		sizeof(mem_seed_t) * memSize * AVG_SEEDS_PER_READ +
 		sizeof(mem_seed_t) * memSize * AVG_AUX_SEEDS_PER_READ;
-	printf("------------------------------------------\n");
-	printf("Memory pre-allocation for chaining: %ld\n", allocMem);
+	fprintf(stderr, "------------------------------------------\n");
+	fprintf(stderr, "Memory pre-allocation for chaining: %ld\n", allocMem);
 
 	
 	/* SWA mem allocation */
@@ -142,7 +142,7 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int64_t nreads)
 		(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads	* 2 +		
 		w.size * sizeof(SeqPair) * opt->n_threads * 3;
 	
-	printf("Memory pre-allocation for BSW: %ld\n", allocMem);
+	fprintf(stderr, "Memory pre-allocation for BSW: %ld\n", allocMem);
 	
 	w.mmc.matchArray = (SMEM *)_mm_malloc
 		(nthreads * BATCH_MUL * BATCH_SIZE * readLen * sizeof(SMEM), 64);
@@ -162,8 +162,8 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int64_t nreads)
 		nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int16_t) +
 		nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t) +
 		nthreads * (BATCH_SIZE + 32) * sizeof(int32_t);
-	printf("Memory pre-allocation for BWT: %ld\n", allocMem);
-	printf("------------------------------------------\n");
+	fprintf(stderr, "Memory pre-allocation for BWT: %ld\n", allocMem);
+	fprintf(stderr, "------------------------------------------\n");
 }
 
 static int process(void *shared, gzFile gfp, gzFile gfp2)
@@ -182,22 +182,22 @@ static int process(void *shared, gzFile gfp, gzFile gfp2)
 
 	if (opt->n_threads > nt) {
 		opt->n_threads = nt;
-		printf("--------------------------------------------------------------\n");
-		printf("No. of threads requested are more than avaialable HW threads\n");
-		printf("Thus, capping no. of threads to %d\n", nt);
-		printf("--------------------------------------------------------------\n");
+		fprintf(stderr, "--------------------------------------------------------------\n");
+		fprintf(stderr, "No. of threads requested are more than avaialable HW threads\n");
+		fprintf(stderr, "Thus, capping no. of threads to %d\n", nt);
+		fprintf(stderr, "--------------------------------------------------------------\n");
 	} else {
 		omp_set_num_threads(opt->n_threads);
 	}
 	nthreads = opt->n_threads; // global variable for profiling!
 	if(myrank == 0)
-		printf("omp_threads by system: %d, threads used: %d\n",
+		fprintf(stderr, "omp_threads by system: %d, threads used: %d\n",
 			   nt, nthreads);
 
 	
 	int64_t nreads = aux->actual_chunk_size/ (readLen) + 10;
-	printf("Input read length: %d\n", readLen);
-	printf("Projected #read in a task: %d\n", nreads);
+	fprintf(stderr, "Input read length: %d\n", readLen);
+	fprintf(stderr, "Projected #read in a task: %d\n", nreads);
 	
 	/* All memory allocation */
 	memoryAlloc(aux, w, nreads);
@@ -223,11 +223,11 @@ static int process(void *shared, gzFile gfp, gzFile gfp2)
 		// tprof[0][2] += ret->n_seqs;
 		
 		iteration ++;
-		printf("Read %d seqs, task_size: %ld\n", ret->n_seqs, aux->task_size);
+		fprintf(stderr, "Read %d seqs, task_size: %ld\n", ret->n_seqs, aux->task_size);
 		assert(ret->n_seqs <= nreads);
 		
 		if(myrank == 0)
-			printf("[%0.4d] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
+			fprintf(stderr, "[%0.4d] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
 				   myrank, aux->task_size, sz, ret->n_seqs);   
 
 		if (ret->seqs == 0) {
@@ -246,13 +246,13 @@ static int process(void *shared, gzFile gfp, gzFile gfp2)
 			int64_t size = 0;
 			for (i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
 			if(myrank == 0)
-				printf("\t[%0.4d][ M::%s] read %d sequences (%ld bp)...\n",
+				fprintf(stderr, "\t[%0.4d][ M::%s] read %d sequences (%ld bp)...\n",
 					   myrank, __func__, ret->n_seqs, (long)size);
 		}
 
 		/* Step 2: Main processing-engine */
 		if(myrank == 0)
-			printf("[%0.4d] 2. Calling mem_process_seqs.., task: %d\n", myrank, task++);
+			fprintf(stderr, "[%0.4d] 2. Calling mem_process_seqs.., task: %d\n", myrank, task++);
 
 		tim = _rdtsc();
 		if (opt->flag & MEM_F_SMARTPE)
@@ -262,7 +262,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2)
 			mem_opt_t tmp_opt = *opt;
 
 			bseq_classify(ret->n_seqs, ret->seqs, n_sep, sep);
-			printf("[M::%s] %d single-end sequences; %d paired-end sequences.....\n",
+			fprintf(stderr, "[M::%s] %d single-end sequences; %d paired-end sequences.....\n",
 				   __func__, n_sep[0], n_sep[1]);
 			
 			if (n_sep[0]) {
@@ -328,12 +328,12 @@ static int process(void *shared, gzFile gfp, gzFile gfp2)
 			free(ret->seqs[i].sam);
 		}
 		free(ret->seqs);
-		// printf("[%0.4d] mem usage: %ld %ld\n", myrank, getCurrentRSS(), getPeakRSS());
+		// fprintf(stderr, "[%0.4d] mem usage: %ld %ld\n", myrank, getCurrentRSS(), getPeakRSS());
 	}
 	
 	// uint64_t mytim = _rdtsc() - timAll;
 	// tprof[MPI_TIME][1] = mytim;   	
-	printf("[%0.4d] Output writing ends..\n", myrank);
+	fprintf(stderr, "[%0.4d] Output writing ends..\n", myrank);
 	
 	/* Dealloc memory allcoated in the header section */
 	free(ret);
@@ -407,7 +407,7 @@ int main_mem(int argc, char *argv[])
 	
 	/* Check output file name */
 	if (!is_o) {
-		printf("Missing output file name..\n");
+		fprintf(stderr, "Missing output file name..\n");
 		usage();
 		free(opt);
 		return 1;
@@ -421,7 +421,7 @@ int main_mem(int argc, char *argv[])
 
 	if (opt->n_threads < 1) opt->n_threads = 1;
 	if (optind + 2 != argc && optind + 3 != argc) {
-		printf("optind: %d, argc: %d\n", optind, argc);
+		fprintf(stderr, "optind: %d, argc: %d\n", optind, argc);
 		usage();
 		free(opt);
 		if (is_o) 
@@ -440,24 +440,24 @@ int main_mem(int argc, char *argv[])
 	{
 		uint64_t tim = _rdtsc();
 		if(myrank == 0)
-			printf("Ref file: %s\n", argv[optind]);			
+			fprintf(stderr, "Ref file: %s\n", argv[optind]);			
 		fmi = new FMI_search(argv[optind]);
 		tprof[FMI][0] += _rdtsc() - tim;
 
 		// reading ref string from the file
 		tim = _rdtsc();
 		if(myrank == 0)
-			printf("Reading reference genome..\n");
+			fprintf(stderr, "Reading reference genome..\n");
 		
         char binary_seq_file[200];
         sprintf(binary_seq_file, "%s.0123", argv[optind]);
 		
 		if(myrank == 0)
-			printf("Binary seq file = %s\n", binary_seq_file);
+			fprintf(stderr, "Binary seq file = %s\n", binary_seq_file);
 		FILE *fr = fopen(binary_seq_file, "r");
 		
 		if (fr == NULL) {
-			printf("Error: can't open %s input file\n", binary_seq_file);
+			fprintf(stderr, "Error: can't open %s input file\n", binary_seq_file);
 			exit(0);
 		}
 		
@@ -477,7 +477,7 @@ int main_mem(int argc, char *argv[])
 		// tprof[CONVERT][0] += _rdtsc() - timer;
 
 		if(myrank == 0)
-			printf("Reference genome size: %ld bp\n", rlen);
+			fprintf(stderr, "Reference genome size: %ld bp\n", rlen);
 	}
 
 	// tim = _rdtsc();	
@@ -489,7 +489,7 @@ int main_mem(int argc, char *argv[])
 	fp = gzopen(argv[optind + 1], "r");
 	if (fp == 0)
 	{
-		printf("[E::%s] fail to open file `%s'.\n", __func__, argv[optind + 1]);
+		fprintf(stderr, "[E::%s] fail to open file `%s'.\n", __func__, argv[optind + 1]);
 		free(opt);
 		if (is_o) 
 			fclose(aux.fp);
@@ -502,13 +502,13 @@ int main_mem(int argc, char *argv[])
 	aux.ks2 = 0;
 	if (optind + 2 < argc) {
 		if (opt->flag & MEM_F_PE) {
-			printf("[W::%s] when '-p' is in use, the second query file is ignored.\n", __func__);
+			fprintf(stderr, "[W::%s] when '-p' is in use, the second query file is ignored.\n", __func__);
 		}
 		else
 		{
 			fp2 = gzopen(argv[optind + 2], "r");
 			if (fp2 == 0) {
-				printf("[E::%s] failed to open file `%s'.\n", __func__, argv[optind + 2]);
+				fprintf(stderr, "[E::%s] failed to open file `%s'.\n", __func__, argv[optind + 2]);
 				free(opt);
 				err_gzclose(fp);
 				kseq_destroy(aux.ks);
@@ -547,7 +547,7 @@ int main_mem(int argc, char *argv[])
 									   &sz);
 		assert(seqs != NULL);
 		readLen = seqs[0].l_seq;
-		printf("readLen: %d\n\n", readLen);
+		fprintf(stderr, "readLen: %d\n\n", readLen);
 		for (int i = 0; i < ns; ++i) {
 			free(seqs[i].name); free(seqs[i].comment);
 			free(seqs[i].seq); free(seqs[i].qual);
@@ -561,7 +561,7 @@ int main_mem(int argc, char *argv[])
 #if 0
 	FILE *fpp = fopen(argv[optind + 1], "r");
 	if (fpp == NULL) {
-		printf("Error: can't open %s input file\n", argv[optind + 1]);
+		fprintf(stderr, "Error: can't open %s input file\n", argv[optind + 1]);
 		exit(0);
 	}
 	fseek(fpp, 0, SEEK_END); 
@@ -569,14 +569,14 @@ int main_mem(int argc, char *argv[])
 	tprof[MISC][0] = file_size;
 
 	if(myrank == 0)
-		printf("file size: %ld, task_size: %ld, act_chunk_sz: %d\n",
+		fprintf(stderr, "file size: %ld, task_size: %ld, act_chunk_sz: %d\n",
 			   file_size, aux.task_size, opt->chunk_size);
 	
 	// assert(file_size >= aux.task_size);
 	if (file_size < aux.task_size) {
-		printf("tasks size > file size, resetting task size to file size %ld, => 1 task\n", file_size);
+		fprintf(stderr, "tasks size > file size, resetting task size to file size %ld, => 1 task\n", file_size);
 		if (num_ranks > 1)
-			printf("%d are allocated 0 tasks\n", num_ranks - 1);
+			fprintf(stderr, "%d are allocated 0 tasks\n", num_ranks - 1);
 		opt->chunk_size = aux.actual_chunk_size = aux.task_size = file_size;
 	}	
 	assert(file_size != 0);
@@ -592,12 +592,12 @@ int main_mem(int argc, char *argv[])
 		lflag = 1;
 	
 	aux.my_ntasks = mychunk;
-	printf("[%0.4d] my task_size: %ld\n", myrank, aux.my_ntasks);
+	fprintf(stderr, "[%0.4d] my task_size: %ld\n", myrank, aux.my_ntasks);
 #endif
 	
 	// Major function
 	if(myrank == 0)
-		printf("[%0.4d] 1: Calling process()\n", myrank);
+		fprintf(stderr, "[%0.4d] 1: Calling process()\n", myrank);
 	// tprof[PREPROCESS][0] += _rdtsc() - tim;
 
 	uint64_t tim = _rdtsc();
