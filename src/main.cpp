@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
 #if ((!__AVX512BW__) && (!__AVX2__))
 	fprintf(stderr, "Executing in Scalar mode!!\n");
 #endif
-	printf("-----------------------------\n");
+	fprintf(stderr, "-----------------------------\n");
 
 	if (strcmp(argv[1], "index") == 0)
 	{
