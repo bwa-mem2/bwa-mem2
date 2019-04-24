@@ -288,9 +288,9 @@ uint32_t *bwa_gen_cigar2(const int8_t mat[25], int o_del, int e_del, int o_ins, 
 		w = w > min_w? w : min_w;
 		// NW alignment
 		if (bwa_verbose >= 4) {
-			printf("* Global bandwidth: %d\n", w);
-			printf("* Global ref:   "); for (i = 0; i < rlen; ++i) putchar("ACGTN"[(int)rseq[i]]); putchar('\n');
-			printf("* Global query: "); for (i = 0; i < l_query; ++i) putchar("ACGTN"[(int)query[i]]); putchar('\n');
+			fprintf(stderr, "* Global bandwidth: %d\n", w);
+			fprintf(stderr, "* Global ref:   "); for (i = 0; i < rlen; ++i) fputc("ACGTN"[(int)rseq[i]], stderr); fputc('\n', stderr);
+			fprintf(stderr, "* Global query: "); for (i = 0; i < l_query; ++i) fputc("ACGTN"[(int)query[i]], stderr); fputc('\n', stderr);
 		}
 		*score = ksw_global2(l_query, query, rlen, rseq, 5, mat, o_del, e_del, o_ins, e_ins, w, n_cigar, &cigar);
 	}
@@ -537,7 +537,7 @@ void bwa_print_sam_hdr(const bntseq_t *bns, const char *hdr_line, FILE *fp)
 #endif
 		}
 	} else if (n_SQ != bns->n_seqs && bwa_verbose >= 2)
-		printf("[W::%s] %d @SQ lines provided with -H; %d sequences in the index. "
+		fprintf(stderr, "[W::%s] %d @SQ lines provided with -H; %d sequences in the index. "
 			   "Continue anyway.\n", __func__, n_SQ, bns->n_seqs);
 	
 #if ORIG

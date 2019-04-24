@@ -63,7 +63,7 @@ void indexEle::bwa_idx_load_ele(const char *hint, int which)
 	prefix = (char *) malloc(l_hint + 3 + 4 + 1);
 	strcpy(prefix, hint);
 
-	printf("prefix: %s\n", prefix);
+	fprintf(stderr, "prefix: %s\n", prefix);
 	
 	// idx = (bwaidx_fm_t*) calloc(1, sizeof(bwaidx_fm_t));
 	if (which & BWA_IDX_BNS) {
@@ -76,7 +76,7 @@ void indexEle::bwa_idx_load_ele(const char *hint, int which)
 		for (i = c = 0; i < idx->bns->n_seqs; ++i)
 			if (idx->bns->anns[i].is_alt) ++c;
 		
-		printf("[M::%s] read %d ALT contigs\n", __func__, c);
+		fprintf(stderr, "[M::%s] read %d ALT contigs\n", __func__, c);
 		
 		if (which & BWA_IDX_PAC)
 		{

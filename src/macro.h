@@ -39,7 +39,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define printf_(x,y...)						\
 	{										\
 		if(x)								\
-			printf(y);						\
+			fprintf(stderr, y);						\
 	}
 
 /* Note: BSW-specific macros are in src/bandedSWA.h file */

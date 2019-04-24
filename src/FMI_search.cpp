@@ -70,7 +70,7 @@ FMI_search::FMI_search(char *ref_file_name)
     cpstream = fopen(cp_file_name,"rb");
     if (cpstream == NULL)
     {
-      printf("ERROR! Unable to open the file: %s\n", cp_file_name);
+      fprintf(stderr, "ERROR! Unable to open the file: %s\n", cp_file_name);
       exit(0);
     }
 
@@ -78,7 +78,7 @@ FMI_search::FMI_search(char *ref_file_name)
     assert(reference_seq_len > 0);
     assert(reference_seq_len <= (UINT32_MAX * (int64_t)CP_BLOCK_SIZE));
 	if(myrank == 0)
-		printf("reference seq len = %ld\n", reference_seq_len);
+		fprintf(stderr, "reference seq len = %ld\n", reference_seq_len);
 
     // create checkpointed occ
     uint32_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
@@ -105,17 +105,17 @@ FMI_search::FMI_search(char *ref_file_name)
             sentinel_index = x;
     }
 	if(myrank == 0) {
-		printf("count\n");
+		fprintf(stderr, "count\n");
 		for(x = 0; x < 5; x++)
 		{
-			printf("%ld,\t%u\n", x, count[x]);
+			fprintf(stderr, "%ld,\t%u\n", x, count[x]);
 		}
-		printf("\n");
+		fprintf(stderr, "\n");
 	}
 
 #if BWA_OTHER_ELE
 	if(myrank == 0)
-        printf("Reading other elements of the index from files %s\n",
+        fprintf(stderr, "Reading other elements of the index from files %s\n",
 			   ref_file_name);
         bwa_idx_load_ele(ref_file_name, BWA_IDX_ALL);
 #endif
@@ -127,7 +127,7 @@ FMI_search::FMI_search(char *ref_file_name)
             c_bcast_array[ii * 64 + j] = ii;
         }
     }
-    printf("Done reading Index!!\n");
+    fprintf(stderr, "Done reading Index!!\n");
 }
 
 FMI_search::~FMI_search()

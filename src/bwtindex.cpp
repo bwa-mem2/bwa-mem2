@@ -101,9 +101,9 @@ int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_s
 	{ // nucleotide indexing
 		gzFile fp = xzopen(fa, "r");
 		t = clock();
-		printf("[bwa_index] Pack FASTA... ");
+		fprintf(stderr, "[bwa_index] Pack FASTA... ");
 		l_pac = bns_fasta2bntseq(fp, prefix, 1);
-		printf("%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
+		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
 		err_gzclose(fp);
         build_index(prefix);
 	}

@@ -184,7 +184,7 @@ int mem_patch_reg(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 	r = r > 0.? r : -r; // r = fabs(r)
 
 	if (bwa_verbose >= 4)
-		printf("* potential hit merge between [%d,%d)<=>[%ld,%ld) and "
+		fprintf(stderr, "* potential hit merge between [%d,%d)<=>[%ld,%ld) and "
 			   "[%d,%d)<=>[%ld,%ld), @ %s; w=%d, r=%.4g\n",
 			   a->qb, a->qe, (long)a->rb, (long)a->re, b->qb, b->qe,
 			   (long)b->rb, (long)b->re, bns->anns[a->rid].name, w, r);
@@ -199,7 +199,7 @@ int mem_patch_reg(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 	w = w < opt->w<<2? w : opt->w<<2;
 
 	if (bwa_verbose >= 4)
-		printf("* test potential hit merge with global alignment; w=%d\n", w);
+		fprintf(stderr, "* test potential hit merge with global alignment; w=%d\n", w);
 	
 	bwa_gen_cigar2(opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, w,
 				   bns->l_pac, pac, b->qe - a->qb, query + a->qb, a->rb, b->re,
@@ -212,7 +212,7 @@ int mem_patch_reg(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 				(b->score + a->score) + .499); // predicted score from ref
 	
 	if (bwa_verbose >= 4)
-		printf("* score=%d;(%d,%d)\n", score, q_s, r_s);
+		fprintf(stderr, "* score=%d;(%d,%d)\n", score, q_s, r_s);
 	
 	if ((double)score / (q_s > r_s? q_s : r_s) < PATCH_MIN_SC_RATIO) return 0;
 	*_w = w;
@@ -458,19 +458,19 @@ void mem_print_chain(const bntseq_t *bns, mem_chain_v *chn)
 	for (i = 0; i < chn->n; ++i)
 	{
 		mem_chain_t *p = &chn->a[i];
-		err_printf("* Found CHAIN(%d): n=%d; weight=%d", i, p->n, mem_chain_weight(p));
+		fprintf(stderr, "* Found CHAIN(%d): n=%d; weight=%d", i, p->n, mem_chain_weight(p));
 		for (j = 0; j < p->n; ++j)
 		{
 			bwtint_t pos;
 			int is_rev;
 			pos = bns_depos(bns, p->seeds[j].rbeg, &is_rev);
 			if (is_rev) pos -= p->seeds[j].len - 1;
-			err_printf("\t%d;%d;%d,%ld(%s:%c%ld)",
+			fprintf(stderr, "\t%d;%d;%d,%ld(%s:%c%ld)",
 					   p->seeds[j].score, p->seeds[j].len, p->seeds[j].qbeg,
 					   (long)p->seeds[j].rbeg, bns->anns[p->rid].name,
 					   "+-"[is_rev], (long)(pos - bns->anns[p->rid].offset) + 1);
 		}
-		err_putchar('\n');
+		fputc('\n', stderr);
 	}
 }
 
@@ -793,7 +793,7 @@ void mem_chain_seeds(const mem_opt_t *opt,
 				s.qbeg = p->m;
 				s.score= s.len = slen;
 				if (s.rbeg < 0 || s.len < 0) 
-					printf("rbeg: %ld, slen: %d, cnt: %d, n: %d, m: %d, num_smem: %ld\n",
+					fprintf(stderr, "rbeg: %ld, slen: %d, cnt: %d, n: %d, m: %d, num_smem: %ld\n",
 						   s.rbeg, s.len, cnt-1, p->n, p->m, num_smem);
 				
 				rid = bns_intv2rid(bns, s.rbeg, s.rbeg + s.len);
@@ -816,11 +816,11 @@ void mem_chain_seeds(const mem_opt_t *opt,
 					tmp.n = 1; tmp.m = 1; //4;
                     if((seedBufCount + tmp.m) > seedBufSize)
                     {
-                        printf("ERROR! seedBuf count exceeds size. count = %ld, "
+                        fprintf(stderr, "ERROR! seedBuf count exceeds size. count = %ld, "
 							   "tmp.m = %d, size = %ld\n",
 							   seedBufCount, tmp.m, seedBufSize);
-						printf("Reserved memory allocated for storing seeds has falling short!!!\n");
-						printf("Please increase the value of macros: "
+						fprintf(stderr, "Reserved memory allocated for storing seeds has falling short!!!\n");
+						fprintf(stderr, "Please increase the value of macros: "
 							   "AVG_SEEDS_PER_READ & AVG_AUX_SEEDS_PER_READ, "
 							   "in src/macro.h, re-compile and re-run.\n");
                         exit(0);
@@ -914,7 +914,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
 					 num_smem);
 
 	if (num_smem >= BATCH_MUL * BATCH_SIZE * readLen){
-		printf("num_smem: %ld\n", num_smem);
+		fprintf(stderr, "num_smem: %ld\n", num_smem);
 		assert(num_smem < BATCH_MUL * BATCH_SIZE * readLen);
 	}
 	printf_(VER, "6. Done! mem_collect_smem, num_smem: %ld\n", num_smem);
@@ -1221,11 +1221,11 @@ void mem_process_seqs(mem_opt_t *opt,
 	
 	uint64_t tim = _rdtsc();	
 	if(myrank == 0)
-		printf("[%0.4d] 3. Calling kt_for - worker_bwt\n", myrank);
+		fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_bwt\n", myrank);
 	kt_for(worker_bwt, &w, n_); // SMEMs (+SAL)
 
 	if(myrank == 0)
-		printf("[%0.4d] 3. Calling kt_for - worker_aln\n", myrank);
+		fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_aln\n", myrank);
 	
 	kt_for(worker_aln, &w, n_); // BSW
 	tprof[WORKER10][0] += _rdtsc() - tim;		
@@ -1237,7 +1237,7 @@ void mem_process_seqs(mem_opt_t *opt,
 			memcpy(pes, pes0, 4 * sizeof(mem_pestat_t)); // if pes0 != NULL, set the insert-size
 		                                                 // distribution as pes0
 		else {
-			printf("Inferring insert size distribution from data, l_pac: %ld, n: %d\n", bns->l_pac, n);
+			fprintf(stderr, "Inferring insert size distribution from data, l_pac: %ld, n: %d\n", bns->l_pac, n);
 			mem_pestat(opt, bns->l_pac, n, w.regs, pes); // otherwise, infer the insert size
 		                                                 // distribution from data
 		}
@@ -1246,13 +1246,13 @@ void mem_process_seqs(mem_opt_t *opt,
 	
 	tim = _rdtsc();
 	if(myrank == 0)
-		printf("[%0.4d] 10. Calling kt_for - worker_sam\n", myrank);
+		fprintf(stderr, "[%0.4d] 10. Calling kt_for - worker_sam\n", myrank);
 	
 	kt_for(worker_sam, &w,  n_);   // SAM	
   	tprof[WORKER20][0] += _rdtsc() - tim;
 
 	if(myrank == 0)
-		printf("\t[%0.4d][ M::%s] Processed %d reads in %.3f "
+		fprintf(stderr, "\t[%0.4d][ M::%s] Processed %d reads in %.3f "
 			   "CPU sec, %.3f real sec\n", myrank,
 			   __func__, n, cputime() - ctime, realtime() - rtime);
 
@@ -1580,14 +1580,14 @@ mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *
 	tmp = infer_bw(qe - qb, re - rb, ar->truesc, opt->a, opt->o_del, opt->e_del);
 	w2  = infer_bw(qe - qb, re - rb, ar->truesc, opt->a, opt->o_ins, opt->e_ins);
 	w2 = w2 > tmp? w2 : tmp;
-	if (bwa_verbose >= 4) printf("* Band width: inferred=%d, cmd_opt=%d, alnreg=%d\n", w2, opt->w, ar->w);
+	if (bwa_verbose >= 4) fprintf(stderr, "* Band width: inferred=%d, cmd_opt=%d, alnreg=%d\n", w2, opt->w, ar->w);
 	if (w2 > opt->w) w2 = w2 < ar->w? w2 : ar->w;
 	i = 0; a.cigar = 0;
 	do {
 		free(a.cigar);
 		w2 = w2 < opt->w<<2? w2 : opt->w<<2;
 		a.cigar = bwa_gen_cigar2(opt->mat, opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, w2, bns->l_pac, pac, qe - qb, (uint8_t*)&query[qb], rb, re, &score, &a.n_cigar, &NM);
-		if (bwa_verbose >= 4) printf("* Final alignment: w2=%d, global_sc=%d, local_sc=%d\n", w2, score, ar->truesc);
+		if (bwa_verbose >= 4) fprintf(stderr, "* Final alignment: w2=%d, global_sc=%d, local_sc=%d\n", w2, score, ar->truesc);
 		if (score == last_sc || w2 == opt->w<<2) break; // it is possible that global alignment and local alignment give different scores
 		last_sc = score;
 		w2 <<= 1;
@@ -1740,7 +1740,7 @@ inline void sortPairsLen_(SeqPair *pairArray, int32_t count, SeqPair *tempArray,
 #if DEB          // Investigate why len1 is 0 sometime!!
     for(i = 0; i < count; i++)
 		if ( pairArray[i].len1 == 0) {
-			printf("zero %d\n", i);
+			fprintf(stderr, "zero %d\n", i);
 			//exit(0);
 		}
 #endif
@@ -1798,7 +1798,7 @@ inline void sortPairsLen_(SeqPair *pairArray, int32_t count, SeqPair *tempArray,
 #if DEB
 	for(i = 1; i < count; i++)
 		if(pairArray[i-1].len1 > pairArray[i].len1 || pairArray[i].len1 == 0)
-			printf("%d %d %d\n", i, pairArray[i-1].len1, pairArray[i].len1);
+			fprintf(stderr, "%d %d %d\n", i, pairArray[i-1].len1, pairArray[i].len1);
 #endif
 }
 
@@ -1872,7 +1872,7 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 			numPairs128 ++;
 			if (arr[pos] != 0)
 			{
-				printf("Error 1: repreat, pos: %d, arr: %d, minval: %d, (%d %d)\n",
+				fprintf(stderr, "Error 1: repreat, pos: %d, arr: %d, minval: %d, (%d %d)\n",
 					   pos, arr[pos], minval, sp.len1, sp.len2);
 			}
 			arr[pos] = 1;
@@ -1885,7 +1885,7 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 			if (arr[pos] != 0)
 			{
 				SeqPair spt = pairArray[arr[pos]-1];
-				printf("Error XX: repeat, "
+				fprintf(stderr, "Error XX: repeat, "
 					   "i: %d, pos: %d, arr: %d, hist2: %d, minval: %d, (%d %d %d) (%d %d %d)\n",
 					   i, pos, arr[pos], hist2[minval],  minval, sp.h0, sp.len1, sp.len2,
 					   spt.h0, spt.len1, spt.len2);
@@ -1911,11 +1911,11 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 #if 1  // DEB
 	for(i = 0; i < numPairs128; i++) {
 		if (pairArray[i].len1 >= 128 || pairArray[i].len2 >= 128 || pairArray[i].h0 >= 128)
-			printf("Not matching..1 %d %d %d\n", pairArray[i].len1, pairArray[i].len2, pairArray[i].h0);
+			fprintf(stderr, "Not matching..1 %d %d %d\n", pairArray[i].len1, pairArray[i].len2, pairArray[i].h0);
 	}
 	for(i = numPairs128; i < numPairs16; i++) {
 		if (pairArray[i].len1 >= MAX_SEQ_LEN16 || pairArray[i].len2 >= MAX_SEQ_LEN16 || pairArray[i].h0 >= MAX_SEQ_LEN16)
-			printf("Not matching..2\n");
+			fprintf(stderr, "Not matching..2\n");
 	}
 #endif
 }
@@ -2300,7 +2300,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	for (int l=0; l<numPairsLeft; l++) {
 		SeqPair sp = seqPairArrayLeft128[l];
 		if (sp.len1 > 10000) {
-			printf("1. %d %d %d\n", l, sp.len1, sp.len2);
+			fprintf(stderr, "1. %d %d %d\n", l, sp.len1, sp.len2);
 			exit(0);
 		}
 	}
@@ -2767,8 +2767,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	
 	if (numPairsLeft >= BATCH_SIZE * SEEDS_PER_READ || numPairsRight >= BATCH_SIZE * SEEDS_PER_READ)
 	{   // refine it!
-		printf("This should not have happened!!!\n");
-		printf("numPairsLeft: %d, numPairsRight %d\nExiting.\n", numPairsLeft, numPairsRight);
+		fprintf(stderr, "This should not have happened!!!\n");
+		fprintf(stderr, "numPairsLeft: %d, numPairsRight %d\nExiting.\n", numPairsLeft, numPairsRight);
 		exit(0);
 	}
 	/* Discard seeds and hence their alignemnts */

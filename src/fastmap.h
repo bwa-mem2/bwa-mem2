@@ -157,7 +157,7 @@ typedef struct {
 			is_o = 1;\
 			aux.fp = fopen(optarg, "w");								\
 			if (aux.fp == NULL) {										\
-				printf("Error: can't open %s input file\n", optarg);	\
+				fprintf(stderr, "Error: can't open %s input file\n", optarg);	\
 				exit(0);												\
 			}															\
 			/*fclose(aux.fp);*/											\
@@ -319,7 +319,7 @@ typedef struct {
 		}\
 		else\
 		{\
-			printf("[E::%s] unknown read type '%s'\n", __func__, mode);\
+			fprintf(stderr, "[E::%s] unknown read type '%s'\n", __func__, mode);\
 			free(opt);												   \
 			if (is_o)												   \
 				fclose(aux.fp); \
