@@ -399,6 +399,7 @@ int main_mem(int argc, char *argv[])
 	for (i = 0; i < 4; ++i) pes[i].failed = 1;
 	
 	// opterr = 0;
+	aux.fp = stdout;
 	aux.opt = opt = mem_opt_init();
 	memset(&opt0, 0, sizeof(mem_opt_t));
 	
@@ -406,13 +407,6 @@ int main_mem(int argc, char *argv[])
 	OPT_ARGS;
 	
 	/* Check output file name */
-	if (!is_o) {
-		fprintf(stderr, "Missing output file name..\n");
-		usage();
-		free(opt);
-		return 1;
-	}
-	
 	if (rg_line)
 	{
 		hdr_line = bwa_insert_header(rg_line, hdr_line);
