@@ -93,21 +93,21 @@ int main(int argc, char* argv[])
 	int ret = -1;
 	if (argc < 2) return usage();
 
-	printf("\nBWA-MEM2 v0.1.0\n"
+	fprintf(stderr, "\nBWA-MEM2 v0.1.0\n"
 		   "This program is under GPLv3. "
 		   "For more details, refer to the LICENSE file or run 'bwa-mem2'.\n\n");
 
 	
-	printf("-----------------------------\n");	
+	fprintf(stderr, "-----------------------------\n");
 #if __AVX512BW__
-	printf("Executing in AVX512 mode!!\n");
+	fprintf(stderr, "Executing in AVX512 mode!!\n");
 #endif
 #if ((!__AVX512BW__) & (__AVX2__))
-	printf("Executing in AVX2 mode!!\n");
+	fprintf(stderr, "Executing in AVX2 mode!!\n");
 #endif
 
 #if ((!__AVX512BW__) && (!__AVX2__))
-	printf("Executing in Scalar mode!!\n");
+	fprintf(stderr, "Executing in Scalar mode!!\n");
 #endif
 	printf("-----------------------------\n");
 
@@ -115,10 +115,10 @@ int main(int argc, char* argv[])
 	{
 		 uint64_t tim = _rdtsc();
 		 ret = bwa_index(argc-1, argv+1);
-		 printf("Index creation completed!!!\n");
+		 fprintf(stderr, "Index creation completed!!!\n");
 		 tprof[INDEX][0] += _rdtsc() - tim;
 
-		 printf("Index creation time: %0.2lf\n\n", tprof[INDEX][0]*1.0/proc_freq);
+		 fprintf(stderr, "Index creation time: %0.2lf\n\n", tprof[INDEX][0]*1.0/proc_freq);
 		 free(bwa_pg);
 		 return 1;
 	}
@@ -140,16 +140,16 @@ int main(int argc, char* argv[])
 	}
 	
 	if (myrank == 0) {
-		printf("\nImportant parameter settings: \n");
-		printf("\tBATCH_SIZE: %d\n", BATCH_SIZE);
-		printf("\tMAX_SEQ_LEN_REF: %d\n", MAX_SEQ_LEN_REF);
-		printf("\tMAX_SEQ_LEN_QER: %d\n", MAX_SEQ_LEN_QER);
-		printf("\tMAX_SEQ_LEN8: %d\n", MAX_SEQ_LEN8);
-		printf("\tSEEDS_PER_READ: %d\n", SEEDS_PER_READ);
-		printf("\tSIMD_WIDTH8 X: %d\n", SIMD_WIDTH8);
-		printf("\tSIMD_WIDTH16 X: %d\n", SIMD_WIDTH16);
-		printf("\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
-		printf("\tAVG_AUX_SEEDS_PER_READ: %d\n", AVG_AUX_SEEDS_PER_READ);
+		fprintf(stderr, "\nImportant parameter settings: \n");
+		fprintf(stderr, "\tBATCH_SIZE: %d\n", BATCH_SIZE);
+		fprintf(stderr, "\tMAX_SEQ_LEN_REF: %d\n", MAX_SEQ_LEN_REF);
+		fprintf(stderr, "\tMAX_SEQ_LEN_QER: %d\n", MAX_SEQ_LEN_QER);
+		fprintf(stderr, "\tMAX_SEQ_LEN8: %d\n", MAX_SEQ_LEN8);
+		fprintf(stderr, "\tSEEDS_PER_READ: %d\n", SEEDS_PER_READ);
+		fprintf(stderr, "\tSIMD_WIDTH8 X: %d\n", SIMD_WIDTH8);
+		fprintf(stderr, "\tSIMD_WIDTH16 X: %d\n", SIMD_WIDTH16);
+		fprintf(stderr, "\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
+		fprintf(stderr, "\tAVG_AUX_SEEDS_PER_READ: %d\n", AVG_AUX_SEEDS_PER_READ);
 	}
 	free(bwa_pg);	
 	return 1;
