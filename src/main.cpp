@@ -48,10 +48,10 @@ int64_t reference_seq_len;
 
 int usage()
 {
-	printf("\nProgram: BWA-MEM2 (Sequence alignment using Burrows-Wheeeler Transform)\n");
-	printf("Version: %s\n", PACKAGE_VERSION);
-	printf("Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;\n\t  Heng Li <hli@jimmy.harvard.edu>\n\n");
-	printf("This program comes with ABSOLUTELY NO WARRANTY.\n"
+	fprintf(stderr, "\nProgram: BWA-MEM2 (Sequence alignment using Burrows-Wheeeler Transform)\n");
+	fprintf(stderr, "Version: %s\n", PACKAGE_VERSION);
+	fprintf(stderr, "Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;\n\t  Heng Li <hli@jimmy.harvard.edu>\n\n");
+	fprintf(stderr, "This program comes with ABSOLUTELY NO WARRANTY.\n"
 		   "This program is free software: you can redistribute it and/or modify\n"
 		   "it under the terms of the GNU General Public License as published by\n"
 		   "the Free Software Foundation, either version 3 of the License, or\n"
@@ -61,7 +61,7 @@ int usage()
 		   "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
 		   "GNU General Public License for more details.\n\n"
 		   "For more information, see <https://www.gnu.org/licenses/>.\n\n");
-	printf("This is free software, and you are welcome to redistribute it\n"
+	fprintf(stderr, "This is free software, and you are welcome to redistribute it\n"
 		   "under certain conditions.\n"
 		   "1. Redistributions of source code must retain the above copyright notice,\n"
 		   "this list of conditions and the following disclaimer.\n" 
@@ -72,7 +72,7 @@ int usage()
 		   "be used to endorse or promote products derived from this software without\n"
 		   "specific prior written permission.\n");
 	
-	printf("\n\tusage: bwa <index | mem> [options]\n\n");
+	fprintf(stderr, "\n\tusage: bwa <index | mem> [options]\n\n");
 	return 1;
 }
 
@@ -105,8 +105,10 @@ int main(int argc, char* argv[])
 #if ((!__AVX512BW__) & (__AVX2__))
 	fprintf(stderr, "Executing in AVX2 mode!!\n");
 #endif
-
-#if ((!__AVX512BW__) && (!__AVX2__))
+#if ((!__AVX512BW__) && (!__AVX2__) && (__SSE2__))
+	fprintf(stderr, "Executing in SSE2 mode!!\n");
+#endif
+#if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
 	fprintf(stderr, "Executing in Scalar mode!!\n");
 #endif
 	fprintf(stderr, "-----------------------------\n");
@@ -135,22 +137,19 @@ int main(int argc, char* argv[])
 	}
 	
 	/* Display runtime profiling stats */
-	if (myrank == 0) {
-		display_stats();
-	}
+	display_stats();
 	
-	if (myrank == 0) {
-		fprintf(stderr, "\nImportant parameter settings: \n");
-		fprintf(stderr, "\tBATCH_SIZE: %d\n", BATCH_SIZE);
-		fprintf(stderr, "\tMAX_SEQ_LEN_REF: %d\n", MAX_SEQ_LEN_REF);
-		fprintf(stderr, "\tMAX_SEQ_LEN_QER: %d\n", MAX_SEQ_LEN_QER);
-		fprintf(stderr, "\tMAX_SEQ_LEN8: %d\n", MAX_SEQ_LEN8);
-		fprintf(stderr, "\tSEEDS_PER_READ: %d\n", SEEDS_PER_READ);
-		fprintf(stderr, "\tSIMD_WIDTH8 X: %d\n", SIMD_WIDTH8);
-		fprintf(stderr, "\tSIMD_WIDTH16 X: %d\n", SIMD_WIDTH16);
-		fprintf(stderr, "\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
-		fprintf(stderr, "\tAVG_AUX_SEEDS_PER_READ: %d\n", AVG_AUX_SEEDS_PER_READ);
-	}
+	fprintf(stderr, "\nImportant parameter settings: \n");
+	fprintf(stderr, "\tBATCH_SIZE: %d\n", BATCH_SIZE);
+	fprintf(stderr, "\tMAX_SEQ_LEN_REF: %d\n", MAX_SEQ_LEN_REF);
+	fprintf(stderr, "\tMAX_SEQ_LEN_QER: %d\n", MAX_SEQ_LEN_QER);
+	fprintf(stderr, "\tMAX_SEQ_LEN8: %d\n", MAX_SEQ_LEN8);
+	fprintf(stderr, "\tSEEDS_PER_READ: %d\n", SEEDS_PER_READ);
+	fprintf(stderr, "\tSIMD_WIDTH8 X: %d\n", SIMD_WIDTH8);
+	fprintf(stderr, "\tSIMD_WIDTH16 X: %d\n", SIMD_WIDTH16);
+	fprintf(stderr, "\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
+	fprintf(stderr, "\tAVG_AUX_SEEDS_PER_READ: %d\n", AVG_AUX_SEEDS_PER_READ);
+
 	free(bwa_pg);	
 	return 1;
 }

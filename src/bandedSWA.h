@@ -52,17 +52,25 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 
 // SIMD_WIDTH in bits
+// AVX2
 #if ((!__AVX512BW__) & (__AVX2__))
 #define SIMD_WIDTH8 32
 #define SIMD_WIDTH16 16
 #endif
 
+// AVX512
 #if __AVX512BW__
 #define SIMD_WIDTH8 64
 #define SIMD_WIDTH16 32
 #endif
 
-#if ((!__AVX512BW__) & (!__AVX2__))
+#if ((!__AVX512BW__) & (!__AVX2__) & (__SSE2__))
+#define SIMD_WIDTH8 16
+#define SIMD_WIDTH16 8
+#endif
+
+// Scalar
+#if ((!__AVX512BW__) & (!__AVX2__) & (!__SSE2__))
 #define SIMD_WIDTH8 1
 #define SIMD_WIDTH16 1
 #endif
@@ -122,6 +130,65 @@ public:
 								int numPairs,
 								int nthreads,
 								int w);
+
+#if ((!__AVX512BW__) & (!__AVX2__) & (__SSE2__))
+	// AVX256 is not updated for banding and separate ins/del in the inner loop.
+	// 8 bit vector code section	
+	void getScores8(SeqPair *pairArray,
+					uint8_t *seqBufRef,
+					uint8_t *seqBufQer,
+					int32_t numPairs,
+					uint16_t numThreads,
+					int8_t w);
+
+	void smithWatermanBatchWrapper8(SeqPair *pairArray,
+								   uint8_t *seqBufRef,
+								   uint8_t *seqBufQer,
+								   int32_t numPairs,
+								   uint16_t numThreads,
+								   int8_t w);
+
+	void smithWaterman128_8(uint8_t seq1SoA[],
+							uint8_t seq2SoA[],
+							uint8_t nrow,
+							uint8_t ncol,
+							SeqPair *p,
+							uint8_t h0[],
+							uint16_t tid,
+							int32_t numPairs,
+							int zdrop,
+							uint8_t w,
+							uint8_t qlen[],
+							uint8_t myband[]);
+	// 16 bit vector code section
+	void getScores16(SeqPair *pairArray,
+					 uint8_t *seqBufRef,
+					 uint8_t *seqBufQer,
+					 int32_t numPairs,
+					 uint16_t numThreads,
+					 int8_t w);
+
+	void smithWatermanBatchWrapper16(SeqPair *pairArray,
+									 uint8_t *seqBufRef,
+									 uint8_t *seqBufQer,
+									 int32_t numPairs,
+									 uint16_t numThreads,
+									 int8_t w);
+	
+	void smithWaterman128_16(uint16_t seq1SoA[],
+							 uint16_t seq2SoA[],
+							 uint16_t nrow,
+							 uint16_t ncol,
+							 SeqPair *p,
+							 uint16_t h0[],
+							 uint16_t tid,
+							 int32_t numPairs,
+							 int zdrop,
+							 uint16_t w,
+							 uint16_t qlen[],
+							 uint16_t myband[]);
+	
+#endif  //SSE2
 
 #if ((!__AVX512BW__) & (__AVX2__))
 	// AVX256 is not updated for banding and separate ins/del in the inner loop.

@@ -72,7 +72,7 @@ typedef struct __smem_i smem_i;
 #define MEM_F_SOFTCLIP  0x200
 #define MEM_F_SMARTPE   0x400
 
-typedef struct {
+typedef struct mem_opt_t {
 	int a, b;               // match score and mismatch penalty
 	int o_del, e_del;
 	int o_ins, e_ins;
@@ -195,7 +195,7 @@ typedef struct {
 	uint8_t *enc_qdb;
 } mem_cache;
 // chain moved to .h
-typedef struct {
+typedef struct worker_t {
 	const mem_opt_t *opt;
 	const bntseq_t *bns;
 	const uint8_t *pac;

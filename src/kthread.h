@@ -36,17 +36,26 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 #include <stdint.h>
 #include "macro.h"
+#include "bwamem.h"
+#include <pthread.h>
+
 // ----------------
 //  kt_pipeline() 
 // -------------------
 
 struct ktp_t;
+struct mem_opt_t;
+struct worker_t;
+
 
 typedef struct {
 	struct ktp_t *pl;
 	int64_t index;
 	int step;
 	void *data;
+	worker_t *w;
+	mem_opt_t *opt;
+	int i;
 } ktp_worker_t;
 
 typedef struct ktp_t {
@@ -55,8 +64,8 @@ typedef struct ktp_t {
 	int64_t index;
 	int n_workers, n_steps;
 	ktp_worker_t *workers;
-	//pthread_mutex_t mutex;
-	//pthread_cond_t cv;
+	pthread_mutex_t mutex;
+	pthread_cond_t cv;
 } ktp_t;
 
 // ---------------
@@ -74,7 +83,7 @@ typedef struct kt_for_t {
 	int n_threads;
 	long n;
 	ktf_worker_t *w;
-	void (*func)(void*,long,int);
+	void (*func)(void*, int, int, int);
 	void *data;
 } kt_for_t;
 

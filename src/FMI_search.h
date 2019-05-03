@@ -42,9 +42,66 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include "bntseq.h"
 #include "read_index_ele.h"
 
+#if ((!__AVX2__))
+
+#define CP_BLOCK_SIZE 64
+#define CP_MASK 63
+#define CP_SHIFT 6
+#define BIT_DATA_TYPE uint64_t
+#define PADDING 24
+#define _MM_COUNTBITS _mm_countbits_64
+
+#define \
+GET_OCC(pp, c, occ_id_pp, y_pp, occ_pp, bwt_str_bit0_pp, bwt_str_bit1_pp, bit0_cmp_pp, bit1_cmp_pp, mismatch_mask_pp) \
+                int64_t occ_id_pp = pp >> CP_SHIFT; \
+                int64_t y_pp = pp & CP_MASK; \
+                int64_t occ_pp = cp_occ[occ_id_pp].cp_count[c]; \
+                if(y_pp > 0) \
+                { \
+                BIT_DATA_TYPE bwt_str_bit0_pp = cp_occ[occ_id_pp].bwt_str_bit0; \
+                BIT_DATA_TYPE bwt_str_bit1_pp = cp_occ[occ_id_pp].bwt_str_bit1; \
+                BIT_DATA_TYPE bit0_cmp_pp = bwt_str_bit0_pp ^ base_mask[c][0]; \
+                BIT_DATA_TYPE bit1_cmp_pp = bwt_str_bit1_pp ^ base_mask[c][1]; \
+                uint64_t mismatch_mask_pp = bit0_cmp_pp | bit1_cmp_pp | cp_occ[occ_id_pp].dollar_mask; \
+                mismatch_mask_pp = mismatch_mask_pp >> (CP_BLOCK_SIZE - y_pp); \
+                occ_pp += y_pp - _MM_COUNTBITS(mismatch_mask_pp); \
+                }
+
+typedef struct checkpoint_occ
+{
+    BIT_DATA_TYPE bwt_str_bit0;
+    BIT_DATA_TYPE bwt_str_bit1;
+    BIT_DATA_TYPE dollar_mask;
+    uint32_t cp_count[4];
+    uint8_t  pad[PADDING];
+}CP_OCC;
+
+#else
+
 #define CP_BLOCK_SIZE 32
 #define CP_MASK 31
 #define CP_SHIFT 5
+
+#define \
+GET_OCC(pp, c, c256, occ_id_pp, y_pp, occ_pp, bwt_str_pp, bwt_pp_vec, mask_pp_vec, mask_pp) \
+                int64_t occ_id_pp = pp >> CP_SHIFT; \
+                int64_t y_pp = pp & CP_MASK; \
+                int64_t occ_pp = cp_occ[occ_id_pp].cp_count[c]; \
+                uint8_t *bwt_str_pp = cp_occ[occ_id_pp].bwt_str; \
+                __m256i bwt_pp_vec = _mm256_load_si256((const __m256i *)(bwt_str_pp)); \
+                __m256i mask_pp_vec = _mm256_cmpeq_epi8(bwt_pp_vec, c256); \
+                uint64_t mask_pp = _mm256_movemask_epi8(mask_pp_vec); \
+                mask_pp = mask_pp << (32 - y_pp); \
+                occ_pp += _mm_countbits_32(mask_pp);
+
+typedef struct checkpoint_occ
+{
+    uint8_t  bwt_str[CP_BLOCK_SIZE];
+    uint32_t cp_count[4];
+    uint8_t  pad[16];
+}CP_OCC;
+
+#endif
 
 typedef struct smem_struct
 {
@@ -56,18 +113,13 @@ typedef struct smem_struct
     int64_t k, l, s;
 }SMEM;
 
-typedef struct checkpoint_occ
-{
-    uint8_t  bwt_str[CP_BLOCK_SIZE];
-    uint32_t cp_count[4];
-    uint8_t  pad[16];
-}CP_OCC;
+#define SAL_PFD 16
 
-#if BWA_OTHER_ELE
+// #if BWA_OTHER_ELE
 class FMI_search: public indexEle
-#else
-class FMI_search
-#endif
+// #else
+// class FMI_search
+// #endif
 {
     public:
         FMI_search(char *fmi_file_name);
@@ -155,10 +207,15 @@ class FMI_search
 	uint32_t sentinel_index;
 private:
         int64_t count[5];
-        int64_t *sa;
+        uint32_t *sa_ls_word;
+        int8_t *sa_ms_byte;
         CP_OCC *cp_occ;
 
+#if ((!__AVX2__))
+        BIT_DATA_TYPE base_mask[4][2];
+#else
         uint8_t c_bcast_array[256] __attribute__((aligned(64)));
+#endif
 
         SMEM backwardExt(SMEM smem, uint8_t a);
 };

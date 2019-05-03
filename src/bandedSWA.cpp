@@ -291,27 +291,8 @@ void BandedPairWiseSW::scalarBandedSWAWrapper(SeqPair *seqPairArray,
 		exit0 = _mm256_blendv_epi8(exit0, zero256, cmp);				\
 	}
 
-#define MAIN_CODE8_BAK(s1, s2, h00, h11, e11, f11, f21, zero256,  maxScore256, gapExtend256, y256, maxRS) \
-	{																	\
-		__m256i cmp11 = _mm256_cmpeq_epi8(s1, s2);						\
-		__m256i sbt11 = _mm256_blendv_epi8(mismatch256, match256, cmp11); \
-		__m256i tmp256 = _mm256_max_epu8(s1, s2);						\
-		/*tmp256 = _mm256_cmpeq_epi8(tmp256, val102);*/					\
-		sbt11 = _mm256_blendv_epi8(sbt11, w_ambig_256, tmp256);			\
-		__m256i m11 = _mm256_add_epi8(h00, sbt11);						\
-		cmp11 = _mm256_cmpeq_epi8(h00, zero256);						\
-		m11 = _mm256_blendv_epi8(m11, zero256, cmp11);					\
-		h11 = _mm256_max_epi8(m11, e11);								\
-		h11 = _mm256_max_epi8(h11, f11);								\
-		__m256i temp256 = _mm256_sub_epi8(m11, gapOE256);				\
-		__m256i val256  = _mm256_max_epi8(temp256, zero256);			\
-		e11 = _mm256_sub_epi8(e11, gapExtend256);						\
-		e11 = _mm256_max_epi8(val256, e11);								\
-		f21 = _mm256_sub_epi8(f11, gapExtend256);						\
-		f21 = _mm256_max_epi8(val256, f21);								\
-	}
 
-#define MAIN_CODE8(s1, s2, h00, h11, e11, f11, f21, zero256,  maxScore256, e_ins256, oe_ins256, e_del256, oe_del256, gapExtend256, y256, maxRS) \
+#define MAIN_CODE8(s1, s2, h00, h11, e11, f11, f21, zero256,  maxScore256, e_ins256, oe_ins256, e_del256, oe_del256, y256, maxRS) \
 	{																	\
 		__m256i cmp11 = _mm256_cmpeq_epi8(s1, s2);						\
 		__m256i sbt11 = _mm256_blendv_epi8(mismatch256, match256, cmp11); \
@@ -325,11 +306,11 @@ void BandedPairWiseSW::scalarBandedSWAWrapper(SeqPair *seqPairArray,
 		h11 = _mm256_max_epi8(h11, f11);								\
 		__m256i temp256 = _mm256_sub_epi8(m11, oe_ins256);				\
 		__m256i val256  = _mm256_max_epi8(temp256, zero256);			\
-		e11 = _mm256_sub_epi8(e11, gapExtend256);						\
+		e11 = _mm256_sub_epi8(e11, e_ins256);							\
 		e11 = _mm256_max_epi8(val256, e11);								\
 		temp256 = _mm256_sub_epi8(m11, oe_del256);						\
 		val256  = _mm256_max_epi8(temp256, zero256);					\
-		f21 = _mm256_sub_epi8(f11, gapExtend256);						\
+		f21 = _mm256_sub_epi8(f11, e_del256);							\
 		f21 = _mm256_max_epi8(val256, f21);								\
 	}
 
@@ -345,7 +326,7 @@ void BandedPairWiseSW::scalarBandedSWAWrapper(SeqPair *seqPairArray,
 		max_ins256 = _mm256_blendv_epi16(zero256, max_ins256, cmp256);	\
 		cmp256 = _mm256_cmpgt_epi16(max_ins256, band256_);				\
 		max_ins256 = _mm256_blendv_epi16(max_ins256, band256, cmp256);	\
-		_mm256_store_si256((__m256i *) qlen, max_ins256);				\
+		_mm256_store_si256((__m256i *) qlen, max_ins256);				\		
     }
 
 #define ZSCORE16(i4_256, y4_256)											\
@@ -363,26 +344,8 @@ void BandedPairWiseSW::scalarBandedSWAWrapper(SeqPair *seqPairArray,
 		exit0 = _mm256_blendv_epi16(exit0, zero256, cmp);				\
 	}
 
-#define MAIN_CODE16_BAK(s1, s2, h00, h11, e11, f11, f21, zero256,  maxScore256, gapExtend256, y256, maxRS) \
-	{																	\
-		__m256i cmp11 = _mm256_cmpeq_epi16(s1, s2);						\
-		__m256i sbt11 = _mm256_blendv_epi16(mismatch256, match256, cmp11); \
-		__m256i tmp256 = _mm256_max_epu16(s1, s2);						\
-		sbt11 = _mm256_blendv_epi16(sbt11, w_ambig_256, tmp256);		\
-		__m256i m11 = _mm256_add_epi16(h00, sbt11);						\
-		cmp11 = _mm256_cmpeq_epi16(h00, zero256);						\
-		m11 = _mm256_blendv_epi16(m11, zero256, cmp11);					\
-		h11 = _mm256_max_epi16(m11, e11);								\
-		h11 = _mm256_max_epi16(h11, f11);								\
-		__m256i temp256 = _mm256_sub_epi16(m11, gapOE256);				\
-		__m256i val256  = _mm256_max_epi16(temp256, zero256);			\
-		e11 = _mm256_sub_epi16(e11, gapExtend256);						\
-		e11 = _mm256_max_epi16(val256, e11);							\
-		f21 = _mm256_sub_epi16(f11, gapExtend256);						\
-		f21 = _mm256_max_epi16(val256, f21);							\
-	}
 
-#define MAIN_CODE16(s1, s2, h00, h11, e11, f11, f21, zero256,  maxScore256, e_ins256, oe_ins256, e_del256, oe_del256, gapExtend256, y256, maxRS) \
+#define MAIN_CODE16(s1, s2, h00, h11, e11, f11, f21, zero256,  maxScore256, e_ins256, oe_ins256, e_del256, oe_del256, y256, maxRS) \
 	{																	\
 		__m256i cmp11 = _mm256_cmpeq_epi16(s1, s2);						\
 		__m256i sbt11 = _mm256_blendv_epi16(mismatch256, match256, cmp11); \
@@ -395,11 +358,11 @@ void BandedPairWiseSW::scalarBandedSWAWrapper(SeqPair *seqPairArray,
 		h11 = _mm256_max_epi16(h11, f11);								\
 		__m256i temp256 = _mm256_sub_epi16(m11, oe_ins256);				\
 		__m256i val256  = _mm256_max_epi16(temp256, zero256);			\
-		e11 = _mm256_sub_epi16(e11, gapExtend256);						\
+		e11 = _mm256_sub_epi16(e11, e_ins256);							\
 		e11 = _mm256_max_epi16(val256, e11);							\
 		temp256 = _mm256_sub_epi16(m11, oe_del256);						\
-		val256  = _mm256_max_epi16(temp256, zero256);			\
-		f21 = _mm256_sub_epi16(f11, gapExtend256);						\
+		val256  = _mm256_max_epi16(temp256, zero256);					\
+		f21 = _mm256_sub_epi16(f11, e_del256);							\
 		f21 = _mm256_max_epi16(val256, f21);							\
 	}
 
@@ -1023,7 +986,7 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 			//		   maxScore256, gapExtend256, y1_256, maxRS1); //i+1
 			MAIN_CODE8(s10, s2, h00, h11, e11, f11, f21, zero256,
 					   maxScore256, e_ins256, oe_ins256,
-					   e_del256, oe_del256, gapExtend256,
+					   e_del256, oe_del256,
 					   y1_256, maxRS1); //i+1
 
 			
@@ -1336,10 +1299,10 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 #endif
 
 	int eb = end_bonus;
-#pragma omp parallel num_threads(numThreads)
+//#pragma omp parallel num_threads(numThreads)
     {
         int32_t i;
-        uint16_t tid = omp_get_thread_num();
+        uint16_t tid = 0; 
         uint16_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
         uint16_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
         uint8_t *seq1;
@@ -1376,7 +1339,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 		printf("nstart: %d, nend: %d\n", nstart, nend);
 #endif
 
-#pragma omp for schedule(dynamic, 128)
+//#pragma omp for schedule(dynamic, 128)
 		for(i = nstart; i < nend; i+=SIMD_WIDTH16)
 		{
 			// prof[4][0]++;
@@ -1769,7 +1732,7 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 			//			maxScore256, gapExtend256, y1_256, maxRS1); //i+1
 			MAIN_CODE16(s10, s2, h00, h11, e11, f11, f21, zero256,
 						maxScore256, e_ins256, oe_ins256,
-						e_del256, oe_del256, gapExtend256,
+						e_del256, oe_del256,
 						y1_256, maxRS1); //i+1
 			
 			// Masked writing
@@ -2000,14 +1963,14 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 // ----------------------------------------------------------------------------------
 
 // ------------------------ vec 8 --------------------------------------------------
-#define MAX_INSDEL8(qlen512, eb512, band512, band512_)				\
+#define MAX_INSDEL8(qlen512, eb512, band512, band512_)				\	
 {																		\
 	__m512i max_ins512 = _mm512_add_epi8(qlen512, eb_ins512);			\
 	__mmask64 cmp512 = _mm512_cmpgt_epi8_mask(max_ins512, zero512);		\
 	max_ins512 = _mm512_mask_blend_epi8(cmp512, zero512, max_ins512);	\
 	cmp512 = _mm512_cmpgt_epi8_mask(max_ins512, band512_);				\
 	max_ins512 = _mm512_mask_blend_epi8(cmp512, max_ins512, band512);	\
-	_mm512_store_si512((__m512i *) qlen, max_ins512);				\
+	_mm512_store_si512((__m512i *) qlen, max_ins512);				\		
 }
 
 #define ZSCORE8(i4_512, y4_512)											\
@@ -2025,28 +1988,8 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 		exit0 = _mm512_mask_blend_epi8(cmp, exit0, zero512);			\
 	}
 
-#define MAIN_CODE8_BAK(s1, s2, h00, h11, e11, f11, f21, zero512,  maxScore512, gapOpen512, gapExtend512, y512, maxRS) \
-	{																	\
-		__mmask64 cmp11 = _mm512_cmpeq_epi8_mask(s1, s2);				\
-		__m512i sbt11 = _mm512_mask_blend_epi8(cmp11, mismatch512, match512); \
-		__m512i tmp512 = _mm512_max_epu8(s1, s2);						\
-		cmp11 = _mm512_movepi8_mask(tmp512);							\
-		/*tmp512 = _mm512_cmpeq_epi8(tmp512, val102);*/					\
-		sbt11 = _mm512_mask_blend_epi8(cmp11, sbt11, w_ambig_512);		\
-		__m512i m11 = _mm512_add_epi8(h00, sbt11);						\
-		cmp11 = _mm512_cmpeq_epi8_mask(h00, zero512);					\
-		m11 = _mm512_mask_blend_epi8(cmp11, m11, zero512);				\
-		h11 = _mm512_max_epi8(m11, e11);								\
-		h11 = _mm512_max_epi8(h11, f11);								\
-		__m512i temp512 = _mm512_sub_epi8(m11, gapOE512);				\
-		__m512i val512  = _mm512_max_epi8(temp512, zero512);			\
-		e11 = _mm512_sub_epi8(e11, gapExtend512);						\
-		e11 = _mm512_max_epi8(val512, e11);								\
-		f21 = _mm512_sub_epi8(f11, gapExtend512);						\
-		f21 = _mm512_max_epi8(val512, f21);								\
-	}
 
-#define MAIN_CODE8(s1, s2, h00, h11, e11, f11, f21, zero512,  maxScore512, e_ins512, oe_ins512, e_del512, oe_del512, gapExtend512, y512, maxRS) \
+#define MAIN_CODE8(s1, s2, h00, h11, e11, f11, f21, zero512,  maxScore512, e_ins512, oe_ins512, e_del512, oe_del512, y512, maxRS) \
 	{																	\
 		__mmask64 cmp11;												\
 		__m512i sbt11, tmp512, m11, temp512, val512;					\
@@ -2079,7 +2022,7 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 	max_ins512 = _mm512_mask_blend_epi16(cmp512, zero512, max_ins512);	\
 	cmp512 = _mm512_cmpgt_epi16_mask(max_ins512, band512_);				\
 	max_ins512 = _mm512_mask_blend_epi16(cmp512, max_ins512, band512);	\
-	_mm512_store_si512((__m512i *) qlen, max_ins512); \
+	_mm512_store_si512((__m512i *) qlen, max_ins512);\		
 }
 
 #define ZSCORE16(i4_512, y4_512)											\
@@ -2097,28 +2040,7 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 		exit0 = _mm512_mask_blend_epi16(cmp, exit0, zero512);			\
 	}
 
-#define MAIN_CODE16_BAK(s1, s2, h00, h11, e11, f11, f21, zero512,  maxScore512, gapOpen512, gapExtend512, y512, maxRS) \
-	{																	\
-		__mmask32 cmp11 = _mm512_cmpeq_epi16_mask(s1, s2);				\
-		__m512i sbt11 = _mm512_mask_blend_epi16(cmp11, mismatch512, match512); \
-		__m512i tmp512 = _mm512_max_epu16(s1, s2);						\
-		cmp11 = _mm512_movepi16_mask(tmp512);							\
-		/*tmp512 = _mm512_cmpeq_epi16(tmp512, val102);*/					\
-		sbt11 = _mm512_mask_blend_epi16(cmp11, sbt11, w_ambig_512);		\
-		__m512i m11 = _mm512_add_epi16(h00, sbt11);						\
-		cmp11 = _mm512_cmpeq_epi16_mask(h00, zero512);					\
-		m11 = _mm512_mask_blend_epi16(cmp11, m11, zero512);				\
-		h11 = _mm512_max_epi16(m11, e11);								\
-		h11 = _mm512_max_epi16(h11, f11);								\
-		__m512i temp512 = _mm512_sub_epi16(m11, gapOE512);				\
-		__m512i val512  = _mm512_max_epi16(temp512, zero512);			\
-		e11 = _mm512_sub_epi16(e11, gapExtend512);						\
-		e11 = _mm512_max_epi16(val512, e11);								\
-		f21 = _mm512_sub_epi16(f11, gapExtend512);						\
-		f21 = _mm512_max_epi16(val512, f21);								\
-	}
-
-#define MAIN_CODE16(s1, s2, h00, h11, e11, f11, f21, zero512,  maxScore512, e_ins512, oe_ins512, e_del512, oe_del512, gapExtend512, y512, maxRS) \
+#define MAIN_CODE16(s1, s2, h00, h11, e11, f11, f21, zero512,  maxScore512, e_ins512, oe_ins512, e_del512, oe_del512, y512, maxRS) \
 	{																	\
 		__mmask32 cmp11;												\
 		__m512i sbt11, tmp512, m11, temp512, val512;					\
@@ -2301,11 +2223,11 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 #endif
 
 	int eb = end_bonus;
-#pragma omp parallel num_threads(numThreads)
+//#pragma omp parallel num_threads(numThreads)
     {
         // int64_t st = __rdtsc();
         int32_t i;
-        uint16_t tid = omp_get_thread_num();
+        uint16_t tid = 0;
         uint8_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN8 * SIMD_WIDTH8;
         uint8_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN8 * SIMD_WIDTH8;
         uint8_t *seq1;
@@ -2749,7 +2671,7 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 			//		  maxScore512, gapOpen512, gapExtend512, y1_512, maxRS1); //i+1
 			MAIN_CODE8(s10, s2, h00, h11, e11, f11, f21, zero512,
 					   maxScore512, e_ins512, oe_ins512,
-					   e_del512, oe_del512, gapExtend512,
+					   e_del512, oe_del512,
 					   y1_512, maxRS1); //i+1
 
 			// Masked writing
@@ -3062,11 +2984,11 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 #endif
 
 	int eb = end_bonus;
-#pragma omp parallel num_threads(numThreads)
+//#pragma omp parallel num_threads(numThreads)
     {
         int64_t st = __rdtsc();
         int32_t i;
-        uint16_t tid = omp_get_thread_num();
+        uint16_t tid = 0; //omp_get_thread_num();
         uint16_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
         uint16_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
         uint8_t *seq1;
@@ -3104,7 +3026,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 		printf("nstart: %d, nend: %d\n", nstart, nend);
 #endif
 		
-#pragma omp for schedule(dynamic, 128)
+//#pragma omp for schedule(dynamic, 128)
 		for(i = nstart; i < nend; i+=SIMD_WIDTH16)
 		{
 			// prof[4][0]++;
@@ -3507,7 +3429,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 			//		  maxScore512, gapOpen512, gapExtend512, y1_512, maxRS1); //i+1
 			MAIN_CODE16(s10, s2, h00, h11, e11, f11, f21, zero512,
 					   maxScore512, e_ins512, oe_ins512,
-					   e_del512, oe_del512, gapExtend512,
+					   e_del512, oe_del512,
 					   y1_512, maxRS1); //i+1
 
 			// Masked writing
@@ -3718,4 +3640,1719 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 
     return;
 }
+#endif
+
+/**************** SSE2 code ******************/
+#if ((!__AVX512BW__) && (!__AVX2__) && (__SSE2__))
+
+// SSE2 =- 16 bit version
+#if 1
+static inline __m128i
+_mm_blendv_epi16(__m128i x, __m128i y, __m128i mask)
+{
+	// Replace bit in x with bit in y when matching bit in mask is set:
+	return _mm_or_si128(_mm_andnot_si128(mask, x), _mm_and_si128(mask, y));
+}
+#endif
+
+#define ZSCORE16(i4_128, y4_128)											\
+	{																	\
+		__m128i tmpi = _mm_sub_epi16(i4_128, x128);						\
+		__m128i tmpj = _mm_sub_epi16(y4_128, y128);						\
+		cmp = _mm_cmpgt_epi16(tmpi, tmpj);								\
+		score128 = _mm_sub_epi16(maxScore128, maxRS1);					\
+		__m128i insdel = _mm_blendv_epi16(e_ins128, e_del128, cmp);		\
+		__m128i sub_a128 = _mm_sub_epi16(tmpi, tmpj);					\
+		__m128i sub_b128 = _mm_sub_epi16(tmpj, tmpi);					\
+		tmp = _mm_blendv_epi16(sub_b128, sub_a128, cmp);				\
+		tmp = _mm_sub_epi16(score128, tmp);								\
+		cmp = _mm_cmpgt_epi16(tmp, zdrop128);							\
+		exit0 = _mm_blendv_epi16(exit0, zero128, cmp);					\
+	}
+
+
+#define MAIN_CODE16(s1, s2, h00, h11, e11, f11, f21, zero256,  maxScore128, e_ins128, oe_ins128, e_del128, oe_del128, y128, maxRS) \
+	{																	\
+		__m128i cmp11 = _mm_cmpeq_epi16(s1, s2);						\
+		__m128i sbt11 = _mm_blendv_epi16(mismatch128, match128, cmp11); \
+		__m128i tmp128 = _mm_max_epu16(s1, s2);							\
+		tmp128 = _mm_cmpeq_epi16(tmp128, ff128);						\
+		sbt11 = _mm_blendv_epi16(sbt11, w_ambig_128, tmp128);			\
+		__m128i m11 = _mm_add_epi16(h00, sbt11);						\
+		cmp11 = _mm_cmpeq_epi16(h00, zero128);							\
+		m11 = _mm_blendv_epi16(m11, zero128, cmp11);					\
+		h11 = _mm_max_epi16(m11, e11);									\
+		h11 = _mm_max_epi16(h11, f11);									\
+		__m128i temp128 = _mm_sub_epi16(m11, oe_ins128);				\
+		__m128i val128  = _mm_max_epi16(temp128, zero128);				\
+		e11 = _mm_sub_epi16(e11, e_ins128);								\
+		e11 = _mm_max_epi16(val128, e11);								\
+		temp128 = _mm_sub_epi16(m11, oe_del128);						\
+		val128  = _mm_max_epi16(temp128, zero128);						\
+		f21 = _mm_sub_epi16(f11, e_del128);								\
+		f21 = _mm_max_epi16(val128, f21);								\
+	}
+
+
+inline void sortPairsLen(SeqPair *pairArray, int32_t count, SeqPair *tempArray, int16_t *hist, int16_t *histb)
+{
+    int32_t i;
+
+    __m128i zero128 = _mm_setzero_si128();
+    for(i = 0; i <= MAX_SEQ_LEN16; i+=8)
+    {
+        _mm_store_si128((__m128i *)(hist + i), zero128);
+		// _mm_store_si128((__m128i *)(histb + i), zero128);
+    }
+    
+    for(i = 0; i < count; i++)
+    {
+        SeqPair sp = pairArray[i];
+        hist[sp.len1]++;
+    }
+
+    int32_t prev = 0;
+    int32_t cumulSum = 0;
+    for(i = 0; i <= MAX_SEQ_LEN16; i++)
+    {
+        int32_t cur = hist[i];
+        hist[i] = cumulSum;
+        cumulSum += cur;
+    }
+
+    for(i = 0; i < count; i++)
+    {
+        SeqPair sp = pairArray[i];
+        int32_t pos = hist[sp.len1];
+        tempArray[pos] = sp;
+        hist[sp.len1]++;
+    }
+	
+    for(i = 0; i < count; i++) {
+        pairArray[i] = tempArray[i];
+	}
+}
+
+inline void sortPairsId(SeqPair *pairArray, int32_t first, int32_t count,
+						SeqPair *tempArray)
+{
+
+    int32_t i;
+    
+    for(i = 0; i < count; i++)
+    {
+        SeqPair sp = pairArray[i];
+        int32_t pos = sp.id - first;
+        tempArray[pos] = sp;
+    }
+
+    for(i = 0; i < count; i++)
+        pairArray[i] = tempArray[i];
+}
+
+
+
+// SSE2
+#define PFD 2
+void BandedPairWiseSW::getScores16(SeqPair *pairArray,
+								   uint8_t *seqBufRef,
+								   uint8_t *seqBufQer,
+								   int32_t numPairs,
+								   uint16_t numThreads,
+								   int8_t w)
+{
+	// printf("In getscore16 SSE2..\n");
+    int i;
+    int64_t startTick, endTick;
+	// F16_ = H16_ = H16__ = NULL;
+	// F16_ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+	// H16_ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+	// H16__ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+	// if (F16_ == NULL || H16_ == NULL || H16__ == NULL) {
+	// 	printf("Memory not alloacted!!!\n");
+	// 	exit(0);
+	// }   
+
+	// smithWatermanBatchWrapper(pairArray, seqBuf, numPairs, numThreads, w);
+	smithWatermanBatchWrapper16(pairArray, seqBufRef, seqBufQer, numPairs, numThreads, w);
+	
+	// _mm_free(F_);_mm_free(H_); _mm_free(H__);
+
+#if MAXI
+	// printf("Vecor code: Writing output..\n");
+	for (int l=0; l<numPairs; l++)
+	{
+		fprintf(stderr, "%d (%d %d) %d %d %d\n",
+				pairArray[l].score, pairArray[l].x, pairArray[l].y,
+				pairArray[l].gscore, pairArray[l].max_off, pairArray[l].max_ie);
+
+	}
+	// printf("Vector code: Writing output completed!!!\n\n");
+#endif
+	
+}
+
+void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
+												   uint8_t *seqBufRef,
+												   uint8_t *seqBufQer,
+												   int32_t numPairs,
+												   uint16_t numThreads,
+												   int8_t w)
+{
+	// printf("numThreads: %d\n", numThreads);	
+	int64_t st1, st2, st3, st4, st5;
+	
+    st1 = __rdtsc();
+    uint16_t *seq1SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
+    uint16_t *seq2SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
+
+	if (seq1SoA == NULL || seq2SoA == NULL)
+		printf("Mem not allocated!!!\n");
+
+    int32_t ii;
+    int32_t roundNumPairs = ((numPairs + SIMD_WIDTH16 - 1)/SIMD_WIDTH16 ) * SIMD_WIDTH16;
+	assert(roundNumPairs < BATCH_SIZE * SEEDS_PER_READ);
+    for(ii = numPairs; ii < roundNumPairs; ii++)
+    {
+        pairArray[ii].id = ii;
+        pairArray[ii].len1 = 0;
+        pairArray[ii].len2 = 0;
+    }
+
+    st2 = __rdtsc();	
+#if SORT_PAIRS
+    // Sort the sequences according to decreasing order of lengths
+    SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
+											   sizeof(SeqPair), 64);
+    int16_t *hist = (int16_t *)_mm_malloc((MAX_SEQ_LEN16 + 16) * numThreads *
+										  sizeof(int16_t), 64);
+	int16_t *histb = (int16_t *)_mm_malloc((MAX_SEQ_LEN16 + 16) * numThreads *
+										   sizeof(int16_t), 64);
+#pragma omp parallel num_threads(numThreads)
+    {
+        int32_t tid = 0;
+        SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
+        int16_t *myHist = hist + tid * (MAX_SEQ_LEN16 + 16);
+		int16_t *myHistb = histb + tid * (MAX_SEQ_LEN16 + 16);
+
+#pragma omp for
+        for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+        {
+            int32_t first, last;
+            first = ii;
+            last  = ii + SORT_BLOCK_SIZE;
+            if(last > roundNumPairs) last = roundNumPairs;
+            sortPairsLen(pairArray + first, last - first, myTempArray, myHist, myHistb);
+        }
+    }
+    _mm_free(hist);
+#endif
+    st3 = __rdtsc();
+
+	int eb = end_bonus;
+// #pragma omp parallel num_threads(numThreads)
+    {
+        int64_t st = __rdtsc();
+        int32_t i;
+        uint16_t tid = 0; 
+        uint16_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
+        uint16_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
+		assert(mySeq1SoA != NULL && mySeq2SoA != NULL);		
+        uint8_t *seq1;
+        uint8_t *seq2;
+		uint16_t h0[SIMD_WIDTH16];
+		uint16_t band[SIMD_WIDTH16];		
+		uint16_t qlen[SIMD_WIDTH16] __attribute__((aligned(64)));
+		int16_t bsize = 0;
+		
+		int16_t *H1 = H16_ + tid * SIMD_WIDTH16 * MAX_SEQ_LEN16;
+		int16_t *H2 = H16__ + tid * SIMD_WIDTH16 * MAX_SEQ_LEN16;
+
+		__m128i zero128	  = _mm_setzero_si128();
+		__m128i o_ins128  = _mm_set1_epi16(o_ins);
+		__m128i e_ins128  = _mm_set1_epi16(e_ins);
+		__m128i oe_ins128 = _mm_set1_epi16(o_ins + e_ins);
+		__m128i o_del128  = _mm_set1_epi16(o_del);
+		__m128i e_del128  = _mm_set1_epi16(e_del);
+		__m128i eb_ins128 = _mm_set1_epi16(eb - o_ins);
+		__m128i eb_del128 = _mm_set1_epi16(eb - o_del);
+		
+		int16_t max = 0;
+		if (max < w_match) max = w_match;
+		if (max < w_mismatch) max = w_mismatch;
+		if (max < w_ambig) max = w_ambig;
+		
+		int nstart = 0, nend = numPairs;
+
+#if DEB
+		// if (spot >= nstart && spot < nend)
+		{
+			int div = (spot-1)/SIMD_WIDTH16;
+			nstart = div*SIMD_WIDTH16;
+			nend = (div+1)*SIMD_WIDTH16;
+			int lane = (spot - 1)%SIMD_WIDTH16;
+			// nstart = 0;//, nend = spot;
+			printf("nstart: %d, nend: %d, SIMD_WIDTH16: %d\n", nstart, nend, SIMD_WIDTH16);
+		}
+#endif
+
+// #pragma omp for schedule(dynamic, 128)
+		for(i = nstart; i < nend; i+=SIMD_WIDTH16)
+		{
+			// prof[4][0]++;
+            int32_t j, k;
+            uint16_t maxLen1 = 0;
+            uint16_t maxLen2 = 0;
+			//bsize = 100;
+			bsize = w;
+			
+			uint64_t tim;
+			tim = _rdtsc();
+            for(j = 0; j < SIMD_WIDTH16; j++)
+            {
+				{ // prefetch block
+					SeqPair spf = pairArray[i + j + PFD];
+					_mm_prefetch((const char*) seqBufRef + (int64_t)spf.idr, 0);
+					_mm_prefetch((const char*) seqBufRef + (int64_t)spf.idr + 64, 0);
+				}
+                SeqPair sp = pairArray[i + j];
+				h0[j] = sp.h0;
+                // seq1 = seqBuf + 2 * (int64_t)sp.id * MAX_SEQ_LEN;
+				seq1 = seqBufRef + (int64_t)sp.idr;
+				
+                for(k = 0; k < sp.len1; k++)
+                {
+                    mySeq1SoA[k * SIMD_WIDTH16 + j] = (seq1[k] == AMBIG?0xFFFF:seq1[k]);
+					H2[k * SIMD_WIDTH16 + j] = 0;
+                }
+				qlen[j] = sp.len2 * max;
+                if(maxLen1 < sp.len1) maxLen1 = sp.len1;
+                // if(minLen1 > sp.len1) minLen1 = sp.len1;
+            }
+			// prof[1][tid] += _rdtsc() - tim;
+
+			//maxLen1 = ((maxLen1 + 3) >> 2) * 4;
+            for(j = 0; j < SIMD_WIDTH16; j++)
+            {
+                SeqPair sp = pairArray[i + j];
+                for(k = sp.len1; k <= maxLen1; k++) //removed "="
+                {
+                    mySeq1SoA[k * SIMD_WIDTH16 + j] = DUMMY1;
+					H2[k * SIMD_WIDTH16 + j] = DUMMY1;
+                }
+            }
+//--------------------
+			__m128i h0_128 = _mm_load_si128((__m128i*) h0);
+			_mm_store_si128((__m128i *) H2, h0_128);
+			__m128i tmp128 = _mm_sub_epi16(h0_128, o_del128);
+
+			for(k = 1; k < maxLen1; k++) {
+				tmp128 = _mm_sub_epi16(tmp128, e_del128);
+				__m128i tmp128_ = _mm_max_epi16(tmp128, zero128);
+				_mm_store_si128((__m128i *)(H2 + k* SIMD_WIDTH16), tmp128_);
+			}
+//-------------------
+			tim = _rdtsc();
+            for(j = 0; j < SIMD_WIDTH16; j++)
+            {
+				{ // prefetch block
+					SeqPair spf = pairArray[i + j + PFD];
+					//_mm_prefetch((const char*) seqBuf + (2 * (int64_t)spf.id + 1) * MAX_SEQ_LEN, 0);
+					//_mm_prefetch((const char*) seqBuf + (2 * (int64_t)spf.id + 1) * MAX_SEQ_LEN + 64, 0);
+					_mm_prefetch((const char*) seqBufQer + (int64_t)spf.idq, 0);
+					_mm_prefetch((const char*) seqBufQer + (int64_t)spf.idq + 64, 0);
+				}
+				
+                SeqPair sp = pairArray[i + j];
+                // seq2 = seqBuf + (2 * (int64_t)sp.id + 1) * MAX_SEQ_LEN;
+				seq2 = seqBufQer + (int64_t)sp.idq;				
+                for(k = 0; k < sp.len2; k++)
+                {
+                    mySeq2SoA[k * SIMD_WIDTH16 + j] = (seq2[k]==AMBIG?0xFFFF:seq2[k]);
+					H1[k * SIMD_WIDTH16 + j] = 0;					
+                }
+                if(maxLen2 < sp.len2) maxLen2 = sp.len2;
+                // if(minLen2 > sp.len2) minLen2 = sp.len2;
+            }
+			// prof[1][tid] += _rdtsc() - tim;
+			
+			//maxLen2 = ((maxLen2  + 3) >> 2) * 4;
+			
+            for(j = 0; j < SIMD_WIDTH16; j++)
+            {
+                SeqPair sp = pairArray[i + j];
+                for(k = sp.len2; k <= maxLen2; k++)
+                {
+                    mySeq2SoA[k * SIMD_WIDTH16 + j] = DUMMY2;
+					H1[k * SIMD_WIDTH16 + j] = 0;
+                }
+            }
+//------------------------
+			_mm_store_si128((__m128i *) H1, h0_128);
+			__m128i cmp128 = _mm_cmpgt_epi16(h0_128, oe_ins128);
+			tmp128 = _mm_sub_epi16(h0_128, oe_ins128);
+
+			tmp128 = _mm_blendv_epi16(zero128, tmp128, cmp128);
+			_mm_store_si128((__m128i *) (H1 + SIMD_WIDTH16), tmp128);
+			for(k = 2; k < maxLen2; k++)
+			{
+				__m128i h1_128 = tmp128;
+				tmp128 = _mm_sub_epi16(h1_128, e_ins128);
+				tmp128 = _mm_max_epi16(tmp128, zero128);
+				_mm_store_si128((__m128i *)(H1 + k*SIMD_WIDTH16), tmp128);
+				//printf("%d %d\n", k, H1[k*SIMD_WIDTH16 + lane]);
+            }			
+//------------------------
+#if 1
+			uint16_t myband[SIMD_WIDTH16] __attribute__((aligned(64)));
+			uint16_t temp[SIMD_WIDTH16] __attribute__((aligned(64)));
+			{
+				__m128i qlen128 = _mm_load_si128((__m128i *) qlen);
+				__m128i sum128 = _mm_add_epi16(qlen128, eb_ins128);
+				_mm_store_si128((__m128i *) temp, sum128);				
+				for (int l=0; l<SIMD_WIDTH16; l++) {
+					double val = temp[l]/e_ins + 1.0;
+					int max_ins = (int) val;
+					max_ins = max_ins > 1? max_ins : 1;
+					myband[l] = min(bsize, max_ins);
+				}
+				sum128 = _mm_add_epi16(qlen128, eb_del128);
+				_mm_store_si128((__m128i *) temp, sum128);				
+				for (int l=0; l<SIMD_WIDTH16; l++) {
+					double val = temp[l]/e_del + 1.0;
+					int max_ins = (int) val;
+					max_ins = max_ins > 1? max_ins : 1;
+					myband[l] = min(myband[l], max_ins);
+					bsize = bsize < myband[l] ? myband[l] : bsize;					
+				}
+			}
+#endif
+			// uint64_t tim_swa = _rdtsc();
+            smithWaterman128_16(mySeq1SoA,
+								mySeq2SoA,
+								maxLen1,
+								maxLen2,
+								pairArray + i,
+								h0,
+								tid,
+								numPairs,
+								zdrop,
+								bsize,
+								qlen,
+								myband);
+			// prof[0][tid] += _rdtsc() - tim_swa;
+        }
+    }
+
+#ifdef VTUNE_ANALYSIS
+    __itt_pause();
+#endif
+	
+    st4 = __rdtsc();
+#if SORT_PAIRS
+	{
+    // Sort the sequences according to increasing order of id
+#pragma omp parallel num_threads(numThreads)
+    {
+        int32_t tid = omp_get_thread_num();
+        SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
+
+#pragma omp for
+        for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+        {
+            int32_t first, last;
+            first = ii;
+            last  = ii + SORT_BLOCK_SIZE;
+            if(last > roundNumPairs) last = roundNumPairs;
+            sortPairsId(pairArray + first, first, last - first, myTempArray);
+        }
+    }
+    _mm_free(tempArray);
+	}
+#endif
+	
+    st5 = __rdtsc();
+    setupTicks += st2 - st1;
+    sort1Ticks += st3 - st2;
+    swTicks += st4 - st3;
+    sort2Ticks += st5 - st4;
+
+	// free mem
+	_mm_free(seq1SoA);
+	_mm_free(seq2SoA);
+	
+    return;
+}
+
+void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
+										   uint16_t seq2SoA[],
+										   uint16_t nrow,
+										   uint16_t ncol,
+										   SeqPair *p,
+										   uint16_t h0[],
+										   uint16_t tid,
+										   int32_t numPairs,
+										   int zdrop,
+										   uint16_t w,
+										   uint16_t qlen[],
+										   uint16_t myband[])
+{
+#if DEB
+	int16_t Hmat[nrow + 10][ncol + 10], Fmat[nrow + 10][ncol + 10];;
+#endif
+	
+    __m128i match128	 = _mm_set1_epi16(this->w_match);
+    __m128i mismatch128	 = _mm_set1_epi16(this->w_mismatch);
+    __m128i gapOpen128	 = _mm_set1_epi16(this->w_open);
+    __m128i gapExtend128 = _mm_set1_epi16(this->w_extend);
+	__m128i gapOE128	 = _mm_set1_epi16(this->w_open + this->w_extend);
+	__m128i w_ambig_128	 = _mm_set1_epi16(this->w_ambig);	// ambig penalty
+	__m128i five128		 = _mm_set1_epi16(5);
+
+	__m128i e_del128	= _mm_set1_epi16(this->e_del);
+	__m128i oe_del128	= _mm_set1_epi16(this->o_del + this->e_del);
+	__m128i e_ins128	= _mm_set1_epi16(this->e_ins);
+	__m128i oe_ins128	= _mm_set1_epi16(this->o_ins + this->e_ins);
+
+	int16_t	*F	= F16_ + tid * SIMD_WIDTH16 * MAX_SEQ_LEN16;
+    int16_t	*H_h	= H16_ + tid * SIMD_WIDTH16 * MAX_SEQ_LEN16;
+	int16_t	*H_v = H16__ + tid * SIMD_WIDTH16 * MAX_SEQ_LEN16;
+
+	int lane = 0;
+#if DEB
+	lane = (spot - 1)%16;
+#endif
+	
+    int16_t i, j;
+
+	uint16_t tlen[SIMD_WIDTH16];
+	uint16_t tail[SIMD_WIDTH16] __attribute((aligned(64)));
+	uint16_t head[SIMD_WIDTH16] __attribute((aligned(64)));
+	
+	int minq = 10000000;
+	for (int l=0; l<SIMD_WIDTH16; l++) {
+		tlen[l] = p[l].len1;
+		qlen[l] = p[l].len2;
+		if (p[l].len2 < minq) minq = p[l].len2;
+	}
+	minq -= 1; // for gscore
+
+	__m128i tlen128 = _mm_load_si128((__m128i *) tlen);
+	__m128i qlen128 = _mm_load_si128((__m128i *) qlen);
+	__m128i myband128 = _mm_load_si128((__m128i *) myband);
+    __m128i zero128 = _mm_setzero_si128();
+	__m128i one128	= _mm_set1_epi16(1);
+	__m128i two128	= _mm_set1_epi16(2);
+	__m128i i128_1 = _mm_set1_epi16(1);
+	__m128i max_ie128 = zero128;
+	__m128i ff128 = _mm_set1_epi16(0xFFFF);
+		
+   	__m128i tail128 = qlen128, head128 = zero128;
+	_mm_store_si128((__m128i *) head, head128);
+   	_mm_store_si128((__m128i *) tail, tail128);
+	//__m128i ib128 = _mm_add_epi16(qlen128, qlen128);
+	// ib128 = _mm_sub_epi16(ib128, one128);
+
+	__m128i mlen128 = _mm_add_epi16(qlen128, myband128);
+	mlen128 = _mm_min_epu16(mlen128, tlen128);
+	
+	uint16_t temp[SIMD_WIDTH16]  __attribute((aligned(64)));
+	uint16_t temp1[SIMD_WIDTH16]  __attribute((aligned(64)));
+	uint16_t temp2[SIMD_WIDTH16]  __attribute((aligned(64)));
+	uint16_t temp3[SIMD_WIDTH16]  __attribute((aligned(64)));
+	
+	__m128i s00	 = _mm_load_si128((__m128i *)(seq1SoA));
+	__m128i hval = _mm_load_si128((__m128i *)(H_v));
+	//__mmask16 dmask = 0xFFFF;
+	__mmask8 dmask = 0xFF;
+	__mmask16 dmask16 = 0xAAAA;
+	
+	__m128i maxScore128 = hval;
+    for(j = 0; j < ncol; j++)
+		_mm_store_si128((__m128i *)(F + j * SIMD_WIDTH16), zero128);
+	
+	__m128i x128 = zero128;
+	__m128i y128 = zero128;
+	__m128i i128 = zero128;
+	__m128i gscore = _mm_set1_epi16(-1);
+	__m128i max_off128 = zero128;
+	__m128i exit0 = _mm_set1_epi16(0xFFFF);
+	__m128i zdrop128 = _mm_set1_epi16(zdrop);
+
+	
+	int beg = 0, end = ncol;
+	int nbeg = beg, nend = end;
+
+#if RDT
+	uint64_t tim = _rdtsc();
+#endif
+	
+    for(i = 0; i < nrow; i++)
+    {		
+        __m128i e11 = zero128;
+        __m128i h00, h11, h10;
+        __m128i s10 = _mm_load_si128((__m128i *)(seq1SoA + (i + 0) * SIMD_WIDTH16));
+
+		beg = nbeg; end = nend;
+		// Banding
+		int pbeg = beg;
+		if (beg < i - w) beg = i - w;
+		if (end > i + w + 1) end = i + w + 1;
+		if (end > ncol) end = ncol;
+
+		h10 = zero128;
+		if (beg == 0)
+			h10 = _mm_load_si128((__m128i *)(H_v + (i+1) * SIMD_WIDTH16));
+
+		__m128i j128 = zero128;
+		__m128i maxRS1, maxRS2, maxRS3, maxRS4;
+		maxRS1 = zero128;
+		
+		__m128i i1_128 = _mm_set1_epi16(i+1);
+		__m128i y1_128 = zero128;
+		
+#if RDT	
+		uint64_t tim1 = _rdtsc();
+#endif
+		
+
+		__m128i i128, cache128, max128;
+		__m128i phead128 = head128, ptail128 = tail128;
+		i128 = _mm_set1_epi16(i);
+		cache128 = _mm_sub_epi16(i128, myband128);
+		head128 = _mm_max_epi16(head128, cache128);
+		cache128 = _mm_add_epi16(i1_128, myband128);
+		tail128 = _mm_min_epu16(tail128, cache128);
+		tail128 = _mm_min_epu16(tail128, qlen128);
+		
+		// NEW, trimming.
+		__m128i cmph = _mm_cmpeq_epi16(head128, phead128);
+		__m128i cmpt = _mm_cmpeq_epi16(tail128, ptail128);
+		// cmph &= cmpt;
+		cmph = _mm_and_si128(cmph, cmpt);
+		//__mmask16 cmp_ht = _mm_movepi16_mask(cmph);
+		//__mmask8 cmp_ht = _mm_movepi16_mask(cmph);
+		__mmask16 cmp_ht = _mm_movemask_epi8(cmph) & dmask16;
+		
+		//for (int l=beg; l<end && cmp_ht != dmask; l++) {
+		for (int l=beg; l<end && cmp_ht != dmask16; l++) {
+			//for (int l=pbeg; l<beg; l++) {
+			__m128i h128 = _mm_load_si128((__m128i *)(H_h + l * SIMD_WIDTH16));
+			__m128i f128 = _mm_load_si128((__m128i *)(F + l * SIMD_WIDTH16));
+			
+			__m128i pj128 = _mm_set1_epi16(l);
+			__m128i j128 = _mm_set1_epi16(l+1);
+			__m128i cmp1 = _mm_cmpgt_epi16(head128, pj128);
+			// uint32_t cval = _mm_movemask_epi16(cmp1);
+			// uint16_t cval = _mm_movepi16_mask(cmp1);
+			uint16_t cval = _mm_movemask_epi8(cmp1) & dmask16;			
+			if (cval == 0x00) break;
+			// __m128i cmp2 = _mm_cmpgt_epi16(pj128, tail128);
+			__m128i cmp2 = _mm_cmpgt_epi16(j128, tail128);
+			cmp1 = _mm_or_si128(cmp1, cmp2);
+			h128 = _mm_blendv_epi16(h128, zero128, cmp1);
+			f128 = _mm_blendv_epi16(f128, zero128, cmp1);
+			
+			_mm_store_si128((__m128i *)(F + l * SIMD_WIDTH16), f128);
+			_mm_store_si128((__m128i *)(H_h + l * SIMD_WIDTH16), h128);
+		}
+
+#if RDT
+		prof[DP3][0] += _rdtsc() - tim1;
+#endif
+		// beg = nbeg; end = nend;
+		__m128i cmp128_1 = _mm_cmpgt_epi16(i1_128, tlen128);
+		// addition
+		//_mm_store_si128((__m128i *) temp, mlen128);
+
+		__m128i cmpim = _mm_cmpgt_epi16(i1_128, mlen128);
+		__m128i cmpht = _mm_cmpeq_epi16(tail128, head128);
+		cmpim = _mm_or_si128(cmpim, cmpht);
+		// change
+#if NEW
+		cmpht = _mm_cmpgt_epi16(head128, tail128);
+		cmpim = _mm_or_si128(cmpim, cmpht);
+#endif		
+		exit0 = _mm_blendv_epi16(exit0, zero128, cmpim);
+		//_mm_store_si128((__m128i *) temp1, exit0);
+		//printf("mlen: %d %d\n", temp[lane], temp1[lane]);
+
+#if RDT
+		tim1 = _rdtsc();
+#endif
+		
+		j128 = _mm_set1_epi16(beg);
+		for(j = beg; j < end; j++)
+		{
+            __m128i f11, f21, f31, f41, f51, jj128, s2;
+			h00 = _mm_load_si128((__m128i *)(H_h + j * SIMD_WIDTH16));
+            f11 = _mm_load_si128((__m128i *)(F + j * SIMD_WIDTH16));
+
+            s2 = _mm_load_si128((__m128i *)(seq2SoA + (j) * SIMD_WIDTH16));
+			
+			__m128i pj128 = j128;
+			j128 = _mm_add_epi16(j128, one128);
+
+            //MAIN_CODE16(s10, s2, h00, h11, e11, f11, f21, zero128,
+			//			maxScore128, gapOpen128, gapExtend128, y1_128, maxRS1); //i+1
+			MAIN_CODE16(s10, s2, h00, h11, e11, f11, f21, zero128,
+						maxScore128, e_ins128, oe_ins128,
+						e_del128, oe_del128,
+						y1_128, maxRS1); //i+1
+
+			// Masked writing
+			__m128i cmp1 = _mm_cmpgt_epi16(head128, pj128);
+			__m128i cmp2 = _mm_cmpgt_epi16(pj128, tail128);
+			cmp1 = _mm_or_si128(cmp1, cmp2);
+			h10 = _mm_blendv_epi16(h10, zero128, cmp1);
+			f21 = _mm_blendv_epi16(f21, zero128, cmp1);
+			
+			__m128i bmaxRS = maxRS1;										
+			maxRS1 =_mm_max_epi16(maxRS1, h11);							
+			__m128i cmpA = _mm_cmpgt_epi16(maxRS1, bmaxRS);					
+			__m128i cmpB =_mm_cmpeq_epi16(maxRS1, h11);					
+			cmpA = _mm_or_si128(cmpA, cmpB);
+			cmp1 = _mm_cmpgt_epi16(j128, tail128); // change
+			cmp1 = _mm_or_si128(cmp1, cmp2);			// change			
+			cmpA = _mm_blendv_epi16(y1_128, j128, cmpA);
+			y1_128 = _mm_blendv_epi16(cmpA, y1_128, cmp1);
+			maxRS1 = _mm_blendv_epi16(maxRS1, bmaxRS, cmp1);						
+
+			_mm_store_si128((__m128i *)(F + j * SIMD_WIDTH16), f21);
+			_mm_store_si128((__m128i *)(H_h + j * SIMD_WIDTH16), h10);
+
+			h10 = h11;
+			
+			// gscore calculations
+			if (j >= minq)
+			{
+				__m128i cmp = _mm_cmpeq_epi16(j128, qlen128);
+				__m128i max_gh = _mm_max_epi16(gscore, h11);
+				__m128i cmp_gh = _mm_cmpgt_epi16(gscore, h11);
+				__m128i tmp128_1 = _mm_blendv_epi16(i1_128, max_ie128, cmp_gh);
+
+				__m128i tmp128_t = _mm_blendv_epi16(max_ie128, tmp128_1, cmp);
+				tmp128_1 = _mm_blendv_epi16(max_ie128, tmp128_t, exit0);				
+				
+				max_gh = _mm_blendv_epi16(gscore, max_gh, exit0);
+				max_gh = _mm_blendv_epi16(gscore, max_gh, cmp);				
+
+				cmp = _mm_cmpgt_epi16(j128, tail128); 
+				max_gh = _mm_blendv_epi16(max_gh, gscore, cmp);
+				max_ie128 = _mm_blendv_epi16(tmp128_1, max_ie128, cmp);
+				gscore = max_gh;
+			}
+        }
+		_mm_store_si128((__m128i *)(H_h + j * SIMD_WIDTH16), h10);
+		_mm_store_si128((__m128i *)(F + j * SIMD_WIDTH16), zero128);
+		
+		/* exit due to zero score by a row */
+		// uint32_t cval = 0;
+		__m128i bmaxScore128 = maxScore128;
+		__m128i tmp = _mm_cmpeq_epi16(maxRS1, zero128);
+		// cval = _mm_movemask_epi16(tmp);
+		// uint16_t cval = _mm_movepi16_mask(tmp);
+		uint16_t cval = _mm_movemask_epi8(tmp) & dmask16;
+		//if (cval == 0xFFFF) break;
+		if (cval == dmask16) break;
+
+		//_mm_store_si128((__m128i *) temp, exit0);
+		exit0 = _mm_blendv_epi16(exit0, zero128,  tmp);
+		//_mm_store_si128((__m128i *) temp1, exit0);
+		//printf("exit0: %d %d %d\n", i, temp[lane], temp1[lane]);
+
+		__m128i score128 = _mm_max_epi16(maxScore128, maxRS1);
+		maxScore128 = _mm_blendv_epi16(maxScore128, score128, exit0);
+
+		__m128i cmp = _mm_cmpgt_epi16(maxScore128, bmaxScore128);
+		y128 = _mm_blendv_epi16(y128, y1_128, cmp);
+		x128 = _mm_blendv_epi16(x128, i1_128, cmp);		
+		// max_off calculations
+#if 0
+		tmp = _mm_sub_epi16(y1_128, i1_128);
+		tmp = _mm_abs_epi16(tmp);
+#else
+		__m128i ab = _mm_subs_epu16(y1_128, i1_128);
+		__m128i ba = _mm_subs_epu16(i1_128, y1_128);
+		tmp = _mm_or_si128(ab, ba);
+#endif
+		__m128i bmax_off128 = max_off128;
+		tmp = _mm_max_epi16(max_off128, tmp);
+		max_off128 = _mm_blendv_epi16(bmax_off128, tmp, cmp);
+
+        // Z-score
+		ZSCORE16(i1_128, y1_128);		
+
+#if RDT
+		prof[DP1][0] += _rdtsc() - tim1;
+		tim1 = _rdtsc();
+#endif
+		
+		/* Narrowing of the band */
+		/* From beg */
+		int l;
+ 		for (l = beg; l < end; l++) {
+			__m128i f128 = _mm_load_si128((__m128i *)(F + l * SIMD_WIDTH16));
+			__m128i h128 = _mm_load_si128((__m128i *)(H_h + l * SIMD_WIDTH16));
+			__m128i tmp = _mm_or_si128(f128, h128);
+			tmp = _mm_cmpeq_epi16(tmp, zero128);
+			// uint32_t val = _mm_movemask_epi16(tmp);
+			// uint16_t val = _mm_movepi16_mask(tmp);
+			uint16_t val = _mm_movemask_epi8(tmp) & dmask16;
+			// if (val == 0xFFFF) nbeg = l;
+			if (val == dmask16) nbeg = l;
+			else
+				break;
+		}
+		
+		/* From end */
+		bool flg = 1;
+		for (l = end; l >= beg; l--) {
+			__m128i f128 = _mm_load_si128((__m128i *)(F + l * SIMD_WIDTH16));
+			__m128i h128 = _mm_load_si128((__m128i *)(H_h + l * SIMD_WIDTH16));
+			__m128i tmp = _mm_or_si128(f128, h128);
+			tmp = _mm_cmpeq_epi16(tmp, zero128);
+			// uint32_t val = _mm_movemask_epi16(tmp);
+			// uint16_t val = _mm_movepi16_mask(tmp);
+			uint16_t val = _mm_movemask_epi8(tmp) & dmask16;
+			// if (val != 0xFFFF && flg)
+			if (val != dmask16 && flg)  
+				break;
+		}
+		// int pnend =nend;
+		nend = l + 2 < ncol? l + 2: ncol;
+
+		__m128i tail128_ = _mm_sub_epi16(tail128, one128);
+		__m128i tmpb = ff128;
+
+		__m128i exit1 = _mm_xor_si128(exit0, ff128);
+		__m128i l128 = _mm_set1_epi16(beg);
+		for (l = beg; l < end; l++) {
+			__m128i f128 = _mm_load_si128((__m128i *)(F + l * SIMD_WIDTH16));
+			__m128i h128 = _mm_load_si128((__m128i *)(H_h + l * SIMD_WIDTH16));
+	
+			__m128i tmp = _mm_or_si128(f128, h128);
+			tmp = _mm_or_si128(tmp, exit1);			
+			tmp = _mm_cmpeq_epi16(tmp, zero128);
+			// uint32_t val = _mm_movemask_epi16(tmp);
+			// uint16_t val = _mm_movepi16_mask(tmp);
+			uint16_t val = _mm_movemask_epi8(tmp) & dmask16;
+			if (val == 0x00) {
+				break;
+			}
+			tmp = _mm_and_si128(tmp,tmpb);
+			//__m128i l128 = _mm_set1_epi16(l+1);
+			l128 = _mm_add_epi16(l128, one128);
+#if !NEW
+			__m128i mask2 = _mm_cmpgt_epi16(l128, tail128_);
+			mask2 = _mm_blendv_epi16(l128, tail128,  mask2);
+			head128 = _mm_blendv_epi16(head128, mask2, tmp);
+#else
+			head128 = _mm_blendv_epi16(head128, l128, tmp);
+#endif
+			tmpb = tmp;			
+		}
+		// _mm_store_si128((__m128i *) head, head128);
+		
+		__m128i  index128 = tail128;
+		tmpb = ff128;
+
+		l128 = _mm_set1_epi16(end);
+		for (l = end; l >= beg; l--)
+		{
+			__m128i f128 = _mm_load_si128((__m128i *)(F + l * SIMD_WIDTH16));
+			__m128i h128 = _mm_load_si128((__m128i *)(H_h + l * SIMD_WIDTH16));
+			
+			__m128i tmp = _mm_or_si128(f128, h128);
+			tmp = _mm_or_si128(tmp, exit1);
+			tmp = _mm_cmpeq_epi16(tmp, zero128);			
+			// uint32_t val = _mm_movemask_epi16(tmp);
+			// uint16_t val = _mm_movepi16_mask(tmp);
+			uint16_t val = _mm_movemask_epi8(tmp) & dmask16;
+			if (val == 0x00)  {
+				break;
+			}
+			tmp = _mm_and_si128(tmp,tmpb);
+			l128 = _mm_sub_epi16(l128, one128);
+#if !NEW
+			__m128i mask2 = _mm_cmpgt_epi16(l128, tail128);			
+			mask2 = _mm_blendv_epi16(l128, tail128,  mask2);
+			index128 = _mm_blendv_epi16(index128, mask2, tmp);
+#else
+			index128 = _mm_blendv_epi8(index128, l128, tmp);
+#endif
+			tmpb = tmp;
+		}
+		index128 = _mm_add_epi16(index128, two128);
+		tail128 = _mm_min_epi16(index128, qlen128);
+		// _mm_store_si128((__m128i *) tail, tail128);		
+
+
+#if RDT
+		prof[DP2][0] += _rdtsc() - tim1;
+#endif
+    }
+	
+#if RDT
+	prof[DP][0] += _rdtsc() - tim;
+#endif
+	
+    int16_t score[SIMD_WIDTH16]  __attribute((aligned(64)));
+	_mm_store_si128((__m128i *) score, maxScore128);
+
+	int16_t maxi[SIMD_WIDTH16]  __attribute((aligned(64)));
+    _mm_store_si128((__m128i *) maxi, x128);
+
+	int16_t maxj[SIMD_WIDTH16]  __attribute((aligned(64)));
+    _mm_store_si128((__m128i *) maxj, y128);
+
+	int16_t max_off_ar[SIMD_WIDTH16]  __attribute((aligned(64)));
+    _mm_store_si128((__m128i *) max_off_ar, max_off128);
+
+	int16_t gscore_ar[SIMD_WIDTH16]  __attribute((aligned(64)));
+    _mm_store_si128((__m128i *) gscore_ar, gscore);
+
+	int16_t maxie_ar[SIMD_WIDTH16]  __attribute((aligned(64)));
+    _mm_store_si128((__m128i *) maxie_ar, max_ie128);
+	
+	static int cnt = 0;	
+    for(i = 0; i < SIMD_WIDTH16; i++)
+    {
+		p[i].score = score[i];
+		p[i].tle = maxi[i];
+		p[i].qle = maxj[i];
+		p[i].max_off = max_off_ar[i];
+		p[i].gscore = gscore_ar[i];
+		p[i].gtle = maxie_ar[i];
+    }
+	
+    return;
+}
+
+/********************************************************************************/
+/* SSE2 - 8 bit version */
+#if 1
+static inline __m128i
+_mm_blendv_epi8 (__m128i x, __m128i y, __m128i mask)
+{
+	// Replace bit in x with bit in y when matching bit in mask is set:
+	return _mm_or_si128(_mm_andnot_si128(mask, x), _mm_and_si128(mask, y));
+}
+#endif
+
+#define ZSCORE8(i4_128, y4_128)											\
+	{																	\
+		__m128i tmpi = _mm_sub_epi8(i4_128, x128);						\
+		__m128i tmpj = _mm_sub_epi8(y4_128, y128);						\
+		cmp = _mm_cmpgt_epi8(tmpi, tmpj);								\
+		score128 = _mm_sub_epi8(maxScore128, maxRS1);					\
+		__m128i insdel = _mm_blendv_epi8(e_ins128, e_del128, cmp);		\
+		__m128i sub_a128 = _mm_sub_epi8(tmpi, tmpj);					\
+		__m128i sub_b128 = _mm_sub_epi8(tmpj, tmpi);					\
+		tmp = _mm_blendv_epi8(sub_b128, sub_a128, cmp);					\
+		tmp = _mm_sub_epi8(score128, tmp);								\
+		cmp = _mm_cmpgt_epi8(tmp, zdrop128);							\
+		exit0 = _mm_blendv_epi8(exit0, zero128, cmp);					\
+	}
+
+
+#define MAIN_CODE8(s1, s2, h00, h11, e11, f11, f21, zero128,  maxScore128, e_ins128, oe_ins128, e_del128, oe_del128, y128, maxRS) \
+	{																	\
+		__m128i cmp11 = _mm_cmpeq_epi8(s1, s2);							\
+		__m128i sbt11 = _mm_blendv_epi8(mismatch128, match128, cmp11);	\
+		__m128i tmp128 = _mm_max_epu8(s1, s2);							\
+		tmp128 = _mm_cmpeq_epi8(tmp128, ff128);							\
+		sbt11 = _mm_blendv_epi8(sbt11, w_ambig_128, tmp128);			\
+		__m128i m11 = _mm_add_epi8(h00, sbt11);							\
+		cmp11 = _mm_cmpeq_epi8(h00, zero128);							\
+		m11 = _mm_blendv_epi8(m11, zero128, cmp11);						\
+		m11 = _mm_and_si128(m11, _mm_cmpgt_epi8(m11, zero128));			\
+		h11 = _mm_max_epu8(m11, e11);									\
+		h11 = _mm_max_epu8(h11, f11);									\
+		__m128i temp128 = _mm_subs_epu8(m11, oe_ins128);				\
+		e11 = _mm_subs_epu8(e11, e_ins128);								\
+		e11 = _mm_max_epu8(temp128, e11);								\
+		temp128 = _mm_subs_epu8(m11, oe_del128);						\
+		f21 = _mm_subs_epu8(f11, e_del128);								\
+		f21 = _mm_max_epu8(temp128, f21);								\
+	}
+
+
+// #define PFD 2 // SSE2
+void BandedPairWiseSW::getScores8(SeqPair *pairArray,
+								  uint8_t *seqBufRef,
+								  uint8_t *seqBufQer,
+								  int32_t numPairs,
+								  uint16_t numThreads,
+								  int8_t w)
+{
+	assert(SIMD_WIDTH8 == 16 && SIMD_WIDTH16 == 8);
+    int i;
+    int64_t startTick, endTick;
+	// F_ = H_ = H__ = NULL;
+    // F_ = (int8_t *)_mm_malloc(MAX_SEQ_LEN_EXT * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
+    // H_ = (int8_t *)_mm_malloc(MAX_SEQ_LEN_EXT * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
+	// H__ = (int8_t *)_mm_malloc(MAX_SEQ_LEN_EXT * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
+	// if (F_ == NULL || H_ == NULL || H__ == NULL || seqBuf == NULL) {
+	// 	printf("Memory not alloacted!!!\n");
+	// 	exit(0);
+	// }   
+
+	smithWatermanBatchWrapper8(pairArray, seqBufRef, seqBufQer, numPairs, numThreads, w);
+
+	// _mm_free(F_);	_mm_free(H_);	_mm_free(H__);
+	
+#if MAXI
+	printf("Vecor code: Writing output..\n");
+	for (int l=0; l<numPairs; l++)
+	{
+		fprintf(stderr, "%d (%d %d) %d %d %d\n",
+				pairArray[l].score, pairArray[l].x, pairArray[l].y,
+				pairArray[l].gscore, pairArray[l].max_off, pairArray[l].max_ie);
+
+	}
+	printf("Vector code: Writing output completed!!!\n\n");
+#endif
+	
+}
+
+void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
+												  uint8_t *seqBufRef,
+												  uint8_t *seqBufQer,
+												  int32_t numPairs,
+												  uint16_t numThreads,
+												  int8_t w)
+{
+	// printf("numThreads: %d\n", numThreads);		
+	int64_t st1, st2, st3, st4, st5;
+    st1 = __rdtsc();
+    uint8_t *seq1SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
+    uint8_t *seq2SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
+	if (seq1SoA == NULL || seq2SoA == NULL)
+		printf("Mem not allocated!!!\n");
+
+    int32_t ii;
+    int32_t roundNumPairs = ((numPairs + SIMD_WIDTH8 - 1)/SIMD_WIDTH8 ) * SIMD_WIDTH8;
+	assert(roundNumPairs < BATCH_SIZE * SEEDS_PER_READ);
+    for(ii = numPairs; ii < roundNumPairs; ii++)
+    {
+        pairArray[ii].id = ii;
+        pairArray[ii].len1 = 0;
+        pairArray[ii].len2 = 0;
+    }
+
+    st2 = __rdtsc();	
+#if SORT_PAIRS
+    // Sort the sequences according to decreasing order of lengths
+    SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
+											   sizeof(SeqPair), 64);
+    int16_t *hist = (int16_t *)_mm_malloc((MAX_SEQ_LEN8 + 32) * numThreads *
+										  sizeof(int16_t), 64);
+	int16_t *histb = (int16_t *)_mm_malloc((MAX_SEQ_LEN8 + 32) * numThreads *
+										   sizeof(int16_t), 64);
+#pragma omp parallel num_threads(numThreads)
+    {
+        int32_t tid = omp_get_thread_num();
+        SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
+        int16_t *myHist = hist + tid * (MAX_SEQ_LEN8 + 32);
+		int16_t *myHistb = histb + tid * (MAX_SEQ_LEN8 + 32);
+
+#pragma omp for
+        for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+        {
+            int32_t first, last;
+            first = ii;
+            last  = ii + SORT_BLOCK_SIZE;
+            if(last > roundNumPairs) last = roundNumPairs;
+            sortPairsLen(pairArray + first, last - first, myTempArray, myHist, myHistb);
+        }
+    }
+    _mm_free(hist);
+#endif
+    st3 = __rdtsc();
+
+#ifdef VTUNE_ANALYSIS
+    __itt_resume();
+#endif
+
+	int eb = end_bonus;
+// #pragma omp parallel num_threads(numThreads)
+    {
+        int64_t st = __rdtsc();
+        int32_t i;
+        uint16_t tid =  0; 
+        uint8_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN8 * SIMD_WIDTH8;
+        uint8_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN8 * SIMD_WIDTH8;
+		assert(mySeq1SoA != NULL && mySeq2SoA != NULL);		
+        uint8_t *seq1;
+        uint8_t *seq2;
+		uint8_t h0[SIMD_WIDTH8];
+		uint8_t band[SIMD_WIDTH8];		
+		uint8_t qlen[SIMD_WIDTH8] __attribute__((aligned(64)));
+		int8_t bsize = 0;
+
+		int8_t *H1 = H8_ + tid * SIMD_WIDTH8 * MAX_SEQ_LEN8;
+		int8_t *H2 = H8__ + tid * SIMD_WIDTH8 * MAX_SEQ_LEN8;
+
+		__m128i zero128	  = _mm_setzero_si128();
+		__m128i o_ins128  = _mm_set1_epi8(o_ins);
+		__m128i e_ins128  = _mm_set1_epi8(e_ins);
+		__m128i oe_ins128 = _mm_set1_epi8(o_ins + e_ins);
+		__m128i o_del128  = _mm_set1_epi8(o_del);
+		__m128i e_del128  = _mm_set1_epi8(e_del);
+		__m128i eb_ins128 = _mm_set1_epi8(eb - o_ins);
+		__m128i eb_del128 = _mm_set1_epi8(eb - o_del);
+		
+		int8_t max = 0;
+		if (max < w_match) max = w_match;
+		if (max < w_mismatch) max = w_mismatch;
+		if (max < w_ambig) max = w_ambig;
+		
+		int nstart = 0, nend = numPairs;
+
+#if STAT
+		//int nstart = 5568*32, nend = 5569*32;//178189
+		int div = (spot-1)/32;
+		nstart = div*32;
+		nend = (div+1)*32;
+		int lane = (spot - 1)%32;
+		// nstart = 0;//, nend = spot;
+		printf("nstart: %d, nend: %d\n", nstart, nend);
+#endif
+		
+// #pragma omp for schedule(dynamic, 128)
+		for(i = nstart; i < nend; i+=SIMD_WIDTH8)
+		{
+			// prof[4][0]++;
+            int32_t j, k;
+            uint8_t maxLen1 = 0;
+            uint8_t maxLen2 = 0;
+			//bsize = 100;
+			bsize = w;
+			
+			uint64_t tim;
+			tim = _rdtsc();
+            for(j = 0; j < SIMD_WIDTH8; j++)
+            {
+				{ // prefetch block
+					SeqPair spf = pairArray[i + j + PFD];
+					// _mm_prefetch((const char*) seqBuf + 2 * (int64_t)spf.id * MAX_SEQ_LEN, 0);
+					// _mm_prefetch((const char*) seqBuf + 2 * (int64_t)spf.id * MAX_SEQ_LEN + 64, 0);
+				}
+                SeqPair sp = pairArray[i + j];
+				h0[j] = sp.h0;
+                // seq1 = seqBuf + 2 * (int64_t)sp.id * MAX_SEQ_LEN;
+				seq1 = seqBufRef + (int64_t)sp.idr;
+				
+                for(k = 0; k < sp.len1; k++)
+                {
+                    mySeq1SoA[k * SIMD_WIDTH8 + j] = (seq1[k] == AMBIG?0xFF:seq1[k]);
+					H2[k * SIMD_WIDTH8 + j] = 0;
+                }
+				qlen[j] = sp.len2 * max;
+                if(maxLen1 < sp.len1) maxLen1 = sp.len1;
+            }
+			// prof[1][tid] += _rdtsc() - tim;
+
+            for(j = 0; j < SIMD_WIDTH8; j++)
+            {
+                SeqPair sp = pairArray[i + j];
+                for(k = sp.len1; k <= maxLen1; k++) //removed "="
+                {
+                    mySeq1SoA[k * SIMD_WIDTH8 + j] = DUMMY1;
+					H2[k * SIMD_WIDTH8 + j] = DUMMY1;
+                }
+            }
+//--------------------
+			__m128i h0_128 = _mm_load_si128((__m128i*) h0);
+			_mm_store_si128((__m128i *) H2, h0_128);
+			__m128i tmp128 = _mm_subs_epu8(h0_128, o_del128);
+
+			for(k = 1; k < maxLen1; k++) {
+				tmp128 = _mm_subs_epu8(tmp128, e_del128);
+				//__m128i tmp128_ = _mm_max_epi8(tmp128, zero128);    //epi is not present in SSE2
+				_mm_store_si128((__m128i *)(H2 + k* SIMD_WIDTH8), tmp128);
+			}
+//-------------------
+			tim = _rdtsc();
+            for(j = 0; j < SIMD_WIDTH8; j++)
+            {
+				{ // prefetch block
+					SeqPair spf = pairArray[i + j + PFD];
+					//_mm_prefetch((const char*) seqBuf + (2 * (int64_t)spf.id + 1) * MAX_SEQ_LEN, 0);
+					//_mm_prefetch((const char*) seqBuf + (2 * (int64_t)spf.id + 1) * MAX_SEQ_LEN + 64, 0);
+				}
+				
+                SeqPair sp = pairArray[i + j];
+                // seq2 = seqBuf + (2 * (int64_t)sp.id + 1) * MAX_SEQ_LEN;
+				seq2 = seqBufQer + (int64_t)sp.idq;
+				
+                for(k = 0; k < sp.len2; k++)
+                {
+                    mySeq2SoA[k * SIMD_WIDTH8 + j] = (seq2[k]==AMBIG?0xFF:seq2[k]);
+					H1[k * SIMD_WIDTH8 + j] = 0;					
+                }
+                if(maxLen2 < sp.len2) maxLen2 = sp.len2;
+            }
+			// prof[1][tid] += _rdtsc() - tim;
+			
+			//maxLen2 = ((maxLen2  + 3) >> 2) * 4;
+			
+            for(j = 0; j < SIMD_WIDTH8; j++)
+            {
+                SeqPair sp = pairArray[i + j];
+                for(k = sp.len2; k <= maxLen2; k++)
+                {
+                    mySeq2SoA[k * SIMD_WIDTH8 + j] = DUMMY2;
+					H1[k * SIMD_WIDTH8 + j] = 0;
+                }
+            }
+//------------------------
+			_mm_store_si128((__m128i *) H1, h0_128);
+			__m128i cmp128 = _mm_cmpgt_epi8(h0_128, oe_ins128);
+			tmp128 = _mm_sub_epi8(h0_128, oe_ins128);
+			// _mm_store_si128((__m128i *) (H1 + SIMD_WIDTH8), tmp128);
+			// printf("%d %d\n", 1, H1[SIMD_WIDTH8 + lane]);
+
+			tmp128 = _mm_blendv_epi8(zero128, tmp128, cmp128);
+			_mm_store_si128((__m128i *) (H1 + SIMD_WIDTH8), tmp128);
+			for(k = 2; k < maxLen2; k++)
+			{
+				// __m128i h1_128 = _mm_load_si128((__m128i *) (H1 + (k-1) * SIMD_WIDTH8));
+				__m128i h1_128 = tmp128;
+				tmp128 = _mm_subs_epu8(h1_128, e_ins128);   // modif
+				// tmp128 = _mm_max_epi8(tmp128, zero128);
+				_mm_store_si128((__m128i *)(H1 + k*SIMD_WIDTH8), tmp128);
+            }			
+//------------------------
+#if 1
+			uint8_t myband[SIMD_WIDTH8] __attribute__((aligned(64)));
+			uint8_t temp[SIMD_WIDTH8] __attribute__((aligned(64)));
+			{
+				__m128i qlen128 = _mm_load_si128((__m128i *) qlen);
+				__m128i sum128 = _mm_add_epi8(qlen128, eb_ins128);
+				_mm_store_si128((__m128i *) temp, sum128);				
+				for (int l=0; l<SIMD_WIDTH8; l++) {
+					double val = temp[l]/e_ins + 1.0;
+					int max_ins = (int) val;
+					max_ins = max_ins > 1? max_ins : 1;
+					myband[l] = min(bsize, max_ins);
+				}
+				sum128 = _mm_add_epi8(qlen128, eb_del128);
+				_mm_store_si128((__m128i *) temp, sum128);				
+				for (int l=0; l<SIMD_WIDTH8; l++) {
+					double val = temp[l]/e_del + 1.0;
+					int max_ins = (int) val;
+					max_ins = max_ins > 1? max_ins : 1;
+					myband[l] = min(myband[l], max_ins);
+					bsize = bsize < myband[l] ? myband[l] : bsize;
+				}
+			}
+#endif
+			
+			// uint64_t tim_swa = _rdtsc();
+            smithWaterman128_8(mySeq1SoA,
+							   mySeq2SoA,
+							   maxLen1,
+							   maxLen2,
+							   pairArray + i,
+							   h0,
+							   tid,
+							   numPairs,
+							   zdrop,
+							   bsize,
+							   qlen,
+							   myband);
+			
+			// prof[0][tid] += _rdtsc() - tim_swa;
+        }
+    }
+	
+    st4 = __rdtsc();
+#if SORT_PAIRS
+	{
+    // Sort the sequences according to increasing order of id
+#pragma omp parallel num_threads(numThreads)
+    {
+        int32_t tid = omp_get_thread_num();
+        SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
+
+#pragma omp for
+        for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+        {
+            int32_t first, last;
+            first = ii;
+            last  = ii + SORT_BLOCK_SIZE;
+            if(last > roundNumPairs) last = roundNumPairs;
+            sortPairsId(pairArray + first, first, last - first, myTempArray);
+        }
+    }
+    _mm_free(tempArray);
+	}
+#endif
+
+    st5 = __rdtsc();
+    setupTicks = st2 - st1;
+    sort1Ticks = st3 - st2;
+    swTicks = st4 - st3;
+    sort2Ticks = st5 - st4;
+
+	// free mem
+	_mm_free(seq1SoA);
+	_mm_free(seq2SoA);
+	
+    return;
+}
+
+void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
+										  uint8_t seq2SoA[],
+										  uint8_t nrow,
+										  uint8_t ncol,
+										  SeqPair *p,
+										  uint8_t h0[],
+										  uint16_t tid,
+										  int32_t numPairs,
+										  int zdrop,
+										  uint8_t w,
+										  uint8_t qlen[],
+										  uint8_t myband[])
+{
+#if DEB
+	int8_t Hmat[nrow + 10][ncol + 10], Fmat[nrow + 10][ncol + 10];;
+#endif
+	
+    __m128i match128	 = _mm_set1_epi8(this->w_match);
+    __m128i mismatch128	 = _mm_set1_epi8(this->w_mismatch);
+    __m128i gapOpen128	 = _mm_set1_epi8(this->w_open);
+    __m128i gapExtend128 = _mm_set1_epi8(this->w_extend);
+	__m128i gapOE128	 = _mm_set1_epi8(this->w_open + this->w_extend);
+	__m128i w_ambig_128	 = _mm_set1_epi8(this->w_ambig);	// ambig penalty
+	__m128i five128		 = _mm_set1_epi8(5);
+
+	__m128i e_del128	= _mm_set1_epi8(this->e_del);
+	__m128i oe_del128	= _mm_set1_epi8(this->o_del + this->e_del);
+	__m128i e_ins128	= _mm_set1_epi8(this->e_ins);
+	__m128i oe_ins128	= _mm_set1_epi8(this->o_ins + this->e_ins);
+
+    int8_t	*F	= F8_ + tid * SIMD_WIDTH8 * MAX_SEQ_LEN8;
+    int8_t	*H_h	= H8_ + tid * SIMD_WIDTH8 * MAX_SEQ_LEN8;
+	int8_t	*H_v = H8__ + tid * SIMD_WIDTH8 * MAX_SEQ_LEN8;
+
+	int lane = 0;
+#if DEB
+	lane = (spot - 1)%32;
+#endif
+	
+    int8_t lowInitValue = LOW_INIT_VALUE;
+    int8_t i, j;
+
+	uint8_t tlen[SIMD_WIDTH8];
+	uint8_t tail[SIMD_WIDTH8] __attribute((aligned(64)));
+	uint8_t head[SIMD_WIDTH8] __attribute((aligned(64)));
+	
+	int minq = 1000;
+	for (int l=0; l<SIMD_WIDTH8; l++) {
+		tlen[l] = p[l].len1;
+		qlen[l] = p[l].len2;
+		if (p[l].len2 < minq) minq = p[l].len2;
+	}
+	minq -= 1; // for gscore
+
+	__m128i tlen128 = _mm_load_si128((__m128i *) tlen);
+	__m128i qlen128 = _mm_load_si128((__m128i *) qlen);
+	__m128i myband128 = _mm_load_si128((__m128i *) myband);
+    __m128i zero128 = _mm_setzero_si128();
+	__m128i one128	= _mm_set1_epi8(1);
+	__m128i two128	= _mm_set1_epi8(2);
+	__m128i i128_1 = _mm_set1_epi8(1);
+	__m128i max_ie128 = zero128;
+	__m128i ff128 = _mm_set1_epi8(0xFF);
+		
+   	__m128i tail128 = qlen128, head128 = zero128;
+	_mm_store_si128((__m128i *) head, head128);
+   	_mm_store_si128((__m128i *) tail, tail128);
+	//__m128i ib128 = _mm_add_epi8(qlen128, qlen128);
+	// ib128 = _mm_sub_epi8(ib128, one128);
+
+	__m128i mlen128 = _mm_add_epi8(qlen128, myband128);
+	mlen128 = _mm_min_epu8(mlen128, tlen128);
+	
+	uint8_t temp[SIMD_WIDTH8]  __attribute((aligned(64)));
+	uint8_t temp1[SIMD_WIDTH8]  __attribute((aligned(64)));
+	
+	__m128i s00	 = _mm_load_si128((__m128i *)(seq1SoA));
+	__m128i hval = _mm_load_si128((__m128i *)(H_v));
+	// __mmask32 dmask = 0xFFFFFFFF;
+	__mmask16 dmask = 0xFFFF;
+	
+	__m128i maxScore128 = hval;
+    for(j = 0; j < ncol; j++)
+		_mm_store_si128((__m128i *)(F + j * SIMD_WIDTH8), zero128);
+	
+	__m128i x128 = zero128;
+	__m128i y128 = zero128;
+	__m128i i128 = zero128;
+	__m128i gscore = _mm_set1_epi8(-1);
+	__m128i max_off128 = zero128;
+	__m128i exit0 = _mm_set1_epi8(0xFF);
+	__m128i zdrop128 = _mm_set1_epi8(zdrop);
+
+	
+	int beg = 0, end = ncol;
+	int nbeg = beg, nend = end;
+
+#if RDT
+	uint64_t tim = _rdtsc();
+#endif
+	
+    for(i = 0; i < nrow; i++)
+    {		
+        __m128i e11 = zero128;
+        __m128i h00, h11, h10;
+        __m128i s10 = _mm_load_si128((__m128i *)(seq1SoA + (i + 0) * SIMD_WIDTH8));
+
+		beg = nbeg; end = nend;
+		// Banding
+		int pbeg = beg;
+		if (beg < i - w) beg = i - w;
+		if (end > i + w + 1) end = i + w + 1;
+		if (end > ncol) end = ncol;
+
+		h10 = zero128;
+		if (beg == 0)
+			h10 = _mm_load_si128((__m128i *)(H_v + (i+1) * SIMD_WIDTH8));
+
+		__m128i j128 = zero128;
+		__m128i maxRS1, maxRS2, maxRS3, maxRS4;
+		maxRS1 = zero128;
+		
+		__m128i i1_128 = _mm_set1_epi8(i+1);
+		__m128i y1_128 = zero128;
+		
+#if RDT	
+		uint64_t tim1 = _rdtsc();
+#endif
+		
+		// Banding
+		__m128i i128, cache128, max128;
+		__m128i phead128 = head128, ptail128 = tail128;
+		i128 = _mm_set1_epi8(i);
+		cache128 = _mm_subs_epu8(i128, myband128);  // modif
+		head128 = _mm_max_epu8(head128, cache128);   // epi8 not present
+		cache128 = _mm_add_epi8(i1_128, myband128);
+		tail128 = _mm_min_epu8(tail128, cache128);
+		tail128 = _mm_min_epu8(tail128, qlen128);
+
+		// NEW, trimming.
+		__m128i cmph = _mm_cmpeq_epi8(head128, phead128);
+		__m128i cmpt = _mm_cmpeq_epi8(tail128, ptail128);
+		// cmph &= cmpt;
+		cmph = _mm_and_si128(cmph, cmpt);
+		// __mmask32 cmp_ht = _mm_movemask_epi8(cmph);
+		__mmask16 cmp_ht = _mm_movemask_epi8(cmph);
+
+		for (int l=beg; l<end && cmp_ht != dmask; l++) {
+			//for (int l=pbeg; l<beg; l++) {
+			__m128i h128 = _mm_load_si128((__m128i *)(H_h + l * SIMD_WIDTH8));
+			__m128i f128 = _mm_load_si128((__m128i *)(F + l * SIMD_WIDTH8));
+
+			__m128i pj128 = _mm_set1_epi8(l);
+			__m128i cmp1 = _mm_cmpgt_epi8(head128, pj128);
+			uint32_t cval = _mm_movemask_epi8(cmp1);
+			if (cval == 0x00) break;
+			__m128i cmp2 = _mm_cmpgt_epi8(pj128, tail128);
+			cmp1 = _mm_or_si128(cmp1, cmp2);
+			h128 = _mm_blendv_epi8(h128, zero128, cmp1);
+			f128 = _mm_blendv_epi8(f128, zero128, cmp1);
+
+			_mm_store_si128((__m128i *)(F + l * SIMD_WIDTH8), f128);
+			_mm_store_si128((__m128i *)(H_h + l * SIMD_WIDTH8), h128);
+		}
+
+#if DEB
+		{
+			// if (0 && cntr <= spot-1 && cntr + 32 > spot-1)
+			{
+			_mm_store_si128((__m128i *) head, head128);
+			_mm_store_si128((__m128i *) tail, tail128);		
+			for (int l=0; l<=ncol; l++)
+				Hmat[i][l] = H_h[l * SIMD_WIDTH8 + lane];
+			
+			_mm_store_si128((__m128i *) temp, exit0);
+			printf("%d, h: %d, t: %d, myband: %d, beg: %d, end: %d, exit: %d\n",
+				   i, head[lane], tail[lane], myband[lane], beg, end, temp[lane]);
+			}
+		}
+#endif
+
+#if RDT
+		prof[DP3][0] += _rdtsc() - tim1;
+#endif
+		// beg = nbeg; end = nend;
+		__m128i cmp128_1 = _mm_cmpgt_epi8(i1_128, tlen128);
+
+		__m128i cmpim = _mm_cmpgt_epi8(i1_128, mlen128);
+		__m128i cmpht = _mm_cmpeq_epi8(tail128, head128);
+		cmpim = _mm_or_si128(cmpim, cmpht);
+		// change
+#if NEW
+		cmpht = _mm_cmpgt_epi8(head128, tail128);
+		cmpim = _mm_or_si128(cmpim, cmpht);
+#endif
+		// change end
+		exit0 = _mm_blendv_epi8(exit0, zero128, cmpim);
+
+#if RDT
+		tim1 = _rdtsc();
+#endif
+		
+		j128 = _mm_set1_epi8(beg);
+		for(j = beg; j < end; j++)
+		{
+            __m128i f11, f21, f31, f41, f51, jj128, s2;
+			h00 = _mm_load_si128((__m128i *)(H_h + j * SIMD_WIDTH8));
+            f11 = _mm_load_si128((__m128i *)(F + j * SIMD_WIDTH8));
+
+            s2 = _mm_load_si128((__m128i *)(seq2SoA + (j) * SIMD_WIDTH8));
+			
+			__m128i pj128 = j128;
+			j128 = _mm_add_epi8(j128, one128);
+
+            //MAIN_CODE8(s10, s2, h00, h11, e11, f11, f21, zero128,
+			//		  maxScore128, gapOpen128, gapExtend128, y1_128, maxRS1); //i+1
+			MAIN_CODE8(s10, s2, h00, h11, e11, f11, f21, zero128,
+					   maxScore128, e_ins128, oe_ins128,
+					   e_del128, oe_del128,
+					   y1_128, maxRS1); //i+1
+
+
+			// Masked writing
+			__m128i cmp1 = _mm_cmpgt_epi8(head128, pj128);
+			__m128i cmp2 = _mm_cmpgt_epi8(pj128, tail128);
+			cmp1 = _mm_or_si128(cmp1, cmp2);
+			//__m128i cmpt = _mm_xor_si128(cmp1, ff128);
+			h10 = _mm_blendv_epi8(h10, zero128, cmp1);
+			f21 = _mm_blendv_epi8(f21, zero128, cmp1);
+			//h10 = _mm_and_si128(h10, cmpt);
+			//f21 = _mm_and_si128(f21, cmpt);
+			
+			// got this block out of MAIN_CODE
+			__m128i bmaxRS = maxRS1;										
+			maxRS1 =_mm_max_epu8(maxRS1, h11);   // modif
+			__m128i cmpA = _mm_cmpgt_epi8(maxRS1, bmaxRS);					
+			__m128i cmpB =_mm_cmpeq_epi8(maxRS1, h11);					
+			cmpA = _mm_or_si128(cmpA, cmpB);								
+			cmpA = _mm_blendv_epi8(y1_128, j128, cmpA);
+			y1_128 = _mm_blendv_epi8(cmpA, y1_128, cmp1);
+			maxRS1 = _mm_blendv_epi8(maxRS1, bmaxRS, cmp1);						
+
+			_mm_store_si128((__m128i *)(F + j * SIMD_WIDTH8), f21);
+			_mm_store_si128((__m128i *)(H_h + j * SIMD_WIDTH8), h10);
+
+			h10 = h11;
+
+			//{
+			//	_mm_store_si128((__m128i *)temp, h11);
+			//	_mm_store_si128((__m128i *)temp1, maxRS1);
+			//	printf("(%d %d, %d,%d) ",i, j, temp[0], temp1[0]);
+			//}
+
+			//j128 = _mm_add_epi8(j128, one128);
+			
+			// gscore calculations
+			if (j >= minq)
+			{
+				__m128i cmp = _mm_cmpeq_epi8(j128, qlen128);
+				//__m128i max_gh = _mm_max_epi8(gscore, h11);      //epi8 not present, modif
+				__m128i cmp_gh = _mm_cmpgt_epi8(gscore, h11);
+				__m128i tmp128_1 = _mm_blendv_epi8(i1_128, max_ie128, cmp_gh);
+				__m128i max_gh = _mm_blendv_epi8(h11, gscore, cmp_gh);
+				
+				tmp128_1 = _mm_blendv_epi8(max_ie128, tmp128_1, cmp);
+				tmp128_1 = _mm_blendv_epi8(max_ie128, tmp128_1, exit0);
+				
+				max_gh = _mm_blendv_epi8(gscore, max_gh, exit0);
+				max_gh = _mm_blendv_epi8(gscore, max_gh, cmp);				
+			
+				cmp = _mm_cmpgt_epi8(j128, tail128); 
+				max_gh = _mm_blendv_epi8(max_gh, gscore, cmp);
+				max_ie128 = _mm_blendv_epi8(tmp128_1, max_ie128, cmp);
+				gscore = max_gh;
+			}
+        }
+		_mm_store_si128((__m128i *)(H_h + j * SIMD_WIDTH8), h10);
+		_mm_store_si128((__m128i *)(F + j * SIMD_WIDTH8), zero128);
+		
+		
+		/* exit due to zero score by a row */
+		uint16_t cval = 0;
+		__m128i bmaxScore128 = maxScore128;
+		__m128i tmp = _mm_cmpeq_epi8(maxRS1, zero128);
+		cval = _mm_movemask_epi8(tmp);
+		if (cval == 0xFFFF) break;
+
+		// _mm_store_si128((__m128i *) temp, exit0);
+		exit0 = _mm_blendv_epi8(exit0, zero128,  tmp);
+		// _mm_store_si128((__m128i *) temp1, exit0);
+		// printf("exit0: %d %d %d\n", i, temp[lane], temp1[lane]);
+
+		__m128i score128 = _mm_max_epu8(maxScore128, maxRS1);   // epi8 not present, modif
+		maxScore128 = _mm_blendv_epi8(maxScore128, score128, exit0);
+
+		__m128i cmp = _mm_cmpgt_epi8(maxScore128, bmaxScore128);
+		y128 = _mm_blendv_epi8(y128, y1_128, cmp);
+		x128 = _mm_blendv_epi8(x128, i1_128, cmp);
+		
+		// max_off calculations
+#if 0
+		tmp = _mm_sub_epi8(y1_128, i1_128);
+		tmp = _mm_abs_epi8(tmp);               // not present
+#else
+		__m128i ab = _mm_subs_epu8(y1_128, i1_128);
+		__m128i ba = _mm_subs_epu8(i1_128, y1_128);
+		tmp = _mm_or_si128(ab, ba);
+#endif
+		__m128i bmax_off128 = max_off128;
+		tmp = _mm_max_epu8(max_off128, tmp);  // modif
+		max_off128 = _mm_blendv_epi8(bmax_off128, tmp, cmp);
+		// Z-score
+		ZSCORE8(i1_128, y1_128);		
+
+#if RDT
+		prof[DP1][0] += _rdtsc() - tim1;
+		tim1 = _rdtsc();
+#endif
+		
+		/* Narrowing of the band */
+		/* From beg */
+		int l;
+ 		for (l = beg; l < end; l++) {
+			__m128i f128 = _mm_load_si128((__m128i *)(F + l * SIMD_WIDTH8));
+			__m128i h128 = _mm_load_si128((__m128i *)(H_h + l * SIMD_WIDTH8));
+			__m128i tmp = _mm_or_si128(f128, h128);
+			tmp = _mm_cmpeq_epi8(tmp, zero128);
+			uint16_t val = _mm_movemask_epi8(tmp);
+			if (val == 0xFFFF) nbeg = l;
+			else
+				break;
+		}
+		
+		/* From end */
+		bool flg = 1;
+		for (l = end; l >= beg; l--) {
+			__m128i f128 = _mm_load_si128((__m128i *)(F + l * SIMD_WIDTH8));
+			__m128i h128 = _mm_load_si128((__m128i *)(H_h + l * SIMD_WIDTH8));
+			__m128i tmp = _mm_or_si128(f128, h128);
+			tmp = _mm_cmpeq_epi8(tmp, zero128);
+			uint16_t val = _mm_movemask_epi8(tmp);
+			if (val != 0xFFFF)  
+				break;
+		}
+		// int pnend =nend;
+		nend = l + 2 < ncol? l + 2: ncol;
+		
+		__m128i tail128_ = _mm_sub_epi8(tail128, one128);
+		__m128i tmpb = ff128;
+
+		__m128i exit1 = _mm_xor_si128(exit0, ff128);
+		__m128i l128 = _mm_set1_epi8(beg);
+		
+		for (l = beg; l < end; l++) {
+			__m128i f128 = _mm_load_si128((__m128i *)(F + l * SIMD_WIDTH8));
+			__m128i h128 = _mm_load_si128((__m128i *)(H_h + l * SIMD_WIDTH8));
+	
+			__m128i tmp = _mm_or_si128(f128, h128);
+			//tmp = _mm_or_si128(tmp, _mm_xor_si128(exit0, ff128));
+			tmp = _mm_or_si128(tmp, exit1);			
+			tmp = _mm_cmpeq_epi8(tmp, zero128);
+			uint32_t val = _mm_movemask_epi8(tmp);
+			if (val == 0x00) {
+				break;
+			}
+			tmp = _mm_and_si128(tmp,tmpb);
+			l128 = _mm_add_epi8(l128, one128);
+#if !NEW
+			__m128i mask2 = _mm_cmpgt_epi8(l128, tail128_);
+			mask2 = _mm_blendv_epi8(l128, tail128,  mask2);
+			head128 = _mm_blendv_epi8(head128, mask2, tmp);
+#else
+			head128 = _mm_blendv_epi8(head128, l128, tmp);
+#endif
+			tmpb = tmp;			
+		}
+		
+		__m128i  index128 = tail128;
+		tmpb = ff128;
+
+		l128 = _mm_set1_epi8(end);
+		for (l = end; l >= beg; l--)
+		{
+			__m128i f128 = _mm_load_si128((__m128i *)(F + l * SIMD_WIDTH8));
+			__m128i h128 = _mm_load_si128((__m128i *)(H_h + l * SIMD_WIDTH8));
+			
+			__m128i tmp = _mm_or_si128(f128, h128);
+			tmp = _mm_or_si128(tmp, exit1);
+			tmp = _mm_cmpeq_epi8(tmp, zero128);			
+			uint32_t val = _mm_movemask_epi8(tmp);
+			if (val == 0x00)  {
+				break;
+			}
+
+			tmp = _mm_and_si128(tmp,tmpb);
+			l128 = _mm_sub_epi8(l128, one128);
+#if !NEW
+			__m128i mask2 = _mm_cmpgt_epi8(l128, tail128);		
+			mask2 = _mm_blendv_epi8(l128, tail128,  mask2);
+			index128 = _mm_blendv_epi8(index128, mask2, tmp);
+#else
+			index128 = _mm_blendv_epi8(index128, l128, tmp);
+#endif
+			tmpb = tmp;
+		}
+		index128 = _mm_add_epi8(index128, two128);
+		tail128 = _mm_min_epu8(index128, qlen128);   // epi8 not present, modif
+		// _mm_store_si128((__m128i *) tail, tail128);		
+		
+#if RDT
+		prof[DP2][0] += _rdtsc() - tim1;
+#endif
+    }
+   
+#if RDT
+	prof[DP][0] += _rdtsc() - tim;
+#endif
+	
+    int8_t score[SIMD_WIDTH8]  __attribute((aligned(64)));
+	_mm_store_si128((__m128i *) score, maxScore128);
+
+	int8_t maxi[SIMD_WIDTH8]  __attribute((aligned(64)));
+    _mm_store_si128((__m128i *) maxi, x128);
+
+	int8_t maxj[SIMD_WIDTH8]  __attribute((aligned(64)));
+    _mm_store_si128((__m128i *) maxj, y128);
+
+	int8_t max_off_ar[SIMD_WIDTH8]  __attribute((aligned(64)));
+    _mm_store_si128((__m128i *) max_off_ar, max_off128);
+
+	int8_t gscore_ar[SIMD_WIDTH8]  __attribute((aligned(64)));
+    _mm_store_si128((__m128i *) gscore_ar, gscore);
+
+	int8_t maxie_ar[SIMD_WIDTH8]  __attribute((aligned(64)));
+    _mm_store_si128((__m128i *) maxie_ar, max_ie128);
+	
+	static int cnt = 0;	
+    for(i = 0; i < SIMD_WIDTH8; i++)
+    {
+		p[i].score = score[i];
+		p[i].tle = maxi[i];
+		p[i].qle = maxj[i];
+		p[i].max_off = max_off_ar[i];
+		p[i].gscore = gscore_ar[i];
+		p[i].gtle = maxie_ar[i];
+    }
+	
+    return;
+}
+
+
 #endif

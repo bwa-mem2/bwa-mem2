@@ -1085,7 +1085,7 @@ int64_t sort_classify(mem_cache *mmc, int offset1, int64_t pcnt)
 {
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
 	SeqPair *seqPairArrayAux = mmc->seqPairArrayAux + offset1;
-	// printf("size: %d", size);
+
 	int64_t pos8 = 0, pos16 = 0;
 	for (int i=0; i<pcnt; i++) {
 		SeqPair *s = seqPairArray + i;
@@ -1220,12 +1220,11 @@ void mem_process_seqs(mem_opt_t *opt,
 	int n_ = n;
 	
 	uint64_t tim = _rdtsc();	
-	if(myrank == 0)
-		fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_bwt\n", myrank);
+	fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_bwt\n", myrank);
+	
 	kt_for(worker_bwt, &w, n_); // SMEMs (+SAL)
 
-	if(myrank == 0)
-		fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_aln\n", myrank);
+	fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_aln\n", myrank);
 	
 	kt_for(worker_aln, &w, n_); // BSW
 	tprof[WORKER10][0] += _rdtsc() - tim;		
@@ -1245,16 +1244,14 @@ void mem_process_seqs(mem_opt_t *opt,
 #endif
 	
 	tim = _rdtsc();
-	if(myrank == 0)
-		fprintf(stderr, "[%0.4d] 10. Calling kt_for - worker_sam\n", myrank);
+	fprintf(stderr, "[%0.4d] 10. Calling kt_for - worker_sam\n", myrank);
 	
 	kt_for(worker_sam, &w,  n_);   // SAM	
   	tprof[WORKER20][0] += _rdtsc() - tim;
 
-	if(myrank == 0)
-		fprintf(stderr, "\t[%0.4d][ M::%s] Processed %d reads in %.3f "
-			   "CPU sec, %.3f real sec\n", myrank,
-			   __func__, n, cputime() - ctime, realtime() - rtime);
+	fprintf(stderr, "\t[%0.4d][ M::%s] Processed %d reads in %.3f "
+			"CPU sec, %.3f real sec\n", myrank,
+			__func__, n, cputime() - ctime, realtime() - rtime);
 
 }
 
@@ -1733,74 +1730,6 @@ uint8_t *bns_fetch_seq_v2(const bntseq_t *bns, const uint8_t *pac,
 	return seq;
 }
 
-inline void sortPairsLen_(SeqPair *pairArray, int32_t count, SeqPair *tempArray,
-						  int32_t *hist, int &numPairs128, int &numPairs1)
-{
-  int32_t i;
-#if DEB          // Investigate why len1 is 0 sometime!!
-    for(i = 0; i < count; i++)
-		if ( pairArray[i].len1 == 0) {
-			fprintf(stderr, "zero %d\n", i);
-			//exit(0);
-		}
-#endif
-	numPairs128 = numPairs1 = 0;
-	
-    __m256i zero256 = _mm256_setzero_si256();
-    for(i = 0; i <= MAX_SEQ_LEN8; i+=8)
-    {
-        _mm256_store_si256((__m256i *)(hist + i), zero256);
-    }
-    
-    for(i = 0; i < count; i++)
-    {
-		SeqPair sp = pairArray[i];
-		int val = max_(sp.len1, sp.len2);
-		int minval = sp.h0 + min_(sp.len1, sp.len2);
-		if (val < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8)
-			hist[val]++;
-		else
-			hist[MAX_SEQ_LEN8] ++;
-    }
-
-    int32_t cumulSum = 0;
-    for(i = 0; i <= MAX_SEQ_LEN8; i++)
-    {
-        int32_t cur = hist[i];
-        hist[i] = cumulSum;
-        cumulSum += cur;
-    }
-
-    for(i = 0; i < count; i++)
-    {
-		SeqPair sp = pairArray[i];
-		int val = max_(sp.len1, sp.len2);
-		int minval = sp.h0 + min_(sp.len1, sp.len2);
-		if (val < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8)
-		{
-			int32_t pos = hist[val];
-			tempArray[pos] = sp;
-			hist[val]++;
-			numPairs128 ++;
-		} else {
-			int32_t pos = hist[MAX_SEQ_LEN8];
-			tempArray[pos] = sp;
-			hist[MAX_SEQ_LEN8]++;
-			numPairs1 ++;
-		}
-
-    }
-
-    for(i = 0; i < count; i++) {
-        pairArray[i] = tempArray[i];
-	}
-	
-#if DEB
-	for(i = 1; i < count; i++)
-		if(pairArray[i-1].len1 > pairArray[i].len1 || pairArray[i].len1 == 0)
-			fprintf(stderr, "%d %d %d\n", i, pairArray[i-1].len1, pairArray[i].len1);
-#endif
-}
 
 inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArray,
 							int32_t *hist, int &numPairs128, int &numPairs16,
@@ -1863,7 +1792,6 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 		//if (maxval < sp.len2) maxval = sp.len2;
 		//int minval = sp.h0 + maxval;
 		
-		// printf("i: %d, minval: %d\n", i, minval);
 		if (val < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8)
 		{
 			int32_t pos = hist[minval];
@@ -1893,7 +1821,6 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 			arr[pos] = i + 1;
 		}
 		else {
-			// printf("Should be no-mans land\n");
 			int32_t pos = hist3[0];
 			tempArray[pos] = sp;
 			hist3[0]++;
@@ -1911,11 +1838,12 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 #if 1  // DEB
 	for(i = 0; i < numPairs128; i++) {
 		if (pairArray[i].len1 >= 128 || pairArray[i].len2 >= 128 || pairArray[i].h0 >= 128)
-			fprintf(stderr, "Not matching..1 %d %d %d\n", pairArray[i].len1, pairArray[i].len2, pairArray[i].h0);
+			fprintf(stderr, "Error: Not matching..1 %d %d %d\n",
+					pairArray[i].len1, pairArray[i].len2, pairArray[i].h0);
 	}
 	for(i = numPairs128; i < numPairs16; i++) {
 		if (pairArray[i].len1 >= MAX_SEQ_LEN16 || pairArray[i].len2 >= MAX_SEQ_LEN16 || pairArray[i].h0 >= MAX_SEQ_LEN16)
-			fprintf(stderr, "Not matching..2\n");
+			fprintf(stderr, "Error: Not matching..2\n");
 	}
 #endif
 }
@@ -1924,7 +1852,7 @@ inline void sortPairsLen(SeqPair *pairArray, int32_t count, SeqPair *tempArray, 
 {
 
     int32_t i;
-#if ((!__AVX512BW__) & (__AVX2__))
+#if ((!__AVX512BW__) & (__AVX2__ | __SSE2__))
     for(i = 0; i <= MAX_SEQ_LEN16; i++) hist[i] = 0;
 #else	
     __m512i zero512 = _mm512_setzero_si512();
@@ -2240,17 +2168,17 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 					tprof[PE23][tid] += sp.len1 + sp.len2;
 
 					
-					for (int i = 0; i < sp.len2; i+=32) {  //macro replacement
-						__m256i load256 = _mm256_loadu_si256((__m256i *)(query + qe + i));
-						_mm256_storeu_si256((__m256i *)(qs + i), load256);
-					}
-					// for (int i = 0; i < sp.len2; ++i) qs[i] = query[qe + i];
+					// for (int i = 0; i < sp.len2; i+=32) {  //macro replacement
+					// 	__m256i load256 = _mm256_loadu_si256((__m256i *)(query + qe + i));
+					// 	_mm256_storeu_si256((__m256i *)(qs + i), load256);
+					// }
+					for (int i = 0; i < sp.len2; ++i) qs[i] = query[qe + i];
 
-					for (int i = 0; i < sp.len1; i+=32) {  //macro replacement
-						__m256i load256 = _mm256_loadu_si256((__m256i *)(rseq + re + i));
-						_mm256_storeu_si256((__m256i *)(rs + i), load256);						
-					}
-					// for (int i = 0; i < sp.len1; ++i) rs[i] = rseq[re + i]; //seq1
+					// for (int i = 0; i < sp.len1; i+=32) {  //macro replacement
+					// 	__m256i load256 = _mm256_loadu_si256((__m256i *)(rseq + re + i));
+					// 	_mm256_storeu_si256((__m256i *)(rs + i), load256);						
+					// }
+					for (int i = 0; i < sp.len1; ++i) rs[i] = rseq[re + i]; //seq1
 
 
 					int minval = sp.h0 + max_(sp.len1, sp.len2);
@@ -2292,22 +2220,14 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	}
 	// tprof[MEM_ALN2_UP][tid] += _rdtsc() - timUP;
 	
-
-	// Wholesale sorting :)
 	// uint64_t timS = _rdtsc();
 	int32_t *hist = (int32_t *)_mm_malloc((MAX_SEQ_LEN8 + MAX_SEQ_LEN16 + 32) *
 										  sizeof(int32_t), 64);
 	for (int l=0; l<numPairsLeft; l++) {
 		SeqPair sp = seqPairArrayLeft128[l];
-		if (sp.len1 > 10000) {
-			fprintf(stderr, "1. %d %d %d\n", l, sp.len1, sp.len2);
-			exit(0);
-		}
 	}
 
 	/* Sorting based score is required as that affects the use of SIMD lanes */
-	// sortPairsLen_(seqPairArrayLeft128, numPairsLeft, seqPairArrayLeft, hist,
-	//			  numPairsLeft128, numPairsLeft1);
 	sortPairsLenExt(seqPairArrayLeft128, numPairsLeft, seqPairArrayAux, hist,
 				  numPairsLeft128, numPairsLeft16, numPairsLeft1);
 	assert(numPairsLeft == (numPairsLeft128 + numPairsLeft16 + numPairsLeft1));
@@ -2315,7 +2235,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	for (int l=0; l<numPairsLeft; l++) {
 		SeqPair sp = seqPairArrayLeft128[l];
 	}
-
 	assert(numPairsRight == (numPairsRight128 + numPairsRight16 + numPairsRight1));
 	// tprof[SORT][tid] += _rdtsc() - timS;
 
@@ -2413,16 +2332,19 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	{
 		int w = opt->w << i;
 		// int64_t tim = _rdtsc();
-#if ((!__AVX512BW__) && (!__AVX2__))
+#if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
 		bswLeft.scalarBandedSWAWrapper(pair_ar, seqBufLeftRef, seqBufLeftQer, nump, nthreads, w);
 #else
+		// printf("Check 1...\n");
 		sortPairsLen(pair_ar, nump, seqPairArrayAux, hist);
+		//printf("Check 2...\n");
 		bswLeft.getScores16(pair_ar,
 							seqBufLeftRef,
 							seqBufLeftQer,
 							nump,
 							nthreads,
 							w);
+		//printf("Check 3...\n");
 #endif
 		
 		tprof[PE5][0] += nump;
@@ -2483,7 +2405,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 		int w = opt->w << i;
 		// int64_t tim = _rdtsc();
 		
-#if ((!__AVX512BW__) && (!__AVX2__))
+#if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
 		bswLeft.scalarBandedSWAWrapper(pair_ar, seqBufLeftRef, seqBufLeftQer, nump, nthreads, w);
 #else
 		sortPairsLen(pair_ar, nump, seqPairArrayAux, hist);
@@ -2633,7 +2555,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	{
 		int w = opt->w << i;
 		// uint64_t tim = _rdtsc();
-#if ((!__AVX512BW__) && (!__AVX2__))
+#if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
 		bswRight.scalarBandedSWAWrapper(pair_ar, seqBufRightRef, seqBufRightQer, nump, nthreads, w);
 #else
 		sortPairsLen(pair_ar, nump, seqPairArrayAux, hist);
@@ -2704,7 +2626,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 		int w = opt->w << i;
 		// uint64_t tim = _rdtsc();
 		
-#if ((!__AVX512BW__) && (!__AVX2__))
+#if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
 		bswRight.scalarBandedSWAWrapper(pair_ar, seqBufRightRef, seqBufRightQer, nump, nthreads, w); 
 #else
 		sortPairsLen(pair_ar, nump, seqPairArrayAux, hist);
@@ -2767,8 +2689,10 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	
 	if (numPairsLeft >= BATCH_SIZE * SEEDS_PER_READ || numPairsRight >= BATCH_SIZE * SEEDS_PER_READ)
 	{   // refine it!
-		fprintf(stderr, "This should not have happened!!!\n");
-		fprintf(stderr, "numPairsLeft: %d, numPairsRight %d\nExiting.\n", numPairsLeft, numPairsRight);
+		fprintf(stderr, "Error: This should not have happened!!!\n");
+		fprintf(stderr, "Error: assert failed for seqPair size, "
+				"numPairsLeft: %d, numPairsRight %d\nExiting.\n",
+				numPairsLeft, numPairsRight);
 		exit(0);
 	}
 	/* Discard seeds and hence their alignemnts */
@@ -2852,7 +2776,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 				{
 					for (v = k + 1; v < c->n; ++v)
 					{
-						// printf("r: %d, k: %d, n: %d\n", r, k, c->n);
 						const mem_seed_t *t;
 						if (srt2[v] == UINT_MAX) continue;
 						//t = &c->seeds[(uint32_t)srt[v]];

@@ -31,10 +31,10 @@
 
 EXE=		bwa-mem2
 CXX=		icpc
-CXXFLAGS=	-g -O3 -std=c++11 -fopenmp -mtune=native -march=native
+CXXFLAGS=	-g -O3 -std=c++11 -fopenmp -mtune=native -march=native ##-xSSE2 
 SWA_FLAGS=	-DDEB=0 -DRDT=0 -DMAXI=0 -DNEW=1 -DSORT_PAIRS=0
-MEM_FLAGS=	-DBWA_OTHER_ELE=1 -DPAIRED_END=1 -DMAINY=0 -DMPI_ENABLED=0
-CPPFLAGS=	-DENABLE_PREFETC $(MEM_FLAGS) $(SWA_FLAGS)
+MEM_FLAGS=	-DBWA_OTHER_ELE=1 -DPAIRED_END=1 -DMAINY=0 -DMPI_ENABLED=0 -DSAIS=1
+CPPFLAGS=	-DENABLE_PREFETCH $(MEM_FLAGS) $(SWA_FLAGS) 
 LIBS=		-fopenmp -lpthread -lrt -lm -lz
 OBJS=		src/fastmap.o src/bwtindex.o src/main.o src/utils.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o src/bandedSWA.o \

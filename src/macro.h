@@ -81,6 +81,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define MPI_TIME_MIN 18
 #define POST_SWA 19
 #define MPI_TIME_MAX 20
+#define SAM_IO 21
 #define ALIGN1 22
 
 #define KT_FOR 24

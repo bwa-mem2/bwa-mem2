@@ -1013,7 +1013,7 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			//(*myaln)++;
 			int index = gar[gcnt + r];
 			if (index == -1) {
-				printf("Re-routing: Encountered -ve index for gcnt: %d, look into pre.\n", gcnt + r);
+				fprintf(stderr, "Re-routing: Encountered -ve index for gcnt: %d, look into pre.\n", gcnt + r);
 				assert(ref != 0);
 				aln = ksw_align2(l_ms, seq, re - rb, ref, 5,
 								 opt->mat, opt->o_del, opt->e_del,

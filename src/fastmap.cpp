@@ -45,6 +45,7 @@ extern int num_ranks, myrank;
 extern int nthreads;
 uint8_t *ref_string;
 int readLen;
+int64_t nreads;
 // ---------------
 int64_t get_limit_fsize(FILE *fpp, int64_t nread_lim,
 						char buf[], char buf1[]) {
@@ -166,95 +167,66 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int64_t nreads)
 	fprintf(stderr, "------------------------------------------\n");
 }
 
-static int process(void *shared, gzFile gfp, gzFile gfp2)
+ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, worker_t &w)
 {
-	ktp_aux_t	*aux			  = (ktp_aux_t*) shared;
-	ktp_data_t	*ret;
-	int			 i, nt, iteration = 0;
-	int64_t		 sz				  = 0;
-	worker_t	 w;
-	mem_opt_t	*opt			  = aux->opt;
+	ktp_aux_t *aux = (ktp_aux_t*) shared;
+	ktp_data_t *ret = (ktp_data_t*) data;
 
-#pragma omp parallel
+	if (step == 0)
 	{
-		nt = omp_get_num_threads();
-	}
-
-	if (opt->n_threads > nt) {
-		opt->n_threads = nt;
-		fprintf(stderr, "--------------------------------------------------------------\n");
-		fprintf(stderr, "No. of threads requested are more than avaialable HW threads\n");
-		fprintf(stderr, "Thus, capping no. of threads to %d\n", nt);
-		fprintf(stderr, "--------------------------------------------------------------\n");
-	} else {
-		omp_set_num_threads(opt->n_threads);
-	}
-	nthreads = opt->n_threads; // global variable for profiling!
-	if(myrank == 0)
-		fprintf(stderr, "omp_threads by system: %d, threads used: %d\n",
-			   nt, nthreads);
-
-	
-	int64_t nreads = aux->actual_chunk_size/ (readLen) + 10;
-	fprintf(stderr, "Input read length: %d\n", readLen);
-	fprintf(stderr, "Projected #read in a task: %d\n", nreads);
-	
-	/* All memory allocation */
-	memoryAlloc(aux, w, nreads);
-	
-	int task = 0;
-	// uint64_t timAll = _rdtsc();
-
-	ret = (ktp_data_t *) calloc(1, sizeof(ktp_data_t));
-	
-	while (true)
-	{
+		// printf("Thread entering step 0, with task_size: %d, CPU: %d\n", aux->task_size, sched_getcpu());
+		ktp_data_t *ret = (ktp_data_t *) calloc(1, sizeof(ktp_data_t));
 		uint64_t tim = _rdtsc();
-		// ret = ret_ar + iteration;
 		/* Read "reads" from input file (fread) */
+		int64_t sz = 0;
+		//if (temp++ == 0) 
 		ret->seqs = bseq_read_orig(aux->task_size,
 								   &ret->n_seqs,
 								   aux->ks,
 								   aux->ks2,
 								   &sz);
 
+		// *ret = *ret2;
 		tprof[READ_IO][0] += _rdtsc() - tim;
-		// tprof[0][0] += sz;  // debug info, for accuracy checks!!
-		// tprof[0][2] += ret->n_seqs;
-		
-		iteration ++;
-		fprintf(stderr, "Read %d seqs, task_size: %ld\n", ret->n_seqs, aux->task_size);
+		tprof[0][0] += sz;  // debug info, for accuracy checks!!
+		tprof[0][2] += ret->n_seqs;
+		// iteration ++;
+		// fprintf(stderr, "Read %d seqs, task_size: %ld\n", ret->n_seqs, aux->task_size);
 		assert(ret->n_seqs <= nreads);
 		
-		if(myrank == 0)
-			fprintf(stderr, "[%0.4d] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
-				   myrank, aux->task_size, sz, ret->n_seqs);   
+		fprintf(stderr, "[%0.4d] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
+				myrank, aux->task_size, sz, ret->n_seqs);   
 
 		if (ret->seqs == 0) {
-			//free(ret);
-			//return 0;
-			// goto release;
-			break;
+			free(ret);
+			// printf("Threads leaving step 0 (Break), CPU: %d\n", sched_getcpu());
+			return 0;
 		}
 		if (!aux->copy_comment){
-			for (i = 0; i < ret->n_seqs; ++i){
+			for (int i = 0; i < ret->n_seqs; ++i){
 				free(ret->seqs[i].comment);
 				ret->seqs[i].comment = 0;
 			}
 		}
 		{
 			int64_t size = 0;
-			for (i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
-			if(myrank == 0)
-				fprintf(stderr, "\t[%0.4d][ M::%s] read %d sequences (%ld bp)...\n",
-					   myrank, __func__, ret->n_seqs, (long)size);
+			for (int i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
+
+			fprintf(stderr, "\t[%0.4d][ M::%s] read %d sequences (%ld bp)...\n",
+					myrank, __func__, ret->n_seqs, (long)size);
 		}
+				
+		// printf("Threads leaving step 0, CPU: %d\n", sched_getcpu());
+		return ret;
+	} // Step 0			
+	else if (step == 1)  /* Step 2: Main processing-engine */
+	{
+		static int task = 0;
+		// printf("Thread entering step 1, CPU: %d\n", sched_getcpu());
+								
+		fprintf(stderr, "[%0.4d] 2. Calling mem_process_seqs.., task: %d\n", myrank, task++);
 
-		/* Step 2: Main processing-engine */
-		if(myrank == 0)
-			fprintf(stderr, "[%0.4d] 2. Calling mem_process_seqs.., task: %d\n", myrank, task++);
-
-		tim = _rdtsc();
+		uint64_t tim = _rdtsc();
 		if (opt->flag & MEM_F_SMARTPE)
 		{
 			bseq1_t *sep[2];
@@ -262,8 +234,9 @@ static int process(void *shared, gzFile gfp, gzFile gfp2)
 			mem_opt_t tmp_opt = *opt;
 
 			bseq_classify(ret->n_seqs, ret->seqs, n_sep, sep);
+
 			fprintf(stderr, "[M::%s] %d single-end sequences; %d paired-end sequences.....\n",
-				   __func__, n_sep[0], n_sep[1]);
+					__func__, n_sep[0], n_sep[1]);
 			
 			if (n_sep[0]) {
 				tmp_opt.flag &= ~MEM_F_PE;
@@ -279,7 +252,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2)
 				// mem_process_seqs(&tmp_opt, idx->bwt, idx->bns, idx->pac,
 				//				 aux->n_processed, n_sep[0], sep[0], 0);
 				
-				for (i = 0; i < n_sep[0]; ++i)
+				for (int i = 0; i < n_sep[0]; ++i)
 					ret->seqs[sep[0][i].id].sam = sep[0][i].sam;
 			}
 			if (n_sep[1]) {
@@ -297,7 +270,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2)
 				// mem_process_seqs(&tmp_opt, idx->bwt, idx->bns, idx->pac,
 				// aux->n_processed + n_sep[0], n_sep[1], sep[1], aux->pes0);
 				
-				for (i = 0; i < n_sep[1]; ++i)
+				for (int i = 0; i < n_sep[1]; ++i)
 					ret->seqs[sep[1][i].id].sam = sep[1][i].sam;
 			}
 			free(sep[0]); free(sep[1]);
@@ -312,31 +285,152 @@ static int process(void *shared, gzFile gfp, gzFile gfp2)
 							 ret->seqs,
 							 aux->pes0,
 							 w);
-		}
+		}				
 		tprof[MEM_PROCESS2][0] += _rdtsc() - tim;
-		
+				
+		// printf("Thread leaving step 1, CPU: %d\n", sched_getcpu());
+		return ret;
+	} 			
+	/* Step 3: Write output */
+	else if (step == 2) {
+		// printf("Thread entering step 2, CPU: %d\n", sched_getcpu());
+				
 		aux->n_processed += ret->n_seqs;   //modified!!
-			
-		for (i = 0; i < ret->n_seqs; ++i)
+		uint64_t tim = _rdtsc();
+
+		for (int i = 0; i < ret->n_seqs; ++i)
 		{
 			if (ret->seqs[i].sam) {
-				// err_fputs(ret->seqs[i].sam, stdout);
+				// err_fputs(ret->seqs[i].sam, stderr);
 				fputs(ret->seqs[i].sam, aux->fp);
 			}
 			free(ret->seqs[i].name); free(ret->seqs[i].comment);
-			free(ret->seqs[i].seq); free(ret->seqs[i].qual);
+		    free(ret->seqs[i].seq); free(ret->seqs[i].qual);
 			free(ret->seqs[i].sam);
 		}
 		free(ret->seqs);
-		// fprintf(stderr, "[%0.4d] mem usage: %ld %ld\n", myrank, getCurrentRSS(), getPeakRSS());
-	}
+		tprof[SAM_IO][0] += _rdtsc() - tim;
+		// printf("Thread leaving step 2, CPU: %d\n", sched_getcpu());
+		// printf("[%0.4d] mem usage: %ld %ld\n", myrank, getCurrentRSS(), getPeakRSS());
+		return 0;
+	} // step 2
+
+	return 0;
+}
+
+static void *ktp_worker(void *data) {
 	
-	// uint64_t mytim = _rdtsc() - timAll;
-	// tprof[MPI_TIME][1] = mytim;   	
-	fprintf(stderr, "[%0.4d] Output writing ends..\n", myrank);
+	// printf("ptid: %d\n", *(int*)ptid);
+	ktp_worker_t *w = (ktp_worker_t*) data;
+	ktp_t *p = w->pl;
+	// args_t args = w->args;
+	
+	while (w->step < p->n_steps) {
+		// test whether we can kick off the job with this worker
+		pthread_mutex_lock(&p->mutex);
+		for (;;) {
+			int i;
+			// test whether another worker is doing the same step
+			for (i = 0; i < p->n_workers; ++i) {
+				if (w == &p->workers[i]) continue; // ignore itself
+				if (p->workers[i].step <= w->step && p->workers[i].index < w->index)
+					break;
+			}
+			if (i == p->n_workers) break; // no workers with smaller indices are doing w->step or the previous steps
+			pthread_cond_wait(&p->cv, &p->mutex);
+		}
+		pthread_mutex_unlock(&p->mutex);
+
+		// working on w->step
+		// printf("[%0.4d] Calling pipeline.., step: %d\n", w->i, w->step);
+
+		w->data = kt_pipeline(p->shared, w->step, w->step? w->data : 0, w->opt, *(w->w)); // for the first step, input is NULL
+		// if (w->data == 0) printf("NULL data recv from step %d by thread %d\n", w->step, w->i);
+
+		// update step and let other workers know
+		pthread_mutex_lock(&p->mutex);
+		w->step = w->step == p->n_steps - 1 || w->data? (w->step + 1) % p->n_steps : p->n_steps;
+
+		// printf("Step: %d, %d\n", w->step, w->data? (w->step + 1) % p->n_steps : p->n_steps);
+
+		if (w->step == 0) w->index = p->index++;
+		pthread_cond_broadcast(&p->cv);
+		pthread_mutex_unlock(&p->mutex);
+	}
+	pthread_exit(0);
+}
+
+static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
+{
+	ktp_aux_t	*aux			  = (ktp_aux_t*) shared;
+	ktp_data_t	*ret;
+	int			 i, nt, iteration = 0;
+	int64_t		 sz				  = 0;
+	worker_t	 w;
+	mem_opt_t	*opt			  = aux->opt;
+
+	// if (opt->n_threads > nt) {
+	// 	opt->n_threads = nt;
+	// 	fprintf(stderr, "--------------------------------------------------------------\n");
+	// 	fprintf(stderr, "No. of threads requested are more than avaialable HW threads\n");
+	// 	fprintf(stderr, "Thus, capping no. of threads to %d\n", nt);
+	// 	fprintf(stderr, "--------------------------------------------------------------\n");
+	// } else {
+	// 	omp_set_num_threads(opt->n_threads);
+	// }
+
+	nthreads = opt->n_threads; // global variable for profiling!
+	fprintf(stderr, "Threads used (compute): %d\n",
+			nthreads);
+	
+	nreads = aux->actual_chunk_size/ (readLen) + 10;
+	fprintf(stderr, "Input read length: %d\n", readLen);
+	fprintf(stderr, "Projected #read in a task: %d\n", nreads);
+	
+	/* All memory allocation */
+	memoryAlloc(aux, w, nreads);
+	
+	int task = 0;
+	{  // pipeline using pthreads
+		ktp_t aux_;
+		int p_nt = pipe_threads; // 2;
+		int n_steps = 3;
+		
+		//if (n_threads < 1) n_threads = 1;
+		aux_.n_workers = p_nt;
+		aux_.n_steps = n_steps;
+		// aux_.func = process;
+		aux_.shared = aux;
+		aux_.index = 0;
+		pthread_mutex_init(&aux_.mutex, 0);
+		pthread_cond_init(&aux_.cv, 0);
+		fprintf(stderr, "No. of pipeline threads: %d\n", p_nt);
+		aux_.workers = (ktp_worker_t*) malloc(p_nt * sizeof(ktp_worker_t));
+		
+		for (int i = 0; i < p_nt; ++i) {
+			ktp_worker_t *wr = &aux_.workers[i];
+			wr->step = 0; wr->pl = &aux_; wr->data = 0;
+			wr->index = aux_.index++;
+			wr->i = i;
+			wr->opt = opt;
+			wr->w = &w;
+		}
+		
+		pthread_t *ptid = (pthread_t *) calloc(p_nt, sizeof(pthread_t));
+
+		for (int i = 0; i < p_nt; ++i)
+			pthread_create(&ptid[i], 0, ktp_worker, (void*) &aux_.workers[i]);
+		
+		for (int i = 0; i < p_nt; ++i)
+			pthread_join(ptid[i], 0);
+		
+		free(ptid);
+		free(aux_.workers);
+	}
+	fprintf(stderr, "[%0.4d] Computation ends..\n", myrank);
 	
 	/* Dealloc memory allcoated in the header section */
-	free(ret);
+	// free(ret);
 	
 	free(w.chain_ar);
 	free(w.regs);
@@ -437,7 +531,7 @@ int main_mem(int argc, char *argv[])
 			fprintf(stderr, "Ref file: %s\n", argv[optind]);			
 		fmi = new FMI_search(argv[optind]);
 		tprof[FMI][0] += _rdtsc() - tim;
-
+		
 		// reading ref string from the file
 		tim = _rdtsc();
 		if(myrank == 0)
@@ -468,8 +562,6 @@ int main_mem(int argc, char *argv[])
 		tprof[REF_IO][0] += timer - tim;
 		
 		fclose(fr);
-		// tprof[CONVERT][0] += _rdtsc() - timer;
-
 		if(myrank == 0)
 			fprintf(stderr, "Reference genome size: %ld bp\n", rlen);
 	}
@@ -516,8 +608,9 @@ int main_mem(int argc, char *argv[])
 		}
 	}
 #endif
-	
-	bwa_print_sam_hdr(fmi->idx->bns, hdr_line, aux.fp);	
+
+	bwa_print_sam_hdr(fmi->idx->bns, hdr_line, aux.fp);
+
 	// aux.totEl += ftell(aux.fp);
 	//aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads; // IMP modification
 
@@ -550,54 +643,15 @@ int main_mem(int argc, char *argv[])
 		gzrewind(fp);
 		kseq_destroy(aux.ks);
 		aux.ks = kseq_init(fp);
-		// exit(0);
 	}
-#if 0
-	FILE *fpp = fopen(argv[optind + 1], "r");
-	if (fpp == NULL) {
-		fprintf(stderr, "Error: can't open %s input file\n", argv[optind + 1]);
-		exit(0);
-	}
-	fseek(fpp, 0, SEEK_END); 
-	int64_t file_size = ftell(fpp);
-	tprof[MISC][0] = file_size;
-
-	if(myrank == 0)
-		fprintf(stderr, "file size: %ld, task_size: %ld, act_chunk_sz: %d\n",
-			   file_size, aux.task_size, opt->chunk_size);
-	
-	// assert(file_size >= aux.task_size);
-	if (file_size < aux.task_size) {
-		fprintf(stderr, "tasks size > file size, resetting task size to file size %ld, => 1 task\n", file_size);
-		if (num_ranks > 1)
-			fprintf(stderr, "%d are allocated 0 tasks\n", num_ranks - 1);
-		opt->chunk_size = aux.actual_chunk_size = aux.task_size = file_size;
-	}	
-	assert(file_size != 0);
-	aux.ntasks = file_size/aux.task_size;
-	if (file_size % aux.task_size > 0) aux.ntasks ++;
-	
-	int64_t mychunk = aux.ntasks/num_ranks;
-	int rem = aux.ntasks % num_ranks;
-	bool lflag = 0;
-	if (myrank < rem) 
-		mychunk++;
-	else
-		lflag = 1;
-	
-	aux.my_ntasks = mychunk;
-	fprintf(stderr, "[%0.4d] my task_size: %ld\n", myrank, aux.my_ntasks);
-#endif
 	
 	// Major function
-	if(myrank == 0)
-		fprintf(stderr, "[%0.4d] 1: Calling process()\n", myrank);
+	fprintf(stderr, "[%0.4d] 1: Calling process()\n", myrank);
 	// tprof[PREPROCESS][0] += _rdtsc() - tim;
 
 	uint64_t tim = _rdtsc();
 	/* Relay process function */
-	process(&aux, fp, fp2);
-	// process_mpi_enabled(&aux, fpp, fp, fp2, lflag);
+	process(&aux, fp, fp2, no_mt_io? 1:2);
 	
 	tprof[PROCESS][0] += _rdtsc() - tim;
 
@@ -617,8 +671,6 @@ int main_mem(int argc, char *argv[])
 	
 	if (is_o) {
 		fclose(aux.fp);
-		/* Notes: For now, I've freezed the MPI outfile in fastmap.h.
-           Only plain C File IO is ON */
 #if MPI_ENABLED
 		MPI_File_close(&(aux.mfp));  // MPI file might not be opned, plz check!!
 #endif
