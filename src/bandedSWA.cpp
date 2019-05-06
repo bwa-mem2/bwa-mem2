@@ -441,13 +441,8 @@ void BandedPairWiseSW::getScores8(SeqPair *pairArray,
 								  int8_t w)
 {
     int64_t startTick, endTick;
-    // F8_ = (int8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
-    // H8_ = (int8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
-	// H8__ = (int8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
 	
 	smithWatermanBatchWrapper8(pairArray, seqBufRef, seqBufQer, numPairs, numThreads, w);
-
-	// _mm_free(F8_); _mm_free(H8_); _mm_free(H8__);
 
 #if MAXI
 	printf("AVX2 Vecor code: Writing output..\n");
@@ -477,7 +472,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 	// printf("numThreads: %d %d\n", numThreads, omp_get_thread_num());
 
 	int64_t st1, st2, st3, st4, st5;
-    st1 = __rdtsc();
+    // st1 = ___rdtsc();
     uint8_t *seq1SoA = NULL;
 	seq1SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	
@@ -498,8 +493,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
         pairArray[ii].len2 = 0;
     }
 		
-    st2 = __rdtsc();	
-#if SORT_PAIRS
+    // st2 = ___rdtsc();	
+#if SORT_PAIRS     // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
 
     // Sort the sequences according to decreasing order of lengths
     SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
@@ -526,7 +521,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
     _mm_free(hist);
 #endif
 	
-    st3 = __rdtsc();
+    // st3 = ___rdtsc();
 
 #ifdef VTUNE_ANALYSIS
     __itt_resume();
@@ -590,7 +585,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 			bsize = w;
 			
 			uint64_t tim;
-			// tim = _rdtsc();
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
 				{ // prefetch block
@@ -613,7 +607,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
                 if(maxLen1 < sp.len1) maxLen1 = sp.len1;
                 // if(minLen1 > sp.len1) minLen1 = sp.len1;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 			
 			//maxLen1 = ((maxLen1 + 3) >> 2) * 4;
             for(j = 0; j < SIMD_WIDTH8; j++)
@@ -637,7 +630,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 				_mm256_store_si256((__m256i *)(H2 + k* SIMD_WIDTH8), tmp256_);
 			}
 //-------------------
-			// tim = _rdtsc();
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
 				{ // prefetch block
@@ -661,7 +653,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
                 }
                 if(maxLen2 < sp.len2) maxLen2 = sp.len2;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
@@ -717,7 +708,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 			}
 #endif
 			
-			// uint64_t tim_swa = _rdtsc();
             smithWaterman256_8(mySeq1SoA,
 							   mySeq2SoA,
 							   maxLen1,
@@ -730,7 +720,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 							   bsize,
 							   qlen,
 							   myband);
-			// prof[0][tid] += _rdtsc() - tim_swa;
         }
     }
 
@@ -738,9 +727,9 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
     __itt_pause();
 #endif
 	
-    st4 = __rdtsc();
+    // st4 = ___rdtsc();
 	
-#if SORT_PAIRS
+#if SORT_PAIRS      // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
 	{
     // Sort the sequences according to increasing order of id
 #pragma omp parallel num_threads(numThreads)
@@ -762,7 +751,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 	}
 #endif
 	
-    st5 = __rdtsc();
+    // st5 = ___rdtsc();
     setupTicks = st2 - st1;
     sort1Ticks = st3 - st2;
     swTicks = st4 - st3;
@@ -878,7 +867,7 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 	int nbeg = beg, nend = end;
 	
 #if RDT
-	uint64_t tim = _rdtsc();
+	uint64_t tim = __rdtsc();
 #endif
 	
     for(i = 0; i < nrow; i++)
@@ -905,7 +894,7 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 		__m256i y1_256 = zero256;
 		
 #if RDT	
-		uint64_t tim1 = _rdtsc();
+		uint64_t tim1 = __rdtsc();
 #endif
 		
 		__m256i i256, cache256;
@@ -945,7 +934,7 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 		}
 		
 #if RDT
-		prof[DP3][0] += _rdtsc() - tim1;
+		prof[DP3][0] += __rdtsc() - tim1;
 #endif
 		// beg = nbeg; end = nend;
 		//__m256i cmp256_1 = _mm256_cmpgt_epi8(i1_256, tlen256);
@@ -966,7 +955,7 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 		
 		
 #if RDT
-		tim1 = _rdtsc();
+		tim1 = __rdtsc();
 #endif
 		
 		j256 = _mm256_set1_epi8(beg);
@@ -1063,8 +1052,8 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 		ZSCORE8(i1_256, y1_256);		
 		
 #if RDT
-		prof[DP1][0] += _rdtsc() - tim1;
-		tim1 = _rdtsc();
+		prof[DP1][0] += __rdtsc() - tim1;
+		tim1 = __rdtsc();
 #endif
 
 
@@ -1161,12 +1150,12 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 		// _mm256_store_si256((__m256i *) tail, tail256);		
 
 #if RDT
-		prof[DP2][0] += _rdtsc() - tim1;
+		prof[DP2][0] += __rdtsc() - tim1;
 #endif
     }
 	
 #if RDT
-	prof[DP][0] += _rdtsc() - tim;
+	prof[DP][0] += __rdtsc() - tim;
 #endif
 	
     int8_t score[SIMD_WIDTH8]  __attribute((aligned(64)));
@@ -1210,18 +1199,9 @@ void BandedPairWiseSW::getScores16(SeqPair *pairArray,
 								   int8_t w)
 {
     int64_t startTick, endTick;
-	 // F16_ = H16_ = H16__ = NULL;
-     // F16_ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-     // H16_ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	 // H16__ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	 // if (F16_ == NULL || H16_ == NULL || H16__ == NULL) {
-	 // 	printf("Memory not alloacted!!!\n");
-	 // 	exit(0);
-	 // }   
 
 	smithWatermanBatchWrapper16(pairArray, seqBufRef, seqBufQer, numPairs, numThreads, w);
 
-	// _mm_free(F16_);_mm_free(H16_); _mm_free(H16__);
 
 #if MAXI
 	printf("AVX2 Vecor code: Writing output..\n");
@@ -1251,7 +1231,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 	// printf("numThreads: %d\n", numThreads);	
 	int64_t st1, st2, st3, st4, st5;
 	
-    st1 = __rdtsc();
+    // st1 = ___rdtsc();
     uint16_t *seq1SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
     uint16_t *seq2SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
 
@@ -1264,8 +1244,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
         pairArray[ii].len2 = 0;
     }
 
-    st2 = __rdtsc();	
-#if SORT_PAIRS
+    // st2 = ___rdtsc();	
+#if SORT_PAIRS      // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     // Sort the sequences according to decreasing order of lengths
     SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
 											   sizeof(SeqPair), 64);
@@ -1292,7 +1272,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
     }
     _mm_free(hist);
 #endif
-    st3 = __rdtsc();
+    // st3 = ___rdtsc();
 
 #ifdef VTUNE_ANALYSIS
     __itt_resume();
@@ -1352,7 +1332,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 			bsize = w;
 
 			uint64_t tim;
-			// tim = _rdtsc();
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
 				{ // prefetch block
@@ -1376,7 +1355,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 				qlen[j] = sp.len2 * max;
                 if(maxLen1 < sp.len1) maxLen1 = sp.len1;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 		
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
@@ -1398,7 +1376,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 				_mm256_store_si256((__m256i *)(H2 + k* SIMD_WIDTH16), tmp256_);
 			}
 //-------------------
-			// tim = _rdtsc();
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
 				{ // prefetch block
@@ -1420,7 +1397,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
                 if(maxLen2 < sp.len2) maxLen2 = sp.len2;
                 // if(minLen2 > sp.len2) minLen2 = sp.len2;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 			
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
@@ -1471,7 +1447,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 			}
 #endif
 
-			// uint64_t tim_swa = _rdtsc();
             smithWaterman256_16(mySeq1SoA,
 								mySeq2SoA,
 								maxLen1,
@@ -1484,7 +1459,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 								bsize, 
 								qlen,
 								myband);
-			// prof[0][tid] += _rdtsc() - tim_swa;
         }
     }
 
@@ -1492,8 +1466,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
     __itt_pause();
 #endif
 	
-    st4 = __rdtsc();
-#if SORT_PAIRS
+    // st4 = ___rdtsc();
+#if SORT_PAIRS      // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
 	{
     // Sort the sequences according to increasing order of id
 #pragma omp parallel num_threads(numThreads)
@@ -1516,7 +1490,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 #endif
 
 	
-    st5 = __rdtsc();
+    // st5 = ___rdtsc();
     setupTicks += st2 - st1;
     sort1Ticks += st3 - st2;
     swTicks += st4 - st3;
@@ -1624,7 +1598,7 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 	int nbeg = beg, nend = end;
 
 #if RDT
-	uint64_t tim = _rdtsc();
+	uint64_t tim = __rdtsc();
 #endif
 	
     for(i = 0; i < nrow; i++)
@@ -1651,7 +1625,7 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 		__m256i y1_256 = zero256;
 		
 #if RDT	
-		uint64_t tim1 = _rdtsc();
+		uint64_t tim1 = __rdtsc();
 #endif
 		
 		__m256i i256, cache256;
@@ -1695,7 +1669,7 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 
 
 #if RDT
-		prof[DP3][0] += _rdtsc() - tim1;
+		prof[DP3][0] += __rdtsc() - tim1;
 #endif
 
 		// beg = nbeg; end = nend;
@@ -1713,7 +1687,7 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 
 		
 #if RDT
-		tim1 = _rdtsc();
+		tim1 = __rdtsc();
 #endif
 		
 		j256 = _mm256_set1_epi16(beg);
@@ -1813,8 +1787,8 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 		ZSCORE16(i1_256, y1_256);		
 
 #if RDT
-		prof[DP1][0] += _rdtsc() - tim1;
-		tim1 = _rdtsc();
+		prof[DP1][0] += __rdtsc() - tim1;
+		tim1 = __rdtsc();
 #endif
 		
 		/* Narrowing of the band */
@@ -1914,12 +1888,12 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 		// _mm256_store_si256((__m256i *) tail, tail256);		
 
 #if RDT
-		prof[DP2][0] += _rdtsc() - tim1;
+		prof[DP2][0] += __rdtsc() - tim1;
 #endif
     }
 	
 #if RDT
-	prof[DP][0] += _rdtsc() - tim;
+	prof[DP][0] += __rdtsc() - tim;
 #endif
 	
     int16_t score[SIMD_WIDTH16]  __attribute((aligned(64)));
@@ -2138,18 +2112,8 @@ void BandedPairWiseSW::getScores8(SeqPair *pairArray,
 	assert(SIMD_WIDTH8 == 64 && SIMD_WIDTH16 == 32);
     int i;
     int64_t startTick, endTick;
-	// F8_ = H8_ = H8__ = NULL;
-    // F8_ = (int8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
-    // H8_ = (int8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
-	// H8__ = (int8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
-	// if (F8_ == NULL || H8_ == NULL || H8__ == NULL) {
-	// 	printf("Memory not alloacted!!!\n");
-	// 	exit(0);
-	// }   
 
 	smithWatermanBatchWrapper8(pairArray, seqBufRef, seqBufQer, numPairs, numThreads, w);
-
-	// _mm_free(F8_);	_mm_free(H8_);	_mm_free(H8__);
 	
 #if MAXI
 	printf("AVX512/8 Vecor code: Writing output..\n");
@@ -2175,7 +2139,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 	// printf("numThreads: %d\n", numThreads);
 	// assert(numThreads == 1 && SIMD_WIDTH8 == 64);
 	int64_t st1, st2, st3, st4, st5;
-    // st1 = __rdtsc();
+    // st1 = ___rdtsc();
     uint8_t *seq1SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
     uint8_t *seq2SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 
@@ -2188,8 +2152,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
         pairArray[ii].len2 = pairArray[numPairs - 1].len2;
     }
 
-    // st2 = __rdtsc();	
-#if SORT_PAIRS
+    // st2 = ___rdtsc();	
+#if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     // Sort the sequences according to decreasing order of lengths
     SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
 											   sizeof(SeqPair), 64);
@@ -2216,7 +2180,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
     }
     _mm_free(hist);
 #endif
-    // st3 = __rdtsc();
+    // st3 = ___rdtsc();
 
 #ifdef VTUNE_ANALYSIS
     __itt_resume();
@@ -2225,7 +2189,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 	int eb = end_bonus;
 //#pragma omp parallel num_threads(numThreads)
     {
-        // int64_t st = __rdtsc();
+        // int64_t st = ___rdtsc();
         int32_t i;
         uint16_t tid = 0;
         uint8_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN8 * SIMD_WIDTH8;
@@ -2278,8 +2242,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 			bsize = w;
 			
 			uint64_t tim;
-			// tim = _rdtsc();
-
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
 				{ // prefetch block
@@ -2302,7 +2264,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 				qlen[j] = sp.len2 * max;
                 if(maxLen1 < sp.len1) maxLen1 = sp.len1;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
@@ -2324,7 +2285,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 				_mm512_store_si512((__m512i *)(H2 + k* SIMD_WIDTH8), tmp512_);
 			}
 //-------------------
-			// tim = _rdtsc();
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
 				{ // prefetch block
@@ -2345,7 +2305,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
                 }
                 if(maxLen2 < sp.len2) maxLen2 = sp.len2;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 			
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
@@ -2397,7 +2356,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 			}
 #endif
 
-			// uint64_t tim_swa = _rdtsc();
             smithWaterman512_8(mySeq1SoA,
 							   mySeq2SoA,
 							   maxLen1,
@@ -2410,7 +2368,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 							   bsize,
 							   qlen,
 							   myband);
-			// prof[0][tid] += _rdtsc() - tim_swa;
         }
     }
 
@@ -2418,8 +2375,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
     __itt_pause();
 #endif
 	
-    // st4 = __rdtsc();
-#if SORT_PAIRS
+    // st4 = ___rdtsc();
+#if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
 	{
     // Sort the sequences according to increasing order of id
 #pragma omp parallel num_threads(numThreads)
@@ -2441,7 +2398,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 	}
 #endif
 
-    // st5 = __rdtsc();
+    // st5 = ___rdtsc();
     setupTicks = st2 - st1;
     sort1Ticks = st3 - st2;
     swTicks = st4 - st3;
@@ -2555,7 +2512,7 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 	int nbeg = beg, nend = end;
 
 #if RDT
-	uint64_t tim = _rdtsc();
+	uint64_t tim = __rdtsc();
 #endif
 
     for(i = 0; i < nrow; i++)
@@ -2582,7 +2539,7 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 		__m512i y1_512 = zero512;
 		
 #if RDT	
-		uint64_t tim1 = _rdtsc();
+		uint64_t tim1 = __rdtsc();
 #endif
 		
 		/* Banding */
@@ -2621,7 +2578,7 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 		}
 
 #if RDT
-		prof[DP3][0] += _rdtsc() - tim1;
+		prof[DP3][0] += __rdtsc() - tim1;
 #endif
 
 #if DEB
@@ -2652,7 +2609,7 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 
 		
 #if RDT
-		tim1 = _rdtsc();
+		tim1 = __rdtsc();
 #endif
 		
 		j512 = _mm512_set1_epi8(beg);
@@ -2758,7 +2715,7 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 		ZSCORE8(i1_512, y1_512);		
 		
 #if RDT
-		prof[DP1][0] += _rdtsc() - tim1;
+		prof[DP1][0] += __rdtsc() - tim1;
 #endif
 		
         /* Narrowing of the band */
@@ -2789,7 +2746,7 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 		nend = l + 2 < ncol? l + 2: ncol;
 
 #if RDT
-		tim1 = _rdtsc();
+		tim1 = __rdtsc();
 #endif
 		/* Setting of head and tail for each pair */
 		__m512i tail512_ = _mm512_sub_epi8(tail512, one512);
@@ -2853,12 +2810,12 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 		tail512 = _mm512_min_epi8(index512, qlen512);
 
 #if RDT
-		prof[DP2][0] += _rdtsc() - tim1;
+		prof[DP2][0] += __rdtsc() - tim1;
 #endif
     }
 	
 #if RDT
-	prof[DP][0] += _rdtsc() - tim;
+	prof[DP][0] += __rdtsc() - tim;
 #endif
 	
     int8_t score[SIMD_WIDTH8]  __attribute((aligned(64)));
@@ -2903,18 +2860,8 @@ void BandedPairWiseSW::getScores16(SeqPair *pairArray,
 {
     int i;
     int64_t startTick, endTick;
-	// F16_ = H16_ = H16__ = NULL;
-    // F16_ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-    // H16_ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	// H16__ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	// if (F16_ == NULL || H16_ == NULL || H16__ == NULL) {
-	// 	printf("Memory not alloacted!!!\n");
-	// 	exit(0);
-	// }   
 
 	smithWatermanBatchWrapper16(pairArray, seqBufRef, seqBufQer, numPairs, numThreads, w);
-
-	// _mm_free(F16_);_mm_free(H16_); _mm_free(H16__);
 	
 #if MAXI
 	printf("AVX512 Vecor code: Writing output..\n");
@@ -2939,7 +2886,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 {
 	// printf("numThreads: %d\n", numThreads);		
 	int64_t st1, st2, st3, st4, st5;
-    st1 = __rdtsc();
+    // st1 = ___rdtsc();
     uint16_t *seq1SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
     uint16_t *seq2SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
 
@@ -2952,8 +2899,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
         pairArray[ii].len2 = 0;
     }
 
-    st2 = __rdtsc();	
-#if SORT_PAIRS
+    // st2 = ___rdtsc();	
+#if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     // Sort the sequences according to decreasing order of lengths
     SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
 											   sizeof(SeqPair), 64);
@@ -2977,7 +2924,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
     }
     _mm_free(hist);
 #endif
-    st3 = __rdtsc();
+    // st3 = ___rdtsc();
 
 #ifdef VTUNE_ANALYSIS
     __itt_resume();
@@ -2986,7 +2933,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 	int eb = end_bonus;
 //#pragma omp parallel num_threads(numThreads)
     {
-        int64_t st = __rdtsc();
+        // int64_t st = ___rdtsc();
         int32_t i;
         uint16_t tid = 0; //omp_get_thread_num();
         uint16_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
@@ -3038,7 +2985,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 			//bsize = 100;
 			bsize = w;
 			uint64_t tim;
-			// tim = _rdtsc();
+
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
 				{ // prefetch block
@@ -3062,7 +3009,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 				qlen[j] = sp.len2 * max;
                 if(maxLen1 < sp.len1) maxLen1 = sp.len1;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
@@ -3084,7 +3030,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 				_mm512_store_si512((__m512i *)(H2 + k* SIMD_WIDTH16), tmp512_);
 			}
 //-------------------
-			// tim = _rdtsc();
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
 				{ // prefetch block
@@ -3105,7 +3050,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
                 }
                 if(maxLen2 < sp.len2) maxLen2 = sp.len2;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 			
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
@@ -3158,7 +3102,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 			}
 #endif
 
-			// uint64_t tim_swa = _rdtsc();
             smithWaterman512_16(mySeq1SoA,
 								mySeq2SoA,
 								maxLen1,
@@ -3171,7 +3114,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 								bsize,
 								qlen,
 								myband);
-			// prof[0][tid] += _rdtsc() - tim_swa;
         }
     }
 
@@ -3179,8 +3121,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
     __itt_pause();
 #endif
 	
-    st4 = __rdtsc();
-#if SORT_PAIRS
+    // st4 = ___rdtsc();
+#if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
 	{
     // Sort the sequences according to increasing order of id
 #pragma omp parallel num_threads(numThreads)
@@ -3202,7 +3144,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 	}
 #endif
 	
-    st5 = __rdtsc();
+    // st5 = ___rdtsc();
     setupTicks += st2 - st1;
     sort1Ticks += st3 - st2;
     swTicks += st4 - st3;
@@ -3314,7 +3256,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 	int nbeg = beg, nend = end;
 
 #if RDT
-	uint64_t tim = _rdtsc();
+	uint64_t tim = __rdtsc();
 #endif
 
     for(i = 0; i < nrow; i++)
@@ -3341,7 +3283,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 		__m512i y1_512 = zero512;
 		
 #if RDT	
-		uint64_t tim1 = _rdtsc();
+		uint64_t tim1 = __rdtsc();
 #endif
 		
 		/* Banding */
@@ -3379,7 +3321,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 		}
 
 #if RDT
-		prof[DP3][0] += _rdtsc() - tim1;
+		prof[DP3][0] += __rdtsc() - tim1;
 #endif
 
 #if DEB
@@ -3410,7 +3352,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 
 		
 #if RDT
-		tim1 = _rdtsc();
+		tim1 = __rdtsc();
 #endif
 		
 		j512 = _mm512_set1_epi16(beg);
@@ -3509,7 +3451,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 		ZSCORE16(i1_512, y1_512);		
 
 #if RDT
-		prof[DP1][0] += _rdtsc() - tim1;
+		prof[DP1][0] += __rdtsc() - tim1;
 #endif
 		
         /* Narrowing of the band */
@@ -3539,7 +3481,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 		nend = l + 2 < ncol? l + 2: ncol;
 
 #if RDT
-		tim1 = _rdtsc();
+		tim1 = __rdtsc();
 #endif
 		/* Setting of head and tail for each pair */
 		beg = nbeg; end = l; // keep check on this!!
@@ -3601,12 +3543,12 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 		tail512 = _mm512_min_epi16(index512, qlen512);
 
 #if RDT
-		prof[DP2][0] += _rdtsc() - tim1;
+		prof[DP2][0] += __rdtsc() - tim1;
 #endif
     }
 	
 #if RDT
-	prof[DP][0] += _rdtsc() - tim;
+	prof[DP][0] += __rdtsc() - tim;
 #endif
 	
     int16_t score[SIMD_WIDTH16]  __attribute((aligned(64)));
@@ -3764,19 +3706,9 @@ void BandedPairWiseSW::getScores16(SeqPair *pairArray,
 	// printf("In getscore16 SSE2..\n");
     int i;
     int64_t startTick, endTick;
-	// F16_ = H16_ = H16__ = NULL;
-	// F16_ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	// H16_ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	// H16__ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	// if (F16_ == NULL || H16_ == NULL || H16__ == NULL) {
-	// 	printf("Memory not alloacted!!!\n");
-	// 	exit(0);
-	// }   
 
 	// smithWatermanBatchWrapper(pairArray, seqBuf, numPairs, numThreads, w);
 	smithWatermanBatchWrapper16(pairArray, seqBufRef, seqBufQer, numPairs, numThreads, w);
-	
-	// _mm_free(F_);_mm_free(H_); _mm_free(H__);
 
 #if MAXI
 	// printf("Vecor code: Writing output..\n");
@@ -3802,7 +3734,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 	// printf("numThreads: %d\n", numThreads);	
 	int64_t st1, st2, st3, st4, st5;
 	
-    st1 = __rdtsc();
+    // st1 = ___rdtsc();
     uint16_t *seq1SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
     uint16_t *seq2SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
 
@@ -3819,8 +3751,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
         pairArray[ii].len2 = 0;
     }
 
-    st2 = __rdtsc();	
-#if SORT_PAIRS
+    // st2 = ___rdtsc();	
+#if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     // Sort the sequences according to decreasing order of lengths
     SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
 											   sizeof(SeqPair), 64);
@@ -3847,12 +3779,12 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
     }
     _mm_free(hist);
 #endif
-    st3 = __rdtsc();
+    // st3 = ___rdtsc();
 
 	int eb = end_bonus;
 // #pragma omp parallel num_threads(numThreads)
     {
-        int64_t st = __rdtsc();
+        // int64_t st = ___rdtsc();
         int32_t i;
         uint16_t tid = 0; 
         uint16_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
@@ -3907,7 +3839,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 			bsize = w;
 			
 			uint64_t tim;
-			tim = _rdtsc();
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
 				{ // prefetch block
@@ -3929,7 +3860,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
                 if(maxLen1 < sp.len1) maxLen1 = sp.len1;
                 // if(minLen1 > sp.len1) minLen1 = sp.len1;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 
 			//maxLen1 = ((maxLen1 + 3) >> 2) * 4;
             for(j = 0; j < SIMD_WIDTH16; j++)
@@ -3952,7 +3882,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 				_mm_store_si128((__m128i *)(H2 + k* SIMD_WIDTH16), tmp128_);
 			}
 //-------------------
-			tim = _rdtsc();
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
 				{ // prefetch block
@@ -3974,7 +3903,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
                 if(maxLen2 < sp.len2) maxLen2 = sp.len2;
                 // if(minLen2 > sp.len2) minLen2 = sp.len2;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 			
 			//maxLen2 = ((maxLen2  + 3) >> 2) * 4;
 			
@@ -4027,7 +3955,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 				}
 			}
 #endif
-			// uint64_t tim_swa = _rdtsc();
             smithWaterman128_16(mySeq1SoA,
 								mySeq2SoA,
 								maxLen1,
@@ -4040,7 +3967,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 								bsize,
 								qlen,
 								myband);
-			// prof[0][tid] += _rdtsc() - tim_swa;
         }
     }
 
@@ -4048,8 +3974,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
     __itt_pause();
 #endif
 	
-    st4 = __rdtsc();
-#if SORT_PAIRS
+    // st4 = ___rdtsc();
+#if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
 	{
     // Sort the sequences according to increasing order of id
 #pragma omp parallel num_threads(numThreads)
@@ -4071,7 +3997,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 	}
 #endif
 	
-    st5 = __rdtsc();
+    // st5 = ___rdtsc();
     setupTicks += st2 - st1;
     sort1Ticks += st3 - st2;
     swTicks += st4 - st3;
@@ -4184,7 +4110,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 	int nbeg = beg, nend = end;
 
 #if RDT
-	uint64_t tim = _rdtsc();
+	uint64_t tim = __rdtsc();
 #endif
 	
     for(i = 0; i < nrow; i++)
@@ -4212,7 +4138,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 		__m128i y1_128 = zero128;
 		
 #if RDT	
-		uint64_t tim1 = _rdtsc();
+		uint64_t tim1 = __rdtsc();
 #endif
 		
 
@@ -4258,7 +4184,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 		}
 
 #if RDT
-		prof[DP3][0] += _rdtsc() - tim1;
+		prof[DP3][0] += __rdtsc() - tim1;
 #endif
 		// beg = nbeg; end = nend;
 		__m128i cmp128_1 = _mm_cmpgt_epi16(i1_128, tlen128);
@@ -4278,7 +4204,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 		//printf("mlen: %d %d\n", temp[lane], temp1[lane]);
 
 #if RDT
-		tim1 = _rdtsc();
+		tim1 = __rdtsc();
 #endif
 		
 		j128 = _mm_set1_epi16(beg);
@@ -4384,8 +4310,8 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 		ZSCORE16(i1_128, y1_128);		
 
 #if RDT
-		prof[DP1][0] += _rdtsc() - tim1;
-		tim1 = _rdtsc();
+		prof[DP1][0] += __rdtsc() - tim1;
+		tim1 = __rdtsc();
 #endif
 		
 		/* Narrowing of the band */
@@ -4489,12 +4415,12 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 
 
 #if RDT
-		prof[DP2][0] += _rdtsc() - tim1;
+		prof[DP2][0] += __rdtsc() - tim1;
 #endif
     }
 	
 #if RDT
-	prof[DP][0] += _rdtsc() - tim;
+	prof[DP][0] += __rdtsc() - tim;
 #endif
 	
     int16_t score[SIMD_WIDTH16]  __attribute((aligned(64)));
@@ -4589,18 +4515,9 @@ void BandedPairWiseSW::getScores8(SeqPair *pairArray,
 	assert(SIMD_WIDTH8 == 16 && SIMD_WIDTH16 == 8);
     int i;
     int64_t startTick, endTick;
-	// F_ = H_ = H__ = NULL;
-    // F_ = (int8_t *)_mm_malloc(MAX_SEQ_LEN_EXT * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
-    // H_ = (int8_t *)_mm_malloc(MAX_SEQ_LEN_EXT * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
-	// H__ = (int8_t *)_mm_malloc(MAX_SEQ_LEN_EXT * SIMD_WIDTH8 * numThreads * sizeof(int8_t), 64);
-	// if (F_ == NULL || H_ == NULL || H__ == NULL || seqBuf == NULL) {
-	// 	printf("Memory not alloacted!!!\n");
-	// 	exit(0);
-	// }   
 
 	smithWatermanBatchWrapper8(pairArray, seqBufRef, seqBufQer, numPairs, numThreads, w);
 
-	// _mm_free(F_);	_mm_free(H_);	_mm_free(H__);
 	
 #if MAXI
 	printf("Vecor code: Writing output..\n");
@@ -4625,7 +4542,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 {
 	// printf("numThreads: %d\n", numThreads);		
 	int64_t st1, st2, st3, st4, st5;
-    st1 = __rdtsc();
+    // st1 = ___rdtsc();
     uint8_t *seq1SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
     uint8_t *seq2SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	if (seq1SoA == NULL || seq2SoA == NULL)
@@ -4641,8 +4558,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
         pairArray[ii].len2 = 0;
     }
 
-    st2 = __rdtsc();	
-#if SORT_PAIRS
+    // st2 = ___rdtsc();	
+#if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     // Sort the sequences according to decreasing order of lengths
     SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
 											   sizeof(SeqPair), 64);
@@ -4669,7 +4586,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
     }
     _mm_free(hist);
 #endif
-    st3 = __rdtsc();
+    // st3 = ___rdtsc();
 
 #ifdef VTUNE_ANALYSIS
     __itt_resume();
@@ -4678,7 +4595,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 	int eb = end_bonus;
 // #pragma omp parallel num_threads(numThreads)
     {
-        int64_t st = __rdtsc();
+        // int64_t st = ___rdtsc();
         int32_t i;
         uint16_t tid =  0; 
         uint8_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN8 * SIMD_WIDTH8;
@@ -4731,7 +4648,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 			bsize = w;
 			
 			uint64_t tim;
-			tim = _rdtsc();
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
 				{ // prefetch block
@@ -4752,7 +4668,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 				qlen[j] = sp.len2 * max;
                 if(maxLen1 < sp.len1) maxLen1 = sp.len1;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
@@ -4774,7 +4689,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 				_mm_store_si128((__m128i *)(H2 + k* SIMD_WIDTH8), tmp128);
 			}
 //-------------------
-			tim = _rdtsc();
+
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
 				{ // prefetch block
@@ -4794,7 +4709,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
                 }
                 if(maxLen2 < sp.len2) maxLen2 = sp.len2;
             }
-			// prof[1][tid] += _rdtsc() - tim;
 			
 			//maxLen2 = ((maxLen2  + 3) >> 2) * 4;
 			
@@ -4850,7 +4764,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 			}
 #endif
 			
-			// uint64_t tim_swa = _rdtsc();
+
             smithWaterman128_8(mySeq1SoA,
 							   mySeq2SoA,
 							   maxLen1,
@@ -4864,12 +4778,11 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 							   qlen,
 							   myband);
 			
-			// prof[0][tid] += _rdtsc() - tim_swa;
         }
     }
 	
-    st4 = __rdtsc();
-#if SORT_PAIRS
+    // st4 = ___rdtsc();
+#if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
 	{
     // Sort the sequences according to increasing order of id
 #pragma omp parallel num_threads(numThreads)
@@ -4891,7 +4804,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 	}
 #endif
 
-    st5 = __rdtsc();
+    // st5 = ___rdtsc();
     setupTicks = st2 - st1;
     sort1Ticks = st3 - st2;
     swTicks = st4 - st3;
@@ -5002,7 +4915,7 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 	int nbeg = beg, nend = end;
 
 #if RDT
-	uint64_t tim = _rdtsc();
+	uint64_t tim = __rdtsc();
 #endif
 	
     for(i = 0; i < nrow; i++)
@@ -5030,7 +4943,7 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 		__m128i y1_128 = zero128;
 		
 #if RDT	
-		uint64_t tim1 = _rdtsc();
+		uint64_t tim1 = __rdtsc();
 #endif
 		
 		// Banding
@@ -5086,7 +4999,7 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 #endif
 
 #if RDT
-		prof[DP3][0] += _rdtsc() - tim1;
+		prof[DP3][0] += __rdtsc() - tim1;
 #endif
 		// beg = nbeg; end = nend;
 		__m128i cmp128_1 = _mm_cmpgt_epi8(i1_128, tlen128);
@@ -5103,7 +5016,7 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 		exit0 = _mm_blendv_epi8(exit0, zero128, cmpim);
 
 #if RDT
-		tim1 = _rdtsc();
+		tim1 = __rdtsc();
 #endif
 		
 		j128 = _mm_set1_epi8(beg);
@@ -5219,8 +5132,8 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 		ZSCORE8(i1_128, y1_128);		
 
 #if RDT
-		prof[DP1][0] += _rdtsc() - tim1;
-		tim1 = _rdtsc();
+		prof[DP1][0] += __rdtsc() - tim1;
+		tim1 = __rdtsc();
 #endif
 		
 		/* Narrowing of the band */
@@ -5314,12 +5227,12 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 		// _mm_store_si128((__m128i *) tail, tail128);		
 		
 #if RDT
-		prof[DP2][0] += _rdtsc() - tim1;
+		prof[DP2][0] += __rdtsc() - tim1;
 #endif
     }
    
 #if RDT
-	prof[DP][0] += _rdtsc() - tim;
+	prof[DP][0] += __rdtsc() - tim;
 #endif
 	
     int8_t score[SIMD_WIDTH8]  __attribute((aligned(64)));

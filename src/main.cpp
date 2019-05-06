@@ -72,7 +72,7 @@ int usage()
 		   "be used to endorse or promote products derived from this software without\n"
 		   "specific prior written permission.\n");
 	
-	fprintf(stderr, "\n\tusage: bwa <index | mem> [options]\n\n");
+	fprintf(stderr, "\n\tusage: bwa-mem2 <index | mem> [options]\n\n");
 	return 1;
 }
 
@@ -80,9 +80,9 @@ int main(int argc, char* argv[])
 {
 		
 	// ---------------------------------	
-	uint64_t tim = _rdtsc();
+	uint64_t tim = __rdtsc();
 	sleep(1);
-	proc_freq = _rdtsc() - tim;
+	proc_freq = __rdtsc() - tim;
 
 	extern char *bwa_pg;
 	kstring_t pg = {0,0,0};
@@ -115,10 +115,10 @@ int main(int argc, char* argv[])
 
 	if (strcmp(argv[1], "index") == 0)
 	{
-		 uint64_t tim = _rdtsc();
+		 uint64_t tim = __rdtsc();
 		 ret = bwa_index(argc-1, argv+1);
 		 fprintf(stderr, "Index creation completed!!!\n");
-		 tprof[INDEX][0] += _rdtsc() - tim;
+		 tprof[INDEX][0] += __rdtsc() - tim;
 
 		 fprintf(stderr, "Index creation time: %0.2lf\n\n", tprof[INDEX][0]*1.0/proc_freq);
 		 free(bwa_pg);
@@ -126,9 +126,9 @@ int main(int argc, char* argv[])
 	}
 	else if (strcmp(argv[1], "mem") == 0)
 	{
-		uint64_t tim = _rdtsc();
+		uint64_t tim = __rdtsc();
 		ret = main_mem(argc-1, argv+1);
-		tprof[MEM][0] = _rdtsc() - tim;
+		tprof[MEM][0] = __rdtsc() - tim;
 		
 		if (ret == 1) {
 			free(bwa_pg);

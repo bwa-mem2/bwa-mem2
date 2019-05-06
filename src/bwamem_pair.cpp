@@ -205,7 +205,7 @@ int mem_matesw(const mem_opt_t *opt, const bntseq_t *bns,
 			mem_alnreg_t b;
 			int tmp, xtra = KSW_XSUBO | KSW_XSTART | (l_ms * opt->a < 250? KSW_XBYTE : 0) | (opt->min_seed_len * opt->a);
 
-			// uint64_t tim = _rdtsc();
+			// uint64_t tim = __rdtsc();
 			assert(ref !=0 && re - rb >= 0);
 			aln = ksw_align2(l_ms, seq, re - rb, ref, 5,
 							 opt->mat, opt->o_del, opt->e_del,
@@ -324,10 +324,9 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 	int n = 0, i, j, z[2], o, subo, n_sub, extra_flag = 1, n_pri[2], n_aa[2];
 	kstring_t str;
 	mem_aln_t h[2], g[2], aa[2][2];
-	int tid = 0;
-	tid = omp_get_thread_num();
+	// int tid = omp_get_thread_num();
 	
-	// uint64_t tim = _rdtsc();
+	// uint64_t tim = __rdtsc();
 	str.l = str.m = 0; str.s = 0;
 	memset(h, 0, sizeof(mem_aln_t) * 2);
 	memset(g, 0, sizeof(mem_aln_t) * 2);
@@ -343,7 +342,7 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 
 
 		// static int ncnt = 0;
-		uint64_t tim = _rdtsc();
+		uint64_t tim = __rdtsc();
 		for (i = 0; i < 2; ++i)
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
 				//if (strcmp(s[!i].name, "HK35MCCXX160204:1:1102:5761:21104") == 0) {
@@ -354,12 +353,12 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 				ncnt++;
 			}
 		
-		tprof[SAM1][tid] += _rdtsc() - tim;
+		// tprof[SAM1][tid] += __rdtsc() - tim;
 		free(b[0].a); free(b[1].a);
 	}	
-	//tprof[SAM1][tid] += _rdtsc() - tim;
+	//tprof[SAM1][tid] += __rdtsc() - tim;
 
-	uint64_t tim1 = _rdtsc();
+	uint64_t tim1 = __rdtsc();
 	n_pri[0] = mem_mark_primary_se(opt, a[0].n, a[0].a, id<<1|0);
 	n_pri[1] = mem_mark_primary_se(opt, a[1].n, a[1].a, id<<1|1);  
 	if (opt->flag&MEM_F_NOPAIRING) goto no_pairing;
@@ -458,11 +457,11 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 			free(XA[i]);
 		}
 	} else goto no_pairing;
-	tprof[SAM2][tid] += _rdtsc() - tim1;  //seq
+	// tprof[SAM2][tid] += __rdtsc() - tim1;  //seq
 	return n;
 
 no_pairing:
-	// tim = _rdtsc();
+	// tim = __rdtsc();
 	for (i = 0; i < 2; ++i) {
 		int which = -1;
 		if (a[i].n) {
@@ -485,7 +484,7 @@ no_pairing:
 		err_fatal(__func__, "paired reads have different names: \"%s\", \"%s\"\n",
 				  s[0].name, s[1].name);
 
-	tprof[SAM3][tid] += _rdtsc() - tim1;
+	// tprof[SAM3][tid] += __rdtsc() - tim1;
 	
 	free(h[0].cigar); free(h[1].cigar);
 	return n;
@@ -506,10 +505,9 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 	int i, j, n_aa[2];
 	kstring_t str;
 	mem_aln_t h[2], g[2];
-	int tid = 0;
-	tid = omp_get_thread_num();
+	// int tid = omp_get_thread_num();
 	
-	// uint64_t tim = _rdtsc();
+	// uint64_t tim = __rdtsc();
 	str.l = str.m = 0; str.s = 0;
 	memset(h, 0, sizeof(mem_aln_t) * 2);
 	memset(g, 0, sizeof(mem_aln_t) * 2);
@@ -558,7 +556,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 	//int32_t *index = (int32_t*) (mmc->seqPairArrayAux + offset1);
 
 #if 0    // orig function, for debuggin
-	uint64_t tim = _rdtsc();	
+	uint64_t tim = __rdtsc();	
 	ncnt = 0;
 	SeqPair sp;
 	for (int i=0; i<pcnt; i++) {
@@ -571,7 +569,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 							opt->mat, opt->o_del, opt->e_del,
 							opt->o_ins, opt->e_ins, xtra, 0);		
 	}
-	tprof[SAM2][0] += _rdtsc() - tim;
+	tprof[SAM2][0] += __rdtsc() - tim;
 	
 #else   // avx512, vectorized function
 
@@ -582,13 +580,13 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 	int nthreads = 1;
 	// kswv *pwsw = new kswv(w_open, w_extend, w_open, w_extend, w_match, w_mismatch, nthreads);
 
-	uint64_t tim = _rdtsc();	
+	uint64_t tim = __rdtsc();	
 	kswv *pwsw = new kswv(opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, opt->a, -1*opt->b, nthreads);
 
 	pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pcnt8, nthreads, 0);
 	pwsw->getScores16(seqPairArray, seqBufRef, seqBufQer, aln, pcnt-pcnt8, nthreads, 0);
 	
-	tprof[SAM2][0] += _rdtsc() - tim;
+	tprof[SAM2][0] += __rdtsc() - tim;
 	tprof[PE24][0] += pcnt;
 	
 	// Post-processing
@@ -613,12 +611,12 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 
 	int pcnt2 = pos;
 	assert(pos8 + pos16 == pcnt2);
-	tim = _rdtsc();
+	tim = __rdtsc();
 	
 	pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pos8, nthreads, 1);
 	pwsw->getScores16(seqPairArray, seqBufRef, seqBufQer, aln, pos16, nthreads, 1);
 	
-	tprof[SAM2][0] += _rdtsc() - tim;
+	tprof[SAM2][0] += __rdtsc() - tim;
 	tprof[PE25][0] += pcnt2;
 	
 	for (int i=0; i<pcnt2; i++) {
@@ -657,8 +655,7 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 	int n = 0, i, j, z[2], o, subo, n_sub, extra_flag = 1, n_pri[2], n_aa[2];
 	kstring_t str;
 	mem_aln_t h[2], g[2], aa[2][2];
-	int tid = 0;
-	tid = omp_get_thread_num();
+ 	// int tid = omp_get_thread_num();
 	
 	str.l = str.m = 0; str.s = 0;
 	memset(h, 0, sizeof(mem_aln_t) * 2);
@@ -673,13 +670,13 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 				if (a[i].a[j].score >= a[i].a[0].score  - opt->pen_unpaired)
 					kv_push(mem_alnreg_t, b[i], a[i].a[j]);
 				
-		uint64_t tim = _rdtsc();
+		uint64_t tim = __rdtsc();
 		for (int l=0; l<a[0].n; l++)
 			a[0].a[l].flg = 0;
 		for (int l=0; l<a[1].n; l++)
 			a[1].a[l].flg = 0;
 		
-		tim = _rdtsc();
+		tim = __rdtsc();
 
 		for (i = 0; i < 2; ++i) {
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
@@ -693,12 +690,12 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			}
 		}
 
-		tprof[SAM3][tid] += _rdtsc() - tim;
+		// tprof[SAM3][tid] += __rdtsc() - tim;
 		free(b[0].a); free(b[1].a);
 	}
-	//tprof[SAM1][tid] += _rdtsc() - tim;
+	//tprof[SAM1][tid] += __rdtsc() - tim;
 
-	//uint64_t tim1 = _rdtsc();
+	//uint64_t tim1 = __rdtsc();
 	n_pri[0] = mem_mark_primary_se(opt, a[0].n, a[0].a, id<<1|0);
 	n_pri[1] = mem_mark_primary_se(opt, a[1].n, a[1].a, id<<1|1);  
 	if (opt->flag&MEM_F_NOPAIRING) goto no_pairing;
@@ -799,11 +796,11 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			free(XA[i]);
 		}
 	} else goto no_pairing;
-	// tprof[SAM2][tid] += _rdtsc() - tim1;
+	// tprof[SAM2][tid] += __rdtsc() - tim1;
 	return n;
 
 no_pairing:
-	// tim = _rdtsc();
+	// tim = __rdtsc();
 	for (i = 0; i < 2; ++i) {
 		int which = -1;
 		if (a[i].n) {
@@ -826,7 +823,7 @@ no_pairing:
 		err_fatal(__func__, "paired reads have different names: \"%s\", \"%s\"\n",
 				  s[0].name, s[1].name);
 
-	// tprof[SAM3][tid] += _rdtsc() - tim1;
+	// tprof[SAM3][tid] += __rdtsc() - tim1;
 	
 	free(h[0].cigar); free(h[1].cigar);
 	return n;
@@ -1004,7 +1001,7 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			mem_alnreg_t b;
 			int tmp, xtra = KSW_XSUBO | KSW_XSTART | (l_ms * opt->a < 250? KSW_XBYTE : 0) | (opt->min_seed_len * opt->a);
 
-			// uint64_t tim = _rdtsc();
+			// uint64_t tim = __rdtsc();
 			//aln = ksw_align2(l_ms, seq, re - rb, ref, 5,
 			//				 opt->mat, opt->o_del, opt->e_del,
 			//				 opt->o_ins, opt->e_ins, xtra, 0);
@@ -1013,7 +1010,8 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			//(*myaln)++;
 			int index = gar[gcnt + r];
 			if (index == -1) {
-				fprintf(stderr, "Re-routing: Encountered -ve index for gcnt: %d, look into pre.\n", gcnt + r);
+				// fprintf(stderr, "Re-routing: Encountered -ve index for "
+				// "gcnt: %d, look into pre.\n", gcnt + r);
 				assert(ref != 0);
 				aln = ksw_align2(l_ms, seq, re - rb, ref, 5,
 								 opt->mat, opt->o_del, opt->e_del,
@@ -1023,7 +1021,7 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			else
 				aln = *(*myaln + index);
 			
-			// tprof[SAM2][tid] += _rdtsc() - tim;
+			// tprof[SAM2][tid] += __rdtsc() - tim;
 
 			memset(&b, 0, sizeof(mem_alnreg_t));
 			if (aln.score >= opt->min_seed_len && aln.qb >= 0) { // something goes wrong if aln.qb < 0

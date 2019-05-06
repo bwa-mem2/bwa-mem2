@@ -37,7 +37,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdlib.h>
 #include <stdint.h>
 #include <immintrin.h>
-#include <omp.h>
 #include <assert.h>
 #include "macro.h"
 

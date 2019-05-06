@@ -51,9 +51,9 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "utils.h"
 #include "bntseq.h"
 #include "kseq.h"
-#if MPI_ENABLED
-#include <mpi.h>
-#endif
+// #if MPI_ENABLED
+// #include <mpi.h>
+// #endif
 
 KSEQ_DECLARE(gzFile)
 

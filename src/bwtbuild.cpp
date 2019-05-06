@@ -184,7 +184,7 @@ int build_fm_index(const char *ref_file_name, char *binary_seq, int64_t ref_seq_
     int64_t ref_seq_len_aligned = ((ref_seq_len + CP_BLOCK_SIZE - 1) / CP_BLOCK_SIZE) * CP_BLOCK_SIZE;
     bwt = (uint8_t *)_mm_malloc(ref_seq_len_aligned * sizeof(uint8_t), 64);
 
-#pragma omp parallel for
+// #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
     {
         if(sa_bwt[i] == 0)

@@ -700,194 +700,6 @@ int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
 }
 
 
-
-#if 0
-void FMI_search::getSMEMsOnePos(uint8_t *enc_qdb,
-        int16_t *query_pos_array,
-        int16_t *min_seed_len_array,
-        int32_t numReads,
-        int32_t batch_size,
-        int32_t readlength,
-        int32_t nthreads,
-        SMEM *matchArray,
-        int64_t *numTotalSmem)
-{
-    SMEM *prevArray = (SMEM *)_mm_malloc(nthreads * readlength * sizeof(SMEM), 64);
-    SMEM *currArray = (SMEM *)_mm_malloc(nthreads * readlength * sizeof(SMEM), 64);
-
-
-#pragma omp parallel num_threads(nthreads)
-    {
-        int tid = omp_get_thread_num();
-        numTotalSmem[tid] = 0;
-        SMEM *myPrevArray = prevArray + tid * readlength;
-        SMEM *myCurrArray = prevArray + tid * readlength;
-
-        int32_t perThreadQuota = (numReads + (nthreads - 1)) / nthreads;
-        int32_t first = tid * perThreadQuota;
-        int32_t last  = (tid + 1) * perThreadQuota;
-        if(last > numReads) last = numReads;
-        SMEM *myMatchArray = matchArray + first * readlength;
-
-        uint32_t i;
-        // Perform SMEM for original reads
-        for(i = first; i < last; i++)
-        {
-
-            int x = query_pos_array[i];
-            int numPrev = 0;
-            int numSmem = 0;
-
-            //while (x >= 0)
-            {
-
-                //printf("Forward search\n");
-                // Forward search
-                SMEM smem;
-                smem.rid = i;
-                smem.m = x;
-                smem.n = x;
-                uint8_t a = enc_qdb[i * readlength + x];
-
-                if(a > 3)
-                {
-                    x--;
-                    continue;
-                }
-                smem.k = count[a];
-                smem.l = count[3 - a];
-                smem.s = count[a+1] - count[a];
-
-                int j;
-                for(j = x + 1; j < readlength; j++)
-                {
-                    a = enc_qdb[i * readlength + j];
-                    if(a < 4)
-                    {
-                        SMEM smem_ = smem;
-
-                        // Forward extension is backward extension with the BWT of reverse complement
-                        smem_.k = smem.l;
-                        smem_.l = smem.k;
-                        SMEM newSmem_ = backwardExt(smem_, 3 - a);
-                        SMEM newSmem = newSmem_;
-                        newSmem.k = newSmem_.l;
-                        newSmem.l = newSmem_.k;
-                        newSmem.n = j;
-
-
-                        if(newSmem.s != smem.s)
-                        {
-
-                            myPrevArray[numPrev] = smem;
-                            numPrev++;
-                        }
-                        smem = newSmem;
-                        if(newSmem.s == 0)
-                        {
-                            break;
-                        }
-                    }
-                    else
-                    {
-
-                        myPrevArray[numPrev] = smem;
-                        numPrev++;
-                        break;
-                    }
-                }
-                if(smem.s != 0)
-                {
-
-                    myPrevArray[numPrev++] = smem;
-                }
-
-                SMEM *curr, *prev;
-                prev = myPrevArray;
-                curr = myCurrArray;
-
-                int p;
-                for(p = 0; p < (numPrev/2); p++)
-                {
-                    SMEM temp = prev[p];
-                    prev[p] = prev[numPrev - p - 1];
-                    prev[numPrev - p - 1] = temp;
-                }
-
-                int next_x = x - 1;
-
-                // Backward search
-                int cur_j = readlength;
-                for(j = x - 1; j >= 0; j--)
-                {
-
-                    int numCurr = 0;
-                    int curr_s = -1;
-                    a = enc_qdb[i * readlength + j];
-
-                    if(a > 3)
-                    {
-                        next_x = j - 1;
-                        break;
-                    }
-                    for(p = 0; p < numPrev; p++)
-                    {
-                        SMEM smem = prev[p];
-                        //printf("smem: %u, %u, %u, %u, %u\n", smem.m, smem.n, smem.k, smem.l, smem.s);
-                        SMEM newSmem = backwardExt(smem, a);
-                        newSmem.m = j;
-                        //printf("newSmem: %u, %u, %u, %u, %u\n", newSmem.m, newSmem.n, newSmem.k, newSmem.l, newSmem.s);
-
-                        if(newSmem.s == 0)
-                        {
-                            if((numCurr == 0) && (j < cur_j))
-                            {
-                                cur_j = j;
-                                //printf("Add to match: %u, %u, %u, %u, %u\n", smem.m, smem.n, smem.k, smem.l, smem.s);
-                                if((smem.n - smem.m + 1) >= minSeedLen)
-                                    myMatchArray[numTotalSmem[tid] + numSmem++] = smem;
-                            }
-                        }
-                        if((newSmem.s != 0) && (newSmem.s != curr_s))
-                        {
-                            curr_s = newSmem.s;
-                            //printf("Add to curr: %u, %u, %u, %u, %u\n", newSmem.m, newSmem.n, newSmem.k, newSmem.l, newSmem.s);
-                            curr[numCurr++] = newSmem;
-                        }
-                    }
-                    SMEM *temp = prev;
-                    prev = curr;
-                    curr = temp;
-                    numPrev = numCurr;
-                    if(numCurr == 0)
-                    {
-                        next_x = j;
-                        break;
-                    }
-                    else
-                    {
-                        next_x = j - 1;
-                    }
-                }
-                if(numPrev != 0)
-                {
-                    //printf("Add to match1: %u, %u, %u, %u, %u\n", prev[0].m, prev[0].n, prev[0].k, prev[0].l, prev[0].s);
-                    SMEM smem = prev[0];
-                    if((smem.n - smem.m + 1) >= minSeedLen)
-                        myMatchArray[numTotalSmem[tid] + numSmem++] = smem;
-                    numPrev = 0;
-                }
-                x = next_x;
-            }
-            numTotalSmem[tid] += numSmem;
-        }
-    }
-
-    _mm_free(prevArray);
-    _mm_free(currArray);
-}
-#endif
-
 void FMI_search::getSMEMs(uint8_t *enc_qdb,
         int32_t numReads,
         int32_t batch_size,
@@ -901,9 +713,9 @@ void FMI_search::getSMEMs(uint8_t *enc_qdb,
     SMEM *currArray = (SMEM *)_mm_malloc(nthreads * readlength * sizeof(SMEM), 64);
 
 
-#pragma omp parallel num_threads(nthreads)
+// #pragma omp parallel num_threads(nthreads)
     {
-        int tid = omp_get_thread_num();
+        int tid = 0; //omp_get_thread_num();   // removed omp
         numTotalSmem[tid] = 0;
         SMEM *myPrevArray = prevArray + tid * readlength;
         SMEM *myCurrArray = prevArray + tid * readlength;
@@ -1161,7 +973,7 @@ int64_t FMI_search::get_sa_entry(int64_t pos)
 void FMI_search::get_sa_entries(int64_t *posArray, int64_t *coordArray, uint32_t count, int32_t nthreads)
 {
     uint32_t i;
-    #pragma omp parallel for num_threads(nthreads)
+// #pragma omp parallel for num_threads(nthreads)
     for(i = 0; i < count; i++)
     {
         int64_t pos = posArray[i];

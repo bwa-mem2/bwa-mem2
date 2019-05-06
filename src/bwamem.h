@@ -47,7 +47,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <limits.h>
 #include <math.h>
 #include <vector>
-#include <omp.h>
 #include "kstring.h"
 #include "ksw.h"
 #include "kvec.h"

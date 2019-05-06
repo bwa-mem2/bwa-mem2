@@ -33,9 +33,9 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdio.h>
 #include "macro.h"
 #include <stdint.h>
-#if MPI_ENABLED
-#include <mpi.h>
-#endif
+// #if MPI_ENABLED
+// #include <mpi.h>
+// #endif
 
 
 extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
@@ -195,50 +195,3 @@ int display_stats()
 	return 1;
 }
 
-#if MPI_ENABLED
-void mpi_profile()
-{
-
-	tprof[MPI_TIME][2] = tprof[MEM_PROCESS2][0];
-	tprof[MPI_TIME][3] = tprof[READ_IO][0];
-	tprof[MPI_TIME][4] = tprof[OUTPUT][0];
-	int num = 10;
-	MPI_Reduce(tprof[MPI_TIME], tprof[MPI_TIME_SUM], num,
-			   MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
-	MPI_Reduce(tprof[MPI_TIME], tprof[MPI_TIME_MAX], num,
-			   MPI_UINT64_T, MPI_MAX, 0, MPI_COMM_WORLD);
-	MPI_Reduce(tprof[MPI_TIME], tprof[MPI_TIME_MIN], num,
-			   MPI_UINT64_T, MPI_MIN, 0, MPI_COMM_WORLD);
-	
-	if (ROOT_) {
-		fprintf(stderr, "\nNo. of MPI ranks: %d\n", num_ranks);
-		int64_t avg, min, max;
-		
-		fprintf(stderr, "MPI performance stats:\n");
-		avg = tprof[MPI_TIME_SUM][1]/num_ranks;
-		min = tprof[MPI_TIME_MIN][1];
-		max = tprof[MPI_TIME_MAX][1];
-		fprintf(stderr, "\t(Threaded) Kernel execution block time: %0.2lf (%0.2lf, %0.2lf)\n",
-			   avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
-
-
-		avg = tprof[MPI_TIME_SUM][3]/num_ranks;
-		min = tprof[MPI_TIME_MIN][3];
-		max = tprof[MPI_TIME_MAX][3];
-		fprintf(stderr, "\t\t1. Read time (not done using MPI_File_read()): %0.2lf (%0.2lf, %0.2lf)\n",
-			   avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
-
-		avg = tprof[MPI_TIME_SUM][2]/num_ranks;
-		min = tprof[MPI_TIME_MIN][2];
-		max = tprof[MPI_TIME_MAX][2];
-		fprintf(stderr, "\t\t2. Mem process time: %0.2lf (%0.2lf, %0.2lf)\n",
-			   avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
-
-		avg = tprof[MPI_TIME_SUM][4]/num_ranks;
-		min = tprof[MPI_TIME_MIN][4];
-		max = tprof[MPI_TIME_MAX][4];
-		fprintf(stderr, "\tMPI (SAM) output time: %0.2lf (%0.2lf, %0.2lf)\n",
-			   avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
-	}
-}
-#endif

@@ -40,9 +40,9 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "macro.h"
 #include "bandedSWA.h"
 #include "profiling.h"
-#if MPI_ENABLED
-#include <mpi.h>
-#endif
+// #if MPI_ENABLED
+// #include <mpi.h>
+// #endif
 
 int bwa_index(int argc, char *argv[]);
 int main_mem(int argc, char *argv[]);

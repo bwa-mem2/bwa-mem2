@@ -38,7 +38,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include <string.h>
 //#include <xmmintrin.h>
 #include <immintrin.h>
-#include <omp.h>
+// #include <omp.h>
 #include "bntseq.h"
 #include "read_index_ele.h"
 

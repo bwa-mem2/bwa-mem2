@@ -739,7 +739,7 @@ void mem_chain_seeds(const mem_opt_t *opt,
 	// filter seq at early stage than this!, shifted to collect!!!
 	// if (len < opt->min_seed_len) return chain; // if the query is shorter than the seed length, no match
 	
-	uint64_t tim = _rdtsc();
+	uint64_t tim = __rdtsc();
 	for (int l=0; l<nseq && pos < num_smem - 1; l++)
 	{
 		// addition, FIX FIX FIX!!!!! THIS!!!!
@@ -777,11 +777,11 @@ void mem_chain_seeds(const mem_opt_t *opt,
 			// if (slen < opt->min_seed_len) continue; // ignore if too short or too repetitive
 			step = p->s > opt->max_occ? p->s / opt->max_occ : 1;
 
-			// uint64_t tim = _rdtsc();
+			// uint64_t tim = __rdtsc();
 			int cnt = 0;			
             fmi->get_sa_entries(p, sa_coord, &cnt, 1, opt->max_occ);
 			cnt = 0;
-			// tprof[MEM_SA][tid] += _rdtsc() - tim;
+			// tprof[MEM_SA][tid] += __rdtsc() - tim;
 			
 			for (k = count = 0; k < p->s && count < opt->max_occ; k += step, ++count)
 			{
@@ -810,7 +810,7 @@ void mem_chain_seeds(const mem_opt_t *opt,
 				}
 				else to_add = 1;
 
-				//uint64_t tim = _rdtsc();
+				//uint64_t tim = __rdtsc();
 				if (to_add) // add the seed as a new chain
 				{
 					tmp.n = 1; tmp.m = 1; //4;
@@ -860,7 +860,7 @@ void mem_chain_seeds(const mem_opt_t *opt,
 		kb_destroy(chn, tree);		
 		
 	} // iterations over input reads
-	tprof[MEM_SA_BLOCK][tid] += _rdtsc() - tim;
+	tprof[MEM_SA_BLOCK][tid] += __rdtsc() - tim;
 
 	_mm_free(sa_coord);
 }
@@ -887,7 +887,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
  	mem_chain_v *chn;
 	
 	uint64_t tim;
-	// tim = _rdtsc();
+	// tim = __rdtsc();
 	/* convert to 2-bit encoding if we have not done so */
 	for (int l=0; l<nseq; l++)
 	{
@@ -898,8 +898,8 @@ int mem_kernel1_core(const mem_opt_t *opt,
 		for (i = 0; i < len; ++i)
 			seq[i] = seq[i] < 4? seq[i] : nst_nt4_table[(int)seq[i]]; //nst_nt4??		
 	}
-	// tprof[MEM_ALN_M2][tid] += _rdtsc() - tim;
-	tim = _rdtsc();	
+	// tprof[MEM_ALN_M2][tid] += __rdtsc() - tim;
+	tim = __rdtsc();	
 	/********************** Kernel 1: FM+SMEMs *************************/
 	printf_(VER, "6. Calling mem_collect_smem.., tid: %d\n", tid);
 	//SMEM *matchArray = mem_collect_smem(opt, seq_, nseq, num_smem);
@@ -918,10 +918,10 @@ int mem_kernel1_core(const mem_opt_t *opt,
 		assert(num_smem < BATCH_MUL * BATCH_SIZE * readLen);
 	}
 	printf_(VER, "6. Done! mem_collect_smem, num_smem: %ld\n", num_smem);
-	tprof[MEM_COLLECT][tid] += _rdtsc() - tim;	
+	tprof[MEM_COLLECT][tid] += __rdtsc() - tim;	
 
 	
-	// tim = _rdtsc();
+	// tim = __rdtsc();
 	/********************* Kernel 1.1: SA2REF **********************/
 	printf_(VER, "6.1. Calling mem_chain..\n");
 	//mem_chain_seeds(opt, bwt, bns, seq_, neseq, aux, tid, chain_ar);
@@ -936,10 +936,10 @@ int mem_kernel1_core(const mem_opt_t *opt,
 					num_smem);
 	
 	printf_(VER, "5. Done mem_chain..\n");
-	// tprof[MEM_CHAIN][tid] += _rdtsc() - tim;
+	// tprof[MEM_CHAIN][tid] += __rdtsc() - tim;
 
 	/************** Post-processing of collected smems/chains ************/
-	// tim = _rdtsc();
+	// tim = __rdtsc();
 	printf_(VER, "6.1. Calling mem_chain_flt..\n");
 	for (int l=0; l<nseq; l++)
 	{
@@ -947,9 +947,9 @@ int mem_kernel1_core(const mem_opt_t *opt,
 		chn->n = mem_chain_flt(opt, chn->n, chn->a);
 	}
 	printf_(VER, "7. Done mem_chain_flt..\n");
-	// tprof[MEM_ALN_M1][tid] += _rdtsc() - tim;
+	// tprof[MEM_ALN_M1][tid] += __rdtsc() - tim;
 	
-	// tim = _rdtsc();
+	// tim = __rdtsc();
 	printf_(VER, "8. Calling mem_flt_chained_seeds..\n");
 	for (int l=0; l<nseq; l++) {
 		chn = &chain_ar[l];
@@ -957,7 +957,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
 		mem_flt_chained_seeds(opt, fmi->idx->bns, fmi->idx->pac, seq_, chn->n, chn->a);
 	}
 	printf_(VER, "8. Done mem_flt_chained_seeds..\n");
-	// tprof[MEM_ALN_M2][tid] += _rdtsc() - tim;
+	// tprof[MEM_ALN_M2][tid] += __rdtsc() - tim;
 
 	return 1;
 }
@@ -981,7 +981,7 @@ int mem_kernel2_core(const mem_opt_t *opt,
 		kv_init(regs[l]);
 	}
 	/****************** Kernel 2: B-SWA *********************/
-	uint64_t tim = _rdtsc();
+	uint64_t tim = __rdtsc();
 	printf_(VER, "9. Calling mem_chain2aln...\n");
 	mem_chain2aln_across_reads_V2(opt,
 								  fmi->idx->bns,
@@ -997,9 +997,9 @@ int mem_kernel2_core(const mem_opt_t *opt,
 								  tid);
 
 	printf_(VER, "9. Done mem_chain2aln...\n\n");
-	tprof[MEM_ALN2][tid] += _rdtsc() - tim;
+	tprof[MEM_ALN2][tid] += __rdtsc() - tim;
 
-	// tim = _rdtsc();
+	// tim = __rdtsc();
 	for (int l=0; l<nseq; l++)
 		free(chain_ar[l].a);
 	
@@ -1032,7 +1032,7 @@ int mem_kernel2_core(const mem_opt_t *opt,
 				p->is_alt = 1;
 		}
 	}
-	// tprof[POST_SWA][tid] += _rdtsc() - tim;
+	// tprof[POST_SWA][tid] += __rdtsc() - tim;
 	
 	return 1;
 }
@@ -1136,7 +1136,7 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 		}
 #else   // re-structured
 		// pre-processing
-		// uint64_t tim = _rdtsc();
+		// uint64_t tim = __rdtsc();
 		int32_t gcnt = 0;
 		for (int i=start; i< end; i+=2)
 		{
@@ -1148,7 +1148,7 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 								 &w->mmc, sizeA, sizeB, sizeC,
 								 pcnt, gcnt);
 		}
-		// tprof[SAM1][tid] += _rdtsc() - tim;
+		// tprof[SAM1][tid] += __rdtsc() - tim;
 
 		int64_t pcnt8 = sort_classify(&w->mmc, sizeA, pcnt);
 		
@@ -1158,7 +1158,7 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 						 pcnt, pcnt8, aln);		
 		
 		// post-processing
-		// tim = _rdtsc();
+		// tim = __rdtsc();
 		gcnt = 0;
 		pos = start >> 1;
 		kswr_t *myaln = aln;
@@ -1176,7 +1176,7 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 			free(w->regs[i].a);
 			free(w->regs[i+1].a);
 		}
-		//tprof[SAM3][tid] += _rdtsc() - tim;		
+		//tprof[SAM3][tid] += __rdtsc() - tim;		
 		_mm_free(aln);  // kswr_t
 #endif
 	}
@@ -1219,7 +1219,7 @@ void mem_process_seqs(mem_opt_t *opt,
 	//int n_ = (opt->flag & MEM_F_PE) ? n : n;   // this requires n%2==0
 	int n_ = n;
 	
-	uint64_t tim = _rdtsc();	
+	uint64_t tim = __rdtsc();	
 	fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_bwt\n", myrank);
 	
 	kt_for(worker_bwt, &w, n_); // SMEMs (+SAL)
@@ -1227,7 +1227,7 @@ void mem_process_seqs(mem_opt_t *opt,
 	fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_aln\n", myrank);
 	
 	kt_for(worker_aln, &w, n_); // BSW
-	tprof[WORKER10][0] += _rdtsc() - tim;		
+	tprof[WORKER10][0] += __rdtsc() - tim;		
 
 
 #if PAIRED_END
@@ -1243,11 +1243,11 @@ void mem_process_seqs(mem_opt_t *opt,
 	}
 #endif
 	
-	tim = _rdtsc();
+	tim = __rdtsc();
 	fprintf(stderr, "[%0.4d] 10. Calling kt_for - worker_sam\n", myrank);
 	
 	kt_for(worker_sam, &w,  n_);   // SAM	
-  	tprof[WORKER20][0] += _rdtsc() - tim;
+  	tprof[WORKER20][0] += __rdtsc() - tim;
 
 	fprintf(stderr, "\t[%0.4d][ M::%s] Processed %d reads in %.3f "
 			"CPU sec, %.3f real sec\n", myrank,
@@ -1933,7 +1933,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	//								  18,17,16);
 	int spos = 0;
 	
-	// uint64_t timUP = _rdtsc();
+	// uint64_t timUP = __rdtsc();
 	for (int l=0; l<nseq; l++)
 	{
 		int max = 0;
@@ -2028,7 +2028,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
 			lim_g[l+1] += c->n;
 			
-			// uint64_t tim = _rdtsc();
+			// uint64_t tim = __rdtsc();
 			for (int k=c->n-1; k >= 0; k--)
 			{
 				s = &c->seeds[(uint32_t)srt[k]];
@@ -2215,12 +2215,12 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 				}
 			}
 			// free(rseq);
-			// tprof[MEM_ALN2_DOWN1][tid] += _rdtsc() - tim;
+			// tprof[MEM_ALN2_DOWN1][tid] += __rdtsc() - tim;
 		}
 	}
-	// tprof[MEM_ALN2_UP][tid] += _rdtsc() - timUP;
+	// tprof[MEM_ALN2_UP][tid] += __rdtsc() - timUP;
 	
-	// uint64_t timS = _rdtsc();
+	// uint64_t timS = __rdtsc();
 	int32_t *hist = (int32_t *)_mm_malloc((MAX_SEQ_LEN8 + MAX_SEQ_LEN16 + 32) *
 										  sizeof(int32_t), 64);
 	for (int l=0; l<numPairsLeft; l++) {
@@ -2236,10 +2236,10 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 		SeqPair sp = seqPairArrayLeft128[l];
 	}
 	assert(numPairsRight == (numPairsRight128 + numPairsRight16 + numPairsRight1));
-	// tprof[SORT][tid] += _rdtsc() - timS;
+	// tprof[SORT][tid] += __rdtsc() - timS;
 
 	// SWA
-	// uint64_t timL = _rdtsc();
+	// uint64_t timL = __rdtsc();
 
 	// int nthreads = opt->n_threads;
 	int nthreads = 1;
@@ -2266,7 +2266,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	for ( i=0; i<MAX_BAND_TRY; i++)
 	{
 		int w = opt->w << i;
-		// uint64_t tim = _rdtsc();
+		// uint64_t tim = __rdtsc();
 		bswLeft.scalarBandedSWAWrapper(pair_ar,
 									   seqBufLeftRef,
 									   seqBufLeftQer,
@@ -2275,7 +2275,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 									   w);
 		//tprof[PE5][0] += nump;
 		//tprof[PE6][0] ++;
-		// tprof[MEM_ALN2_B][tid] += _rdtsc() - tim;
+		// tprof[MEM_ALN2_B][tid] += __rdtsc() - tim;
 			
 		int num = 0;
 		for (int l=0; l<nump; l++)
@@ -2331,25 +2331,22 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	for ( i=0; i<MAX_BAND_TRY; i++)
 	{
 		int w = opt->w << i;
-		// int64_t tim = _rdtsc();
+		// int64_t tim = __rdtsc();
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
 		bswLeft.scalarBandedSWAWrapper(pair_ar, seqBufLeftRef, seqBufLeftQer, nump, nthreads, w);
 #else
-		// printf("Check 1...\n");
 		sortPairsLen(pair_ar, nump, seqPairArrayAux, hist);
-		//printf("Check 2...\n");
 		bswLeft.getScores16(pair_ar,
 							seqBufLeftRef,
 							seqBufLeftQer,
 							nump,
 							nthreads,
 							w);
-		//printf("Check 3...\n");
 #endif
 		
 		tprof[PE5][0] += nump;
 		tprof[PE6][0] ++;				
-		// tprof[MEM_ALN2_B][tid] += _rdtsc() - tim;
+		// tprof[MEM_ALN2_B][tid] += __rdtsc() - tim;
 
 		int num = 0;
 		for (int l=0; l<nump; l++)
@@ -2403,7 +2400,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	for ( i=0; i<MAX_BAND_TRY; i++)
 	{
 		int w = opt->w << i;
-		// int64_t tim = _rdtsc();
+		// int64_t tim = __rdtsc();
 		
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
 		bswLeft.scalarBandedSWAWrapper(pair_ar, seqBufLeftRef, seqBufLeftQer, nump, nthreads, w);
@@ -2419,7 +2416,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 		
 		tprof[PE1][0] += nump;
 		tprof[PE2][0] ++;
-		// tprof[MEM_ALN2_D][tid] += _rdtsc() - tim;
+		// tprof[MEM_ALN2_D][tid] += __rdtsc() - tim;
 
 		int num = 0;
 		for (int l=0; l<nump; l++)
@@ -2464,9 +2461,9 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	}
 #endif
 
-	// tprof[CLEFT][tid] += _rdtsc() - timL;
+	// tprof[CLEFT][tid] += __rdtsc() - timL;
 	
-	// uint64_t timR = _rdtsc();
+	// uint64_t timR = __rdtsc();
 	// **********************************************************
 	// Right, scalar
 	for (int l=0; l<numPairsRight; l++) {
@@ -2492,7 +2489,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	for ( i=0; i<MAX_BAND_TRY; i++)
 	{
 		int w = opt->w << i;
-		//tim = _rdtsc();		
+		//tim = __rdtsc();		
 		bswRight.scalarBandedSWAWrapper(pair_ar,
 						seqBufRightRef,
 						seqBufRightQer,
@@ -2501,7 +2498,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 						w);
 		//tprof[PE7][0] += nump;
 		//tprof[PE8][0] ++;
-		//tprof[MEM_ALN2_C][tid] += _rdtsc() - tim;
+		//tprof[MEM_ALN2_C][tid] += __rdtsc() - tim;
 		int num = 0;
 
 		for (int l=0; l<nump; l++)
@@ -2554,7 +2551,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	for ( i=0; i<MAX_BAND_TRY; i++)
 	{
 		int w = opt->w << i;
-		// uint64_t tim = _rdtsc();
+		// uint64_t tim = __rdtsc();
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
 		bswRight.scalarBandedSWAWrapper(pair_ar, seqBufRightRef, seqBufRightQer, nump, nthreads, w);
 #else
@@ -2569,7 +2566,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
 		tprof[PE7][0] += nump;
 		tprof[PE8][0] ++;
-		// tprof[MEM_ALN2_C][tid] += _rdtsc() - tim;
+		// tprof[MEM_ALN2_C][tid] += __rdtsc() - tim;
 		
 		int num = 0;
 
@@ -2624,7 +2621,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	for ( i=0; i<MAX_BAND_TRY; i++)
 	{
 		int w = opt->w << i;
-		// uint64_t tim = _rdtsc();
+		// uint64_t tim = __rdtsc();
 		
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
 		bswRight.scalarBandedSWAWrapper(pair_ar, seqBufRightRef, seqBufRightQer, nump, nthreads, w); 
@@ -2640,7 +2637,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			
 		tprof[PE3][0] += nump;
 		tprof[PE4][0] ++;
-		// tprof[MEM_ALN2_E][tid] += _rdtsc() - tim;
+		// tprof[MEM_ALN2_E][tid] += __rdtsc() - tim;
 		int num = 0;
 
 		for (int l=0; l<nump; l++)
@@ -2685,7 +2682,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	}
 #endif
 	_mm_free(hist);
-	// tprof[CRIGHT][tid] += _rdtsc() - timR;
+	// tprof[CRIGHT][tid] += __rdtsc() - timR;
 	
 	if (numPairsLeft >= BATCH_SIZE * SEEDS_PER_READ || numPairsRight >= BATCH_SIZE * SEEDS_PER_READ)
 	{   // refine it!
@@ -2701,7 +2698,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	for (int l=1; l<nseq; l++)
 		lim_g[l] += lim_g[l-1];
 			
-	// uint64_t tim = _rdtsc();			
+	// uint64_t tim = __rdtsc();			
 	int *lim = (int *) calloc(BATCH_SIZE, sizeof(int));
 
 
@@ -2731,7 +2728,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			int k = 0;
 			for (k = c->n-1; k >= 0; k--)
 			{
-				// uint64_t tim_ = _rdtsc();
+				// uint64_t tim_ = __rdtsc();
 				// mem_alnreg_t *a;
 				// s = &c->seeds[(uint32_t) srt[k]];
 				s = &c->seeds[srt2[k]];
@@ -2806,5 +2803,5 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	free(srtgg);
 	free(srt);
 	free(lim);
-	// tprof[MEM_ALN2_DOWN][tid] += _rdtsc() - tim;	
+	// tprof[MEM_ALN2_DOWN][tid] += __rdtsc() - tim;	
 }

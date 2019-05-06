@@ -30,7 +30,6 @@
 #include <stdint.h>
 #include <assert.h>
 #include <emmintrin.h>
-#include <omp.h>
 #include "ksw.h"
 #include "macro.h"
 
@@ -49,14 +48,6 @@ extern int ncnt;
 #define LIKELY(x) (x)
 #define UNLIKELY(x) (x)
 #endif
-
-// const kswr_t g_defr = { 0, -1, -1, -1, -1, -1, -1 };
-
-//struct _kswq_t {
-//	int qlen, slen;
-//	uint8_t shift, mdiff, max, size;
-//	__m128i *qp, *H0, *H1, *E, *Hmax;
-//};
 
 /**
  * Initialize the query data structure
@@ -362,7 +353,7 @@ kswr_t ksw_align2(int qlen, uint8_t *query, int tlen, uint8_t *target,
 				  int m, const int8_t *mat, int o_del, int e_del,
 				  int o_ins, int e_ins, int xtra, kswq_t **qry)
 {
-	int tid = omp_get_thread_num();
+	// int tid = omp_get_thread_num();
 	int size;
 	kswq_t *q;
 	kswr_t r, rr;
@@ -376,20 +367,20 @@ kswr_t ksw_align2(int qlen, uint8_t *query, int tlen, uint8_t *target,
 	size = q->size;
 
 	
-	uint64_t tim = _rdtsc();
+	// uint64_t tim = __rdtsc();
 	r = func(q, tlen, target, o_del, e_del, o_ins, e_ins, xtra);
-	tprof[ALIGN1][tid] += _rdtsc() - tim;
-	tprof[PE24][0] ++;
+	// tprof[ALIGN1][tid] += __rdtsc() - tim;
+	// tprof[PE24][0] ++;
 
 	if (qry == 0) free(q);
 	if ((xtra & KSW_XSTART) == 0 || ((xtra & KSW_XSUBO) && r.score < (xtra & 0xffff))) return r;
 	revseq(r.qe + 1, query); revseq(r.te + 1, target); // +1 because qe/te points to the exact end, not the position after the end
 	
 	q = ksw_qinit(size, r.qe + 1, query, m, mat);
-	tim = _rdtsc();
+	// tim = __rdtsc();
 	rr = func(q, tlen, target, o_del, e_del, o_ins, e_ins, KSW_XSTOP | r.score);
-	tprof[ALIGN1][tid] += _rdtsc() - tim;
-	tprof[PE25][0] ++;
+	// tprof[ALIGN1][tid] += __rdtsc() - tim;
+	// tprof[PE25][0] ++;
 	
 	revseq(r.qe + 1, query); revseq(r.te + 1, target);
 	free(q);
@@ -404,7 +395,7 @@ kswr_t ksw_align2_orig_bak(int qlen, uint8_t *query, int tlen, uint8_t *target,
 						   int m, const int8_t *mat, int o_del, int e_del,
 						   int o_ins, int e_ins, int xtra, kswq_t **qry)
 {
-	int tid = omp_get_thread_num();
+	// int tid = omp_get_thread_num();
 	int size;
 	kswq_t *q;
 	kswr_t r, rr;
@@ -415,18 +406,18 @@ kswr_t ksw_align2_orig_bak(int qlen, uint8_t *query, int tlen, uint8_t *target,
 	if (qry && *qry == 0) *qry = q;
 	func = q->size == 2? ksw_i16 : ksw_u8;
 	size = q->size;
-	uint64_t tim = _rdtsc();
+	// uint64_t tim = __rdtsc();
 	r = func(q, tlen, target, o_del, e_del, o_ins, e_ins, xtra);
-	tprof[ALIGN1][tid] += _rdtsc() - tim;
+	// tprof[ALIGN1][tid] += __rdtsc() - tim;
 
 	if (qry == 0) free(q);
 	if ((xtra & KSW_XSTART) == 0 || ((xtra & KSW_XSUBO) && r.score < (xtra & 0xffff))) return r;
 	revseq(r.qe + 1, query); revseq(r.te + 1, target); // +1 because qe/te points to the exact end, not the position after the end
 	
 	q = ksw_qinit(size, r.qe + 1, query, m, mat);
-	tim = _rdtsc();
+	// tim = __rdtsc();
 	rr = func(q, tlen, target, o_del, e_del, o_ins, e_ins, KSW_XSTOP | r.score);
-	tprof[ALIGN1][tid] += _rdtsc() - tim;
+	// tprof[ALIGN1][tid] += __rdtsc() - tim;
 	
 	revseq(r.qe + 1, query); revseq(r.te + 1, target);
 	free(q);

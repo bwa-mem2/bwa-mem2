@@ -32,7 +32,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 *****************************************************************************************/
 
 #include "kthread.h"
-#include <omp.h>
+// #include <omp.h>
 #include <stdio.h>
 
 extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
@@ -94,10 +94,6 @@ static void *ktf_worker(void *data)
 
 void kt_for(void (*func)(void*, int, int, int), void *data, int n)
 {
-	/* Note: we dont need ktf_worker anymore!
-	   omp threading of num threads */
-	// printf("nthreads: %d\n", nthreads);
-#if 1
 	int i;
 	kt_for_t t;
 	pthread_t *tid;
@@ -114,24 +110,4 @@ void kt_for(void (*func)(void*, int, int, int), void *data, int n)
 
     free(t.w);
 	free(tid);
-	
-#else
-	
-	int i = 0;
-	omp_set_num_threads(nthreads);
-#pragma omp parallel
-	{
-		int tid = omp_get_thread_num();
-		// int nt = omp_get_num_threads();
-#pragma omp for schedule(dynamic)
-		for (i=0; i<n; i+= BATCH_SIZE)
-		{
-			int st = i;
-			int ed = i + BATCH_SIZE < n? i + BATCH_SIZE : n;
-			// set thread memory shared in data
-			// printf("[%0.4d] st :%d, ed: %d, nt: %d\n", tid, st, ed-st, nt);
-			func(data, st, ed-st, tid);
-		}
-	}	
-#endif
 }
