@@ -442,7 +442,7 @@ typedef typename std::iterator_traits<string_type>::value_type char_type;
       flags = 1;
     } else {
       try { Bp = new index_type[k]; } catch(...) { Bp = 0; }
-      if(Bp == 0) { return -2; }
+      if(Bp == 0) { delete[] Cp; return -2; }
       flags = 3;
     }
   } else if(k <= fs) {
@@ -518,7 +518,7 @@ typedef typename std::iterator_traits<string_type>::value_type char_type;
     }
     if(flags & 2) {
       try { Bp = new index_type[k]; } catch(...) { Bp = 0; }
-      if(Bp == 0) { if(flags & 1) { delete[] Cp; } return -2; }
+      if(Bp == 0) { if(flags & (1 | 4)) { delete[] Cp; } return -2; }
     }
   }
 
