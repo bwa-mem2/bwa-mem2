@@ -3582,7 +3582,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 
     return;
 }
-#endif
+#endif  //avx512
 
 /**************** SSE2 code ******************/
 #if ((!__AVX512BW__) && (!__AVX2__) && (__SSE2__))
@@ -5266,6 +5266,5 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 	
     return;
 }
-
 
 #endif

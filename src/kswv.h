@@ -36,12 +36,15 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
-#include <emmintrin.h>
+// #include <emmintrin.h>
 #include <omp.h>
 #include "macro.h"
 #if !MAINY
 #include "ksw.h"
-#include "bwamem.h"
+// #include "bwamem.h"
+#include "bandedSWA.h"
+#else
+#include <immintrin.h>
 #endif
 
 #ifdef __GNUC__
@@ -72,11 +75,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 // #define MAX_SEQ_LEN8 256
 
 #define MAX_SEQ_LEN_EXT 256
-// SIMD_WIDTH in bits
-// #if !__AVX512BW__
-// #define SIMD_WIDTH8 32
-// #define SIMD_WIDTH16 16
-// #endif
 
 #if __AVX512BW__
 #define SIMD_WIDTH8 64
@@ -141,11 +139,11 @@ extern const kswr_t g_defr;
 
 #endif
 
-typedef struct {
-	int qlen, slen;
-	uint8_t shift, mdiff, max, size;
-	__m512i *qp, *H0, *H1, *E, *Hmax;
-} kswqi_t;
+// typedef struct {
+// 	int qlen, slen;
+// 	uint8_t shift, mdiff, max, size;
+// 	__m512i *qp, *H0, *H1, *E, *Hmax;
+// } kswqi_t;
 
 
 class kswv {
@@ -182,23 +180,24 @@ public:
 						  int nthreads);
 
 	kswq_t* ksw_qinit(int size, int qlen, uint8_t *query, int m, const int8_t *mat);
-	kswqi_t* ksw_qinit_intra(int size, int qlen, uint8_t *query, int m, const int8_t *mat);
-	void kswvBatchWrapper16_intra(SeqPair *pairArray,
-								  uint8_t *seqBufRef,
-								  uint8_t *seqBufQer,
-								  int32_t numPairs,
-								  uint16_t numThreads);
-	
-	kswr_t kswv512_16_intra(uint8_t seq1SoA[],
-							kswqi_t *q,
-							int16_t nrow,
-							int16_t ncol,
-							SeqPair *p,
-							uint16_t tid,
-							int32_t numPairs,
-							int &maxi);
+	// kswqi_t* ksw_qinit_intra(int size, int qlen, uint8_t *query, int m, const int8_t *mat);
+	// void kswvBatchWrapper16_intra(SeqPair *pairArray,
+	// 							  uint8_t *seqBufRef,
+	// 							  uint8_t *seqBufQer,
+	// 							  int32_t numPairs,
+	// 							  uint16_t numThreads);
+	// 
+	// kswr_t kswv512_16_intra(uint8_t seq1SoA[],
+	// 						kswqi_t *q,
+	// 						int16_t nrow,
+	// 						int16_t ncol,
+	// 						SeqPair *p,
+	// 						uint16_t tid,
+	// 						int32_t numPairs,
+	// 						int &maxi);
 	
 private:
+#if __AVX512BW__
 	void kswvBatchWrapper8(SeqPair *pairArray,
 						   uint8_t *seqBufRef,
 						   uint8_t *seqBufQer,
@@ -246,7 +245,7 @@ private:
 				   int po_ind,
 				   uint16_t tid,
 				   int32_t numPairs);
-
+#endif
 	
 	kswr_t kswvScalar_u8(kswq_t *q, int tlen, const uint8_t *target,
 						int _o_del, int _e_del, int _o_ins, int _e_ins,

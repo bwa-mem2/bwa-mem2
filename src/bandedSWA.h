@@ -36,9 +36,16 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <immintrin.h>
 #include <assert.h>
 #include "macro.h"
+
+#if (__AVX512BW__ || __AVX2__)
+#include <immintrin.h>
+#else
+#include <emmintrin.h>  //emm- sse2
+#define __mmask8 uint8_t
+#define __mmask16 uint16_t
+#endif
 
 #define MAX_SEQ_LEN_REF 256
 #define MAX_SEQ_LEN_QER 128
@@ -337,90 +344,5 @@ private:
 #define DP1 5
 #define DP2 6
 #define DP3 7
-
-
-// Some Debug macros
-
-#define DEB1									\
-	SW_cells2 += nrow * ncol * SIMD_WIDTH;
-
-#define DEB2										\
-	prof[2][tid] += SIMD_WIDTH*4;
-
-
-#define DEB3													\
-	uint32_t ex = _mm256_movemask_epi8(exit0), msk=0x1;			\
-	for (int l=0;l<32;l++) {									\
-		if ((ex & (msk << l)) == 1) {									\
-			if (p[l].len2 < end) prof[3][tid] += (end - p[l].len2) * 4;	\
-		}																\
-	}																	\
-	msk = 0x1;															\
-	uint64_t gval1 = 0, gval2 = 0, gval3 = 0, gval4 = 0;				\
-	for (int l=0;l<32;l++) {											\
-		if ((ex & (msk << l)) == 0) gval1 ++;							\
-	}																	\
-	prof[3][tid] += (end-beg)*4*gval1;				
-
-#define DEB4										\
-	ex = _mm256_movemask_epi8(exit0);				\
-	msk=0x1;										\
-	for (int l=0;l<32;l++) {						\
-		if ((ex & (msk << l)) == 0) gval2 ++;		\
-	}												\
-	prof[3][tid] += (end-beg)*3*(gval2 - gval1);	\
-
-#define DEB5									\
-	ex = _mm256_movemask_epi8(exit0);			\
-	msk=0x1;									\
-	for (int l=0;l<32;l++) {						\
-		if ((ex & (msk << l)) == 0) gval3 ++;		\
-	}												\
-	prof[3][tid] += (end-beg)*2*(gval3-gval2);		\
-	
-#define DEB6									\
-	ex = _mm256_movemask_epi8(exit0);			\
-	msk=0x1;									\
-	for (int l=0;l<32;l++) {						\
-		if ((ex & (msk << l)) == 0) gval4 ++;		\
-	}												\
-	prof[3][tid] += (end-beg)*(gval4-gval3);		\
-	
-
-#define STAT1									\
-	int8_t mat[200][200]= {0};
-
-#define STAT2											\
-	mat[i][0] = *(H2 + i * SIMD_WIDTH + lane);				\
-	/*mat[i+1][0] = *(H2 + (i+1) * SIMD_WIDTH + lane);		\
-	mat[i+2][0] = *(H2 + (i+2) * SIMD_WIDTH + lane);		\
-	mat[i+3][0] = *(H2 + (i+3) * SIMD_WIDTH + lane);*/
-
-#define STAT3												\
-	int8_t temp[SIMD_WIDTH]  __attribute((aligned(64)));	\
-	mat[i][j+1] = *(H + j * SIMD_WIDTH + lane);				\
-	/*_mm256_store_si256((__m256i *)(temp), h10);			\
-	mat[i+1][j+1] = temp[lane];								\
-	_mm256_store_si256((__m256i *)(temp), h20);				\
-	mat[i+2][j+1] = temp[lane];								\
-	_mm256_store_si256((__m256i *)(temp), h30);				\
-	mat[i+3][j+1] = temp[lane];*/
-
-#define STAT4									\
-	for (int l=0; l<p[lane].len1; l++)						\
-		printf("%d ", *(seq1SoA + l*SIMD_WIDTH + lane));	\
-	printf("\n");											\
-	for (int l=0; l<p[lane].len2; l++)						\
-		printf("%d ", *(seq2SoA + l*SIMD_WIDTH + lane));	\
-	printf("\n");											\
-	printf("nrow: %d, ncol: %d\n", nrow, ncol);				\
-	for(i = 0; i <=60; i++) {								\
-		printf("%2d ", i);									\
-		for(j = 0; j <=50 ; j++)							\
-			printf("%2d ", mat[i][j]);						\
-		printf("\n");										\
-	}														\
-	printf("\n");											\
-	exit(0);
 
 #endif
