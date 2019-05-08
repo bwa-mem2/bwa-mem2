@@ -48,31 +48,10 @@ int64_t reference_seq_len;
 
 int usage()
 {
-	fprintf(stderr, "\nProgram: BWA-MEM2 (Sequence alignment using Burrows-Wheeeler Transform)\n");
-	fprintf(stderr, "Version: %s\n", PACKAGE_VERSION);
-	fprintf(stderr, "Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;\n\t  Heng Li <hli@jimmy.harvard.edu>\n\n");
-	fprintf(stderr, "This program comes with ABSOLUTELY NO WARRANTY.\n"
-		   "This program is free software: you can redistribute it and/or modify\n"
-		   "it under the terms of the GNU General Public License as published by\n"
-		   "the Free Software Foundation, either version 3 of the License, or\n"
-		   "(at your option) any later version.\n\n"
-		   "This program is distributed in the hope that it will be useful,\n"
-		   "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-		   "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-		   "GNU General Public License for more details.\n\n"
-		   "For more information, see <https://www.gnu.org/licenses/>.\n\n");
-	fprintf(stderr, "This is free software, and you are welcome to redistribute it\n"
-		   "under certain conditions.\n"
-		   "1. Redistributions of source code must retain the above copyright notice,\n"
-		   "this list of conditions and the following disclaimer.\n" 
-		   "2. Redistributions in binary form must reproduce the above copyright notice,\n"
-		   "this list of conditions and the following disclaimer in the documentation\n"
-		   "and/or other materials provided with the distribution. \n"
-		   "3. Neither the name of Intel Corporation nor the names of its contributors may\n"
-		   "be used to endorse or promote products derived from this software without\n"
-		   "specific prior written permission.\n");
-	
-	fprintf(stderr, "\n\tusage: bwa-mem2 <index | mem> [options]\n\n");
+	fprintf(stderr, "Usage: bwa-mem2 <command> <arguments>\n");
+	fprintf(stderr, "Commands:\n");
+	fprintf(stderr, "  index         create index\n");
+	fprintf(stderr, "  mem           alignment\n");
 	return 1;
 }
 
@@ -93,11 +72,6 @@ int main(int argc, char* argv[])
 	int ret = -1;
 	if (argc < 2) return usage();
 
-	fprintf(stderr, "\nBWA-MEM2 v0.1.0\n"
-		   "This program is under GPLv3. "
-		   "For more details, refer to the LICENSE file or run 'bwa-mem2'.\n\n");
-
-	
 	fprintf(stderr, "-----------------------------\n");
 #if __AVX512BW__
 	fprintf(stderr, "Executing in AVX512 mode!!\n");
@@ -117,10 +91,7 @@ int main(int argc, char* argv[])
 	{
 		 uint64_t tim = __rdtsc();
 		 ret = bwa_index(argc-1, argv+1);
-		 fprintf(stderr, "Index creation completed!!!\n");
 		 tprof[INDEX][0] += __rdtsc() - tim;
-
-		 fprintf(stderr, "Index creation time: %0.2lf\n\n", tprof[INDEX][0]*1.0/proc_freq);
 		 free(bwa_pg);
 		 return 1;
 	}

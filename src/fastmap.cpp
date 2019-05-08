@@ -492,7 +492,6 @@ int main_mem(int argc, char *argv[])
 
 	if (opt->n_threads < 1) opt->n_threads = 1;
 	if (optind + 2 != argc && optind + 3 != argc) {
-		fprintf(stderr, "optind: %d, argc: %d\n", optind, argc);
 		usage();
 		free(opt);
 		if (is_o) 
