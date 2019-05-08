@@ -72,7 +72,7 @@ VERY IMPORTANT:
 
 ----------------------------------------------------------------------------------
 Notes:
-- As mentioned in point 'B', the code supports three exceution modes:
+- As mentioned in point 'B', the code supports four exceution modes:
   1. Scalar: It runs bwa-mem2 with the kernels running with scalar instructions
   2. Vector SSE2: It runs bwa-mem2 with the kernels running SSE2 vector instructions (128 bits vector-width)
   3. Vector AVX2: It runs bwa-mem2 with the kernels running AVX2 vector instructions (256 bits vector-width)
