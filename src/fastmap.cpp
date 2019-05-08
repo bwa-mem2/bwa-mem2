@@ -194,7 +194,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		// fprintf(stderr, "Read %d seqs, task_size: %ld\n", ret->n_seqs, aux->task_size);
 		assert(ret->n_seqs <= nreads);
 		
-		fprintf(stderr, "[%0.4d] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
+		fprintf(stderr, "[%.4d] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
 				myrank, aux->task_size, sz, ret->n_seqs);   
 
 		if (ret->seqs == 0) {
@@ -212,7 +212,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 			int64_t size = 0;
 			for (int i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
 
-			fprintf(stderr, "\t[%0.4d][ M::%s] read %d sequences (%ld bp)...\n",
+			fprintf(stderr, "\t[%.4d][ M::%s] read %d sequences (%ld bp)...\n",
 					myrank, __func__, ret->n_seqs, (long)size);
 		}
 				
@@ -224,7 +224,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		static int task = 0;
 		// printf("Thread entering step 1, CPU: %d\n", sched_getcpu());
 								
-		fprintf(stderr, "[%0.4d] 2. Calling mem_process_seqs.., task: %d\n", myrank, task++);
+		fprintf(stderr, "[%.4d] 2. Calling mem_process_seqs.., task: %d\n", myrank, task++);
 
 		uint64_t tim = __rdtsc();
 		if (opt->flag & MEM_F_SMARTPE)
@@ -364,9 +364,6 @@ static void *ktp_worker(void *data) {
 static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 {
 	ktp_aux_t	*aux			  = (ktp_aux_t*) shared;
-	ktp_data_t	*ret;
-	int			 i, nt, iteration = 0;
-	int64_t		 sz				  = 0;
 	worker_t	 w;
 	mem_opt_t	*opt			  = aux->opt;
 
@@ -381,7 +378,6 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	/* All memory allocation */
 	memoryAlloc(aux, w, nreads);
 	
-	int task = 0;
 	/* pipeline using pthreads */
 	ktp_t aux_;
 	int p_nt = pipe_threads; // 2;
@@ -419,7 +415,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	free(aux_.workers);
 	/***** pipeline ends ******/
 	
-	fprintf(stderr, "[%0.4d] Computation ends..\n", myrank);
+	fprintf(stderr, "[%.4d] Computation ends..\n", myrank);
 	
 	/* Dealloc memory allcoated in the header section */	
 	free(w.chain_ar);
@@ -630,7 +626,7 @@ int main_mem(int argc, char *argv[])
 	}
 	
 	// Major function
-	fprintf(stderr, "[%0.4d] 1: Calling process()\n", myrank);
+	fprintf(stderr, "[%.4d] 1: Calling process()\n", myrank);
 
 	uint64_t tim = __rdtsc();
 	/* Relay process function */
