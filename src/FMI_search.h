@@ -49,7 +49,12 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #define CP_SHIFT 6
 #define BIT_DATA_TYPE uint64_t
 #define PADDING 24
-#define _MM_COUNTBITS _mm_countbits_64
+
+#if defined(__clang__) || defined(__GNUC__)
+static inline int _mm_countbits_64(unsigned long x) {
+	return __builtin_popcountl(x);
+}
+#endif
 
 #define \
 GET_OCC(pp, c, occ_id_pp, y_pp, occ_pp, bwt_str_bit0_pp, bwt_str_bit1_pp, bit0_cmp_pp, bit1_cmp_pp, mismatch_mask_pp) \
@@ -64,7 +69,7 @@ GET_OCC(pp, c, occ_id_pp, y_pp, occ_pp, bwt_str_bit0_pp, bwt_str_bit1_pp, bit0_c
                 BIT_DATA_TYPE bit1_cmp_pp = bwt_str_bit1_pp ^ base_mask[c][1]; \
                 uint64_t mismatch_mask_pp = bit0_cmp_pp | bit1_cmp_pp | cp_occ[occ_id_pp].dollar_mask; \
                 mismatch_mask_pp = mismatch_mask_pp >> (CP_BLOCK_SIZE - y_pp); \
-                occ_pp += y_pp - _MM_COUNTBITS(mismatch_mask_pp); \
+                occ_pp += y_pp - _mm_countbits_64(mismatch_mask_pp); \
                 }
 
 typedef struct checkpoint_occ
@@ -81,6 +86,12 @@ typedef struct checkpoint_occ
 #define CP_BLOCK_SIZE 32
 #define CP_MASK 31
 #define CP_SHIFT 5
+
+#if defined(__clang__) || defined(__GNUC__)
+static inline int _mm_countbits_32(unsigned x) {
+	return __builtin_popcount(x);
+}
+#endif
 
 #define \
 GET_OCC(pp, c, c256, occ_id_pp, y_pp, occ_pp, bwt_str_pp, bwt_pp_vec, mask_pp_vec, mask_pp) \

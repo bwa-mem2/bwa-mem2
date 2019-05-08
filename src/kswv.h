@@ -37,7 +37,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdint.h>
 #include <assert.h>
 #include <emmintrin.h>
-#include <omp.h>
 #include "macro.h"
 #if !MAINY
 #include "ksw.h"
