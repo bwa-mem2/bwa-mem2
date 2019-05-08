@@ -436,7 +436,7 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
 	
     return;
 }
-
+#ifdef __AVX512BW__
 int kswv::kswv512_u8(uint8_t seq1SoA[],
 					 uint8_t seq2SoA[],
 					 int16_t nrow,
@@ -784,6 +784,7 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
 	// printf("Check5..\n");	
 	return 1;	
 }
+#endif
 
 /**************** Scalar code *************************/
 /**
@@ -2154,6 +2155,8 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
 	_mm_free(seq2SoA);
     return;
 }
+
+#ifdef __AVX512BW__
 /********************** Inter-Task Execution ****************************/
 int kswv::kswv512_16_exp(int16_t seq1SoA[],
 						 int16_t seq2SoA[],
@@ -2683,6 +2686,7 @@ void kswv::kswv512_16(int16_t seq1SoA[],
 	}
 	
 }
+#endif
 
 /********************** Intra-Task stuff ************************/
 kswqi_t* kswv::ksw_qinit_intra(int size, int qlen, uint8_t *query, int m, const int8_t *mat)
@@ -2803,6 +2807,7 @@ void kswv::kswvBatchWrapper16_intra(SeqPair *pairArray,
 	return;
 }
 
+#ifdef __AVX512BW__
 kswr_t kswv::kswv512_16_intra(uint8_t seq1SoA[],
 							  kswqi_t *q,
 							  int16_t nrow,
@@ -2974,3 +2979,4 @@ end_loop8:
 	free(b);
 	return r;
 }
+#endif
