@@ -56,7 +56,7 @@ else ifeq ($(arch),native)
 	ARCH_FLAGS=-march=native
 endif
 
-CXXFLAGS=	-g -O3 -Wall -fpermissive $(ARCH_FLAGS) ##-xSSE2
+CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 
 .PHONY:all clean depend
 .SUFFIXES:.cpp .o
