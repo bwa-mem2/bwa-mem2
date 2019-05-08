@@ -91,7 +91,7 @@ FMI_search::FMI_search(char *ref_file_name)
 		fprintf(stderr, "count\n");
 		for(x = 0; x < 5; x++)
 		{
-			fprintf(stderr, "%ld,\t%u\n", x, count[x]);
+			fprintf(stderr, "%ld,\t%lu\n", x, (unsigned long)count[x]);
 		}
 		fprintf(stderr, "\n");
 	}

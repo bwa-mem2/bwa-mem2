@@ -262,7 +262,7 @@ int build_fm_index(const char *ref_file_name, char *binary_seq, int64_t ref_seq_
 				}
 				else if(c > 3)
 				{
-					printf("ERROR! [%d, %d] c = %u\n", i, j, c);
+					printf("ERROR! [%ld, %d] c = %u\n", (long)i, j, c);
 					exit(0);
 				}
 				else

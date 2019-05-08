@@ -376,7 +376,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	
 	nreads = aux->actual_chunk_size/ (readLen) + 10;
 	// fprintf(stderr, "Input read length: %d\n", readLen);
-	fprintf(stderr, "Projected #read in a task: %d\n", nreads);
+	fprintf(stderr, "Projected #read in a task: %ld\n", (long)nreads);
 	
 	/* All memory allocation */
 	memoryAlloc(aux, w, nreads);
