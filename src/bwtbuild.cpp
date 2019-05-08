@@ -40,20 +40,12 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include<set>
 #include <ctime>
 #include<fstream>
+#include <emmintrin.h>
 
 #include "sais.h"
 
 #include "utils.h"
 #include "bntseq.h"
-
-#if defined(__clang__) || defined(__GNUC__)
-static inline void *_mm_malloc(size_t sz, size_t aln) {
-	void *p;
-	posix_memalign(&p, aln, sz);
-	return p;
-}
-#define _mm_free(ptr) free(ptr)
-#endif
 
 #if !SAIS
 #include<seqan/index.h>
