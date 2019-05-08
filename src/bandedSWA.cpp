@@ -3942,7 +3942,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 					double val = temp[l]/e_ins + 1.0;
 					int max_ins = (int) val;
 					max_ins = max_ins > 1? max_ins : 1;
-					myband[l] = min(bsize, max_ins);
+					myband[l] = min_(bsize, max_ins);
 				}
 				sum128 = _mm_add_epi16(qlen128, eb_del128);
 				_mm_store_si128((__m128i *) temp, sum128);				
@@ -3950,7 +3950,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 					double val = temp[l]/e_del + 1.0;
 					int max_ins = (int) val;
 					max_ins = max_ins > 1? max_ins : 1;
-					myband[l] = min(myband[l], max_ins);
+					myband[l] = min_(myband[l], max_ins);
 					bsize = bsize < myband[l] ? myband[l] : bsize;					
 				}
 			}
@@ -4457,9 +4457,8 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 
 /********************************************************************************/
 /* SSE2 - 8 bit version */
-#if 1
-static inline __m128i
-_mm_blendv_epi8 (__m128i x, __m128i y, __m128i mask)
+#ifndef __SSE4_1__
+static inline __m128i _mm_blendv_epi8 (__m128i x, __m128i y, __m128i mask)
 {
 	// Replace bit in x with bit in y when matching bit in mask is set:
 	return _mm_or_si128(_mm_andnot_si128(mask, x), _mm_and_si128(mask, y));
@@ -4750,7 +4749,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 					double val = temp[l]/e_ins + 1.0;
 					int max_ins = (int) val;
 					max_ins = max_ins > 1? max_ins : 1;
-					myband[l] = min(bsize, max_ins);
+					myband[l] = min_(bsize, max_ins);
 				}
 				sum128 = _mm_add_epi8(qlen128, eb_del128);
 				_mm_store_si128((__m128i *) temp, sum128);				
@@ -4758,7 +4757,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 					double val = temp[l]/e_del + 1.0;
 					int max_ins = (int) val;
 					max_ins = max_ins > 1? max_ins : 1;
-					myband[l] = min(myband[l], max_ins);
+					myband[l] = min_(myband[l], max_ins);
 					bsize = bsize < myband[l] ? myband[l] : bsize;
 				}
 			}

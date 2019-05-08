@@ -80,8 +80,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define MATRIX_MIN_CUTOFF 0
 #define LOW_INIT_VALUE -128
 #define SORT_BLOCK_SIZE 16384
-#define max(x, y) ((x)>(y)?(x):(y))
-#define min(x, y) ((x)>(y)?(y):(x))
+#define min_(x, y) ((x)>(y)?(y):(x))
 
 typedef struct dnaSeqPair
 {

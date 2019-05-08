@@ -32,7 +32,8 @@
 
 EXE=		bwa-mem2
 CXX=		icpc
-CXXFLAGS=	-g -O3 -std=c++11 -march=native -mtune=native  ##-xSSE2 
+ARCH_FLAGS=	-march=native -mtune=native
+CXXFLAGS=	-g -O3 -std=c++11 -fpermissive $(ARCH_FLAGS) ##-xSSE2
 SWA_FLAGS=	-DDEB=0 -DRDT=0 -DMAXI=0 -DNEW=1 -DSORT_PAIRS=0
 MEM_FLAGS=	-DPAIRED_END=1 -DMAINY=0 -DSAIS=1
 CPPFLAGS=	-DENABLE_PREFETCH $(MEM_FLAGS) $(SWA_FLAGS) 

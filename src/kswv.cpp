@@ -65,9 +65,12 @@ extern uint64_t prof[10][112], data, SW_cells2;
 #define AMBR 4
 #define AMBQ 8
 
-
+#ifndef max_
 #define max_(x, y) ((x)>(y)?(x):(y))
+#endif
+#ifndef min_
 #define min_(x, y) ((x)<(y)?(x):(y))
+#endif
 
 int spot = 42419;
 int lim = 20;
