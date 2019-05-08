@@ -44,7 +44,7 @@ OBJS=		src/fastmap.o src/bwtindex.o src/main.o src/utils.o src/kthread.o \
 			src/bwamem_extra.o src/bwtbuild.o
 
 ifneq ($(portable),)
-	LIBS+=-static-intel -static-libgcc -static-libstdc++
+	LIBS+=-static-libgcc -static-libstdc++
 endif
 
 .PHONY:all clean depend
