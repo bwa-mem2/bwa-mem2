@@ -439,7 +439,6 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
 	
     return;
 }
-#ifdef __AVX512BW__
 int kswv::kswv512_u8(uint8_t seq1SoA[],
 					 uint8_t seq2SoA[],
 					 int16_t nrow,
@@ -451,7 +450,7 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
 					 int32_t numPairs,
 					 int phase)
 {
-	
+#ifdef __AVX512BW__
 	int m_b, n_b;
 	uint8_t minsc[SIMD_WIDTH8] = {0}, endsc[SIMD_WIDTH8] = {0};
 	uint64_t *b;
@@ -785,9 +784,9 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
 	}
 
 	// printf("Check5..\n");	
+#endif // ~__AVX512BW__
 	return 1;	
 }
-#endif
 
 /**************** Scalar code *************************/
 /**
@@ -2159,7 +2158,6 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
     return;
 }
 
-#ifdef __AVX512BW__
 /********************** Inter-Task Execution ****************************/
 int kswv::kswv512_16_exp(int16_t seq1SoA[],
 						 int16_t seq2SoA[],
@@ -2172,6 +2170,7 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 						 int32_t numPairs,
 						 int phase)
 {
+#ifdef __AVX512BW__
 	int m_b, n_b;
 	// int16_t minsc[SIMD_WIDTH16], endsc[SIMD_WIDTH16];
 	int16_t minsc[SIMD_WIDTH16] = {0}, endsc[SIMD_WIDTH16] = {0};
@@ -2457,6 +2456,7 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 				aln[ind].score, aln[ind].te, aln[ind].qe, temp1[i], temp2[i]);
 #endif
 	}
+#endif // ~__AVX512BW__
 	return 1;
 }
 
@@ -2470,6 +2470,7 @@ void kswv::kswv512_16(int16_t seq1SoA[],
 					 uint16_t tid,
 					 int32_t numPairs)
 {
+#ifdef __AVX512BW__
 	int m_b, n_b;
 	int16_t minsc[SIMD_WIDTH16], endsc[SIMD_WIDTH16];
 	uint64_t *b;
@@ -2687,9 +2688,8 @@ void kswv::kswv512_16(int16_t seq1SoA[],
 	//	// fprintf(stderr, "gmax: %d, te: %d, qe: %d, max: %d, max2: %d, te2: %d\n",
 	//	// aln[ind].score, aln[ind].te, aln[ind].qe, temp[i], temp1[i], temp2[i]);		
 	}
-	
-}
 #endif
+}
 
 /********************** Intra-Task stuff ************************/
 kswqi_t* kswv::ksw_qinit_intra(int size, int qlen, uint8_t *query, int m, const int8_t *mat)
@@ -2806,11 +2806,9 @@ void kswv::kswvBatchWrapper16_intra(SeqPair *pairArray,
 
 	//_mm_free(seq1SoA);
 	//_mm_free(seq2SoA);
-
 	return;
 }
 
-#ifdef __AVX512BW__
 kswr_t kswv::kswv512_16_intra(uint8_t seq1SoA[],
 							  kswqi_t *q,
 							  int16_t nrow,
@@ -2820,10 +2818,11 @@ kswr_t kswv::kswv512_16_intra(uint8_t seq1SoA[],
 							  int32_t numPairs,
 							  int &maxi)
 {
+	kswr_t r = g_defr;
+#ifdef __AVX512BW__
 	int slen, i, m_b, n_b, te = -1, gmax = 0, minsc, endsc;
 	uint64_t *b;
 	__m512i zero, oe_del, e_del, oe_ins, e_ins, *H0, *H1, *E, *Hmax;
-	kswr_t r;
 
 	// printf ("nrow: %d, ncol: %d\n", nrow, ncol);
     // exit(0);
@@ -2980,6 +2979,6 @@ end_loop8:
 	}
 
 	free(b);
+#endif
 	return r;
 }
-#endif
