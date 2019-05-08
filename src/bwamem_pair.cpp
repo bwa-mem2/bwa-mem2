@@ -580,12 +580,17 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 	int nthreads = 1;
 	// kswv *pwsw = new kswv(w_open, w_extend, w_open, w_extend, w_match, w_mismatch, nthreads);
 
-	uint64_t tim = __rdtsc();	
-	kswv *pwsw = new kswv(opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, opt->a, -1*opt->b, nthreads);
+	uint64_t tim = __rdtsc();
 
+	kswv *pwsw = new kswv(opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, opt->a, -1*opt->b, nthreads);
+	
+#if __AVX512BW__
 	pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pcnt8, nthreads, 0);
 	pwsw->getScores16(seqPairArray, seqBufRef, seqBufQer, aln, pcnt-pcnt8, nthreads, 0);
-	
+#else
+	fprintf(stderr, "Error: This should not have happened!! \nPlease look in to AVX512 macros\n");
+	exit(0);
+#endif
 	tprof[SAM2][0] += __rdtsc() - tim;
 	tprof[PE24][0] += pcnt;
 	
@@ -612,9 +617,13 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 	int pcnt2 = pos;
 	assert(pos8 + pos16 == pcnt2);
 	tim = __rdtsc();
-	
+#if __AVX512BW__
 	pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pos8, nthreads, 1);
 	pwsw->getScores16(seqPairArray, seqBufRef, seqBufQer, aln, pos16, nthreads, 1);
+#else
+	fprintf(stderr, "Error: This should not have happened!! \nPlease look in to AVX512 macros\n");
+	exit(0);
+#endif
 	
 	tprof[SAM2][0] += __rdtsc() - tim;
 	tprof[PE25][0] += pcnt2;

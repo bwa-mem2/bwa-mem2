@@ -700,7 +700,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 					double val = temp[l]/e_ins + 1.0;
 					int max_ins = (int) val;
 					max_ins = max_ins > 1? max_ins : 1;
-					myband[l] = min(bsize, max_ins);
+					myband[l] = min_(bsize, max_ins);
 				}
 				sum256 = _mm256_add_epi8(qlen256, eb_del256);
 				_mm256_store_si256((__m256i *) temp, sum256);				
@@ -708,7 +708,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 					double val = temp[l]/e_del + 1.0;
 					int max_ins = (int) val;
 					max_ins = max_ins > 1? max_ins : 1;
-					myband[l] = min(myband[l], max_ins);
+					myband[l] = min_(myband[l], max_ins);
 					bsize = bsize < myband[l] ? myband[l] : bsize;
 				}
 			}
@@ -1439,7 +1439,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 					double val = temp[l]/e_ins + 1.0;
 					int max_ins = val;
 					max_ins = max_ins > 1? max_ins : 1;
-					myband[l] = min(bsize, max_ins);
+					myband[l] = min_(bsize, max_ins);
 				}
 				sum256 = _mm256_add_epi16(qlen256, eb_del256);
 				_mm256_store_si256((__m256i *) temp, sum256);				
@@ -1447,7 +1447,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 					double val = temp[l]/e_del + 1.0;
 					int max_ins = val;
 					max_ins = max_ins > 1? max_ins : 1;
-					myband[l] = min(myband[l], max_ins);
+					myband[l] = min_(myband[l], max_ins);
 					bsize = bsize < myband[l] ? myband[l] : bsize;					
 				}
 			}
@@ -3588,7 +3588,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 
     return;
 }
-#endif
+#endif  //avx512
 
 /**************** SSE2 code ******************/
 #if ((!__AVX512BW__) && (!__AVX2__) && (__SSE2__))
@@ -5271,6 +5271,5 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 	
     return;
 }
-
 
 #endif
