@@ -57,7 +57,7 @@ FMI_search::FMI_search(char *ref_file_name)
 
     fread(&reference_seq_len, sizeof(int64_t), 1, cpstream);
     assert(reference_seq_len > 0);
-    assert(reference_seq_len <= (UINT32_MAX * (int64_t)CP_BLOCK_SIZE));
+    assert(reference_seq_len <= (0xffffffffU * (int64_t)CP_BLOCK_SIZE));
 	if(myrank == 0)
 		fprintf(stderr, "reference seq len = %ld\n", reference_seq_len);
 

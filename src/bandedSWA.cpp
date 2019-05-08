@@ -35,6 +35,12 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <ittnotify.h> 
 #endif
 
+#if defined(__clang__) || defined(__GNUC__)
+#define __mmask8 uint8_t
+#define __mmask16 uint16_t
+#define __mmask32 uint32_t
+#endif
+
 // ------------------------------------------------------------------------------------
 // MACROs for vector code
 extern uint64_t prof[10][112], data, SW_cells2;

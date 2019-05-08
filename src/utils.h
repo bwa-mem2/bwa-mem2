@@ -49,10 +49,21 @@
 #define xassert(cond, msg) if ((cond) == 0) _err_fatal_simple_core(__func__, msg)
 
 #if defined(__GNUC__) && !defined(__clang__)
+#if defined(__i386__)
 static inline unsigned long long __rdtsc(void)
 {
-	return __builtin_ia32_rdtsc();
+    unsigned long long int x;
+    __asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
+    return x;
 }
+#elif defined(__x86_64__)
+static inline unsigned long long __rdtsc(void)
+{
+    unsigned hi, lo;
+    __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+    return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
+}
+#endif
 #endif
 
 typedef struct {
