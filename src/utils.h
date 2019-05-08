@@ -48,6 +48,13 @@
 
 #define xassert(cond, msg) if ((cond) == 0) _err_fatal_simple_core(__func__, msg)
 
+#if defined(__GNUC__) && !defined(__clang__)
+static inline unsigned long long __rdtsc(void)
+{
+	return __builtin_ia32_rdtsc();
+}
+#endif
+
 typedef struct {
 	uint64_t x, y;
 } pair64_t;
