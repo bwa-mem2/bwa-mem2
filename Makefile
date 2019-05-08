@@ -32,8 +32,7 @@
 
 EXE=		bwa-mem2
 CXX=		icpc
-ARCH_FLAGS=	-march=native -mtune=native
-CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) ##-xSSE2
+ARCH_FLAGS=	-march=native
 SWA_FLAGS=	-DDEB=0 -DRDT=0 -DMAXI=0 -DNEW=1 -DSORT_PAIRS=0
 MEM_FLAGS=	-DPAIRED_END=1 -DMAINY=0 -DSAIS=1
 CPPFLAGS=	-DENABLE_PREFETCH $(MEM_FLAGS) $(SWA_FLAGS) 
@@ -46,6 +45,18 @@ OBJS=		src/fastmap.o src/bwtindex.o src/main.o src/utils.o src/kthread.o \
 ifneq ($(portable),)
 	LIBS+=-static-libgcc -static-libstdc++
 endif
+
+ifeq ($(arch),sse)
+	ARCH_FLAGS=-msse4.1
+else ifeq ($(arch),avx2)
+	ARCH_FLAGS=-mavx2
+else ifeq ($(arch),avx512)
+	ARCH_FLAGS=-mavx512bw
+else ifeq ($(arch),native)
+	ARCH_FLAGS=-march=native
+endif
+
+CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) ##-xSSE2
 
 .PHONY:all clean depend
 .SUFFIXES:.cpp .o
