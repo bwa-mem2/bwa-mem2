@@ -58,13 +58,19 @@ endif
 
 CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 
-.PHONY:all clean depend
+.PHONY:all clean depend multi
 .SUFFIXES:.cpp .o
 
 .cpp.o:
 	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) $< -o $@
 
 all:$(EXE)
+
+multi:
+	$(MAKE) portable=1 arch=sse EXE=bwa-mem2.sse41 clean all
+	$(MAKE) portable=1 arch=avx2 EXE=bwa-mem2.avx2 clean all
+	$(MAKE) portable=1 arch=avx512 EXE=bwa-mem2.avx512bw clean all
+	$(CXX) -g -Wall -O3 src/runsimd.cpp -o bwa-mem2
 
 $(EXE):$(OBJS)
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ $(LIBS)
