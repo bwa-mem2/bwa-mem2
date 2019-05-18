@@ -36,7 +36,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdio.h>
 
 extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
-extern int nthreads;
+extern int nthreads, affy[256];
 int g_itr;
 
 static inline long steal_work(kt_for_t *t)
@@ -73,6 +73,7 @@ static void *ktf_worker(void *data)
 	ktf_worker_t *w = (ktf_worker_t*)data;
 	long i, val = 0;
 	int tid = w->i;
+	// fprintf(stderr, "i: %d, CPU: %d\n", tid , sched_getcpu());
 	
 	for (;;) {
 		i = __sync_fetch_and_add(&w->i, w->t->n_threads);
@@ -103,9 +104,23 @@ void kt_for(void (*func)(void*, int, int, int), void *data, int n)
 	for (i = 0; i < nthreads; ++i)
 		t.w[i].t = &t, t.w[i].i = i;
 
+	pthread_attr_t attr;
+    cpu_set_t cpus;
+    pthread_attr_init(&attr);
+	
 	// printf("getcpu: %d\n", sched_getcpu());
 	g_itr = 0;
-	for (i = 0; i < nthreads; ++i) pthread_create(&tid[i], NULL, ktf_worker, &t.w[i]);
+	for (i = 0; i < nthreads; ++i) {
+#if 1
+		CPU_ZERO(&cpus);
+		// CPU_SET(i, &cpus);
+		CPU_SET(affy[i], &cpus);
+		pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpus);	
+		pthread_create(&tid[i], &attr, ktf_worker, &t.w[i]);
+#else
+		pthread_create(&tid[i], NULL, ktf_worker, &t.w[i]);
+#endif
+	}
 	for (i = 0; i < nthreads; ++i) pthread_join(tid[i], 0);
 
     free(t.w);

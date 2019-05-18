@@ -31,8 +31,12 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
          Heng Li <hli@jimmy.harvard.edu>
 *****************************************************************************************/
 
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <numa.h>
+#include <sstream>
 #include "fastmap.h"
 #include "FMI_search.h"
 #include "fasta_file.h"
@@ -45,9 +49,57 @@ extern unsigned char nst_nt4_table[256];
 extern int num_ranks, myrank;
 extern int nthreads;
 uint8_t *ref_string;
-int readLen;
+int readLen, affy[256];
 int64_t nreads;
 // ---------------
+void __cpuid(unsigned int i, unsigned int cpuid[4]) {
+#ifdef _WIN32
+  __cpuid((int *) cpuid, (int)i);
+
+#else
+  asm volatile
+    ("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
+     : "0" (i), "2" (0));
+#endif
+}
+
+
+int HTStatus()
+{
+  unsigned int cpuid[4];
+  char platform_vendor[12];
+  __cpuid(0, cpuid);
+  ((unsigned int *)platform_vendor)[0] = cpuid[1]; // B
+  ((unsigned int *)platform_vendor)[1] = cpuid[3]; // D
+  ((unsigned int *)platform_vendor)[2] = cpuid[2]; // C
+  std::string platform = std::string(platform_vendor, 12);
+
+  __cpuid(1, cpuid);
+  unsigned int platform_features = cpuid[3]; //D
+
+  // __cpuid(1, cpuid);
+  unsigned int num_logical_cpus = (cpuid[1] >> 16) & 0xFF; // B[23:16]
+  // fprintf(stderr, "#logical cpus: ", num_logical_cpus);
+  
+  unsigned int num_cores = -1;
+  if (platform == "GenuineIntel") {
+	  __cpuid(4, cpuid);
+	  num_cores = ((cpuid[0] >> 26) & 0x3f) + 1; //A[31:26] + 1
+	  fprintf(stderr, "Platform vendor: Intel.\n");
+  } else  {
+	  fprintf(stderr, "Platform vendor unknown.\n");
+  }
+
+  // fprintf(stderr, "#physical cpus: ", num_cores);
+
+  int ht = platform_features & (1 << 28) && num_cores < num_logical_cpus;
+  if (ht)
+	  fprintf(stderr, "CPUs support hyperThreading !!\n");
+
+  return ht;
+}
+
+//---------------
 int64_t get_limit_fsize(FILE *fpp, int64_t nread_lim,
 						char buf[], char buf1[]) {
 	
@@ -369,7 +421,74 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	mem_opt_t	*opt			  = aux->opt;
 
 	nthreads = opt->n_threads; // global variable for profiling!
-	fprintf(stderr, "Threads used (compute): %d\n",
+	int tc = numa_num_task_cpus(), deno = 1;
+	int tn = numa_num_task_nodes();
+	int tcc = numa_num_configured_cpus();
+	fprintf(stderr, "num_cpus: %d, num_numas: %d, configured cpus: %d\n", tc, tn, tcc);
+	int ht = HTStatus();
+	if (ht) deno = 2;
+	
+	if (nthreads < tcc/tn/deno) {
+		fprintf(stderr, "Enabling single numa domain...\n\n");
+		// numa_set_preferred(0);
+		// bitmask mask(0);
+		struct bitmask *mask = numa_bitmask_alloc(numa_num_possible_nodes());
+		numa_bitmask_clearall(mask);
+		numa_bitmask_setbit(mask, 0);
+		numa_bind(mask);
+		numa_bitmask_free(mask);
+	}
+	{ // Affinity/HT stuff
+		for (int i=0; i<tcc; i++) affy[i] = i;
+		int slookup[256] = {-1};
+
+		if (ht == 1 && tn == 2) {
+			int lim = tcc / deno;
+			for (int i=0; i<tcc; i++) {
+				std::ostringstream ss;
+				ss << i;
+				std::string str = "/sys/devices/system/cpu/cpu"+ ss.str();
+				str = str +"/topology/thread_siblings_list";
+				// std::cout << str << std::endl;
+				// std::string str = "cpu.txt";
+				FILE *fp = fopen(str.c_str(), "r");
+				if (fp == NULL) {
+					printf("Cant open the file..\n");
+					break;
+				}
+				else {
+					int a, b, v;
+					char ch[10] = {'\0'};
+					fgets(ch, 10, fp);
+					// std::cout << ch;
+					v = sscanf(ch, "%u,%u",&a,&b);
+					if (v == 1) v = sscanf(ch, "%u-%u",&a,&b);
+					// printf("2v: %d, %d %d\n", v, a, b);
+					if (v == 1) {
+						fprintf(stderr, "Mis-match between HT and threads_sibling_list...%s\n", ch);
+						fprintf(stderr, "Continuing with default affinity settings..\n");
+						break;
+					}
+					// affy[i] = a;
+					// affy[i + lim] = b;
+					slookup[a] = 1;
+					slookup[b] = 2;
+					fclose(fp);
+				}
+			}
+			int a = 0, b = tcc / deno;
+			for (int i=0; i<tcc; i++) {
+				if (slookup[i] == -1) {
+					fprintf(stderr, "Unseen cpu topology..\n");
+					break;
+				}
+				if (slookup[i] == 1) affy[a++] = i;
+				else affy[b++] = i;
+			}
+		}
+	}
+	
+	fprintf(stderr, "\nThreads used (compute): %d\n",
 			nthreads);
 	
 	nreads = aux->actual_chunk_size/ (readLen) + 10;
@@ -411,7 +530,10 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	
 	for (int i = 0; i < p_nt; ++i)
 		pthread_join(ptid[i], 0);
-	
+
+	pthread_mutex_destroy(&aux_.mutex);
+	pthread_cond_destroy(&aux_.cv);
+
 	free(ptid);
 	free(aux_.workers);
 	/***** pipeline ends ******/
