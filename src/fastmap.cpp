@@ -35,11 +35,14 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if NUMA_ENABLED
 #include <numa.h>
+#endif
 #include <sstream>
 #include "fastmap.h"
 #include "FMI_search.h"
 #include "fasta_file.h"
+#include <sys/sysinfo.h>
 
 // --------------
 // global vars
@@ -421,7 +424,9 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	mem_opt_t	*opt			  = aux->opt;
 
 	nthreads = opt->n_threads; // global variable for profiling!
-	int tc = numa_num_task_cpus(), deno = 1;
+	int  deno = 1;
+#if NUMA_ENABLED
+	int tc = numa_num_task_cpus();
 	int tn = numa_num_task_nodes();
 	int tcc = numa_num_configured_cpus();
 	fprintf(stderr, "num_cpus: %d, num_numas: %d, configured cpus: %d\n", tc, tn, tcc);
@@ -438,13 +443,29 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 		numa_bind(mask);
 		numa_bitmask_free(mask);
 	}
+#endif
 	{ // Affinity/HT stuff
-		for (int i=0; i<tcc; i++) affy[i] = i;
+		unsigned int cpuid[4];
+		asm volatile
+			("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
+			 : "0" (0xB), "2" (1));
+		int num_logical_cpus = cpuid[1] & 0xFFFF;
+
+		asm volatile
+			("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
+			 : "0" (0xB), "2" (0));
+		int num_ht = cpuid[1] & 0xFFFF;
+		int num_total_logical_cpus = get_nprocs_conf();
+		int num_sockets = num_total_logical_cpus / num_logical_cpus;
+		fprintf(stderr, "#sockets: %d, #cores/socket: %d, #logical_cpus: %d, #ht/core: %d\n",
+				num_sockets, num_logical_cpus/num_ht, num_total_logical_cpus, num_ht);
+		
+		for (int i=0; i<num_total_logical_cpus; i++) affy[i] = i;
 		int slookup[256] = {-1};
 
-		if (ht == 1 && tn == 2) {
-			int lim = tcc / deno;
-			for (int i=0; i<tcc; i++) {
+		if (num_ht == 2 && num_sockets == 2)  // generalize it for n sockets
+		{
+			for (int i=0; i<num_total_logical_cpus; i++) {
 				std::ostringstream ss;
 				ss << i;
 				std::string str = "/sys/devices/system/cpu/cpu"+ ss.str();
@@ -476,8 +497,8 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 					fclose(fp);
 				}
 			}
-			int a = 0, b = tcc / deno;
-			for (int i=0; i<tcc; i++) {
+			int a = 0, b = num_total_logical_cpus / num_ht;
+			for (int i=0; i<num_total_logical_cpus; i++) {
 				if (slookup[i] == -1) {
 					fprintf(stderr, "Unseen cpu topology..\n");
 					break;

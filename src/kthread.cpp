@@ -73,7 +73,7 @@ static void *ktf_worker(void *data)
 	ktf_worker_t *w = (ktf_worker_t*)data;
 	long i, val = 0;
 	int tid = w->i;
-	// fprintf(stderr, "i: %d, CPU: %d\n", tid , sched_getcpu());
+	fprintf(stderr, "i: %d, CPU: %d\n", tid , sched_getcpu());
 	
 	for (;;) {
 		i = __sync_fetch_and_add(&w->i, w->t->n_threads);
