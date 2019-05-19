@@ -42,7 +42,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "fastmap.h"
 #include "FMI_search.h"
 #include "fasta_file.h"
-#include <sys/sysinfo.h>
+//#include <sys/sysinfo.h>
 
 // --------------
 // global vars
@@ -444,6 +444,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 		numa_bitmask_free(mask);
 	}
 #endif
+#if 0
 	{ // Affinity/HT stuff
 		unsigned int cpuid[4];
 		asm volatile
@@ -508,6 +509,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 			}
 		}
 	}
+#endif
 	
 	fprintf(stderr, "\nThreads used (compute): %d\n",
 			nthreads);
