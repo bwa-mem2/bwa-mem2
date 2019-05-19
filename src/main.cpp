@@ -34,7 +34,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "main.h"
 
 #ifndef PACKAGE_VERSION
-#define PACKAGE_VERSION "0.1.0"  // alpha release
+#define PACKAGE_VERSION "2.0pre1"
 #endif
 
 
@@ -52,6 +52,7 @@ int usage()
 	fprintf(stderr, "Commands:\n");
 	fprintf(stderr, "  index         create index\n");
 	fprintf(stderr, "  mem           alignment\n");
+	fprintf(stderr, "  version       print version number\n");
 	return 1;
 }
 
@@ -63,48 +64,50 @@ int main(int argc, char* argv[])
 	sleep(1);
 	proc_freq = __rdtsc() - tim;
 
-	extern char *bwa_pg;
-	kstring_t pg = {0,0,0};
-	ksprintf(&pg, "@PG\tID:bwa\tPN:bwa\tVN:%s\tCL:%s", PACKAGE_VERSION, argv[0]);
-	for (int i = 1; i < argc; ++i) ksprintf(&pg, " %s", argv[i]); ksprintf(&pg, "\n");
-	bwa_pg = pg.s;
-	
 	int ret = -1;
 	if (argc < 2) return usage();
-
-	fprintf(stderr, "-----------------------------\n");
-#if __AVX512BW__
-	fprintf(stderr, "Executing in AVX512 mode!!\n");
-#endif
-#if ((!__AVX512BW__) & (__AVX2__))
-	fprintf(stderr, "Executing in AVX2 mode!!\n");
-#endif
-#if ((!__AVX512BW__) && (!__AVX2__) && (__SSE2__))
-	fprintf(stderr, "Executing in SSE2 mode!!\n");
-#endif
-#if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
-	fprintf(stderr, "Executing in Scalar mode!!\n");
-#endif
-	fprintf(stderr, "-----------------------------\n");
 
 	if (strcmp(argv[1], "index") == 0)
 	{
 		 uint64_t tim = __rdtsc();
 		 ret = bwa_index(argc-1, argv+1);
 		 tprof[INDEX][0] += __rdtsc() - tim;
-		 free(bwa_pg);
 		 return 1;
 	}
 	else if (strcmp(argv[1], "mem") == 0)
 	{
 		uint64_t tim = __rdtsc();
+		kstring_t pg = {0,0,0};
+		extern char *bwa_pg;
+
+		fprintf(stderr, "-----------------------------\n");
+#if __AVX512BW__
+		fprintf(stderr, "Executing in AVX512 mode!!\n");
+#endif
+#if ((!__AVX512BW__) & (__AVX2__))
+		fprintf(stderr, "Executing in AVX2 mode!!\n");
+#endif
+#if ((!__AVX512BW__) && (!__AVX2__) && (__SSE2__))
+		fprintf(stderr, "Executing in SSE4.1 mode!!\n");
+#endif
+#if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
+		fprintf(stderr, "Executing in Scalar mode!!\n");
+#endif
+		fprintf(stderr, "-----------------------------\n");
+
+		ksprintf(&pg, "@PG\tID:bwa\tPN:bwa\tVN:%s\tCL:%s", PACKAGE_VERSION, argv[0]);
+		for (int i = 1; i < argc; ++i) ksprintf(&pg, " %s", argv[i]);
+		ksprintf(&pg, "\n");
+		bwa_pg = pg.s;
 		ret = main_mem(argc-1, argv+1);
+		free(bwa_pg);
 		tprof[MEM][0] = __rdtsc() - tim;
-		
-		if (ret == 1) {
-			free(bwa_pg);
-			return 1;
-		}
+		if (ret == 1) return 1;
+	}
+	else if (strcmp(argv[1], "version") == 0)
+	{
+		puts(PACKAGE_VERSION);
+		return 0;
 	}
 	
 	/* Display runtime profiling stats */
@@ -120,8 +123,6 @@ int main(int argc, char* argv[])
 	fprintf(stderr, "\tSIMD_WIDTH16 X: %d\n", SIMD_WIDTH16);
 	fprintf(stderr, "\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
 	fprintf(stderr, "\tAVG_AUX_SEEDS_PER_READ: %d\n", AVG_AUX_SEEDS_PER_READ);
-
-	free(bwa_pg);	
 	return 1;
 }
 

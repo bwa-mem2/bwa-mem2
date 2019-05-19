@@ -31,8 +31,8 @@
 ## *****************************************************************************************/
 
 EXE=		bwa-mem2
-CXX=		icpc
-ARCH_FLAGS=	-march=native
+#CXX=		icpc
+ARCH_FLAGS=	-msse4.1
 SWA_FLAGS=	-DDEB=0 -DRDT=0 -DMAXI=0 -DNEW=1 -DSORT_PAIRS=0
 MEM_FLAGS=	-DPAIRED_END=1 -DMAINY=0 -DSAIS=1
 CPPFLAGS=	-DENABLE_PREFETCH $(MEM_FLAGS) $(SWA_FLAGS) 
@@ -58,7 +58,7 @@ endif
 
 CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 
-.PHONY:all clean depend
+.PHONY:all clean depend multi
 .SUFFIXES:.cpp .o
 
 .cpp.o:
@@ -66,11 +66,17 @@ CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 
 all:$(EXE)
 
+multi:
+	rm -f src/*.o; $(MAKE) arch=sse    EXE=bwa-mem2.sse41    CXX=$(CXX) all
+	rm -f src/*.o; $(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
+	rm -f src/*.o; $(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
+	$(CXX) -Wall -O3 src/runsimd.cpp -o bwa-mem2
+
 $(EXE):$(OBJS)
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ $(LIBS)
 
 clean:
-	rm -fr src/*.o $(EXE)
+	rm -fr src/*.o $(EXE) bwa-mem2.sse41 bwa-mem2.avx2 bwa-mem2.avx512bw
 
 depend:
 	(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CXXFLAGS) $(CPPFLAGS) -I. -- src/*.cpp)
@@ -106,11 +112,11 @@ src/fastmap.o: src/FMI_search.h src/read_index_ele.h src/kseq.h
 src/fastmap.o: src/fasta_file.h
 src/kstring.o: src/kstring.h
 src/ksw.o: src/ksw.h src/macro.h
-src/kswv.o: src/kswv.h src/macro.h src/ksw.h src/bwamem.h src/bwt.h
-src/kswv.o: src/bntseq.h src/bwa.h src/kthread.h src/bandedSWA.h
-src/kswv.o: src/kstring.h src/kvec.h src/ksort.h src/utils.h src/profiling.h
-src/kswv.o: src/FMI_search.h src/read_index_ele.h
-src/kthread.o: src/kthread.h src/macro.h
+src/kswv.o: src/kswv.h src/macro.h src/ksw.h src/bandedSWA.h
+src/kthread.o: src/kthread.h src/macro.h src/bwamem.h src/bwt.h src/bntseq.h
+src/kthread.o: src/bwa.h src/bandedSWA.h src/kstring.h src/ksw.h src/kvec.h
+src/kthread.o: src/ksort.h src/utils.h src/profiling.h src/FMI_search.h
+src/kthread.o: src/read_index_ele.h
 src/main.o: src/main.h src/kstring.h src/utils.h src/macro.h src/bandedSWA.h
 src/main.o: src/profiling.h
 src/profiling.o: src/macro.h
