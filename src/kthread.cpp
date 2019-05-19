@@ -73,7 +73,9 @@ static void *ktf_worker(void *data)
 	ktf_worker_t *w = (ktf_worker_t*)data;
 	long i, val = 0;
 	int tid = w->i;
-	//fprintf(stderr, "i: %d, CPU: %d\n", tid , sched_getcpu());
+#ifdef __liunx__
+	fprintf(stderr, "i: %d, CPU: %d\n", tid , sched_getcpu());
+#endif
 	
 	for (;;) {
 		i = __sync_fetch_and_add(&w->i, w->t->n_threads);
@@ -105,13 +107,13 @@ void kt_for(void (*func)(void*, int, int, int), void *data, int n)
 		t.w[i].t = &t, t.w[i].i = i;
 
 	pthread_attr_t attr;
-    //cpu_set_t cpus;
     pthread_attr_init(&attr);
 	
 	// printf("getcpu: %d\n", sched_getcpu());
 	g_itr = 0;
 	for (i = 0; i < nthreads; ++i) {
-#if 0
+#ifdef __linux__
+		cpu_set_t cpus;
 		CPU_ZERO(&cpus);
 		// CPU_SET(i, &cpus);
 		CPU_SET(affy[i], &cpus);
