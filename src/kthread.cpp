@@ -73,7 +73,7 @@ static void *ktf_worker(void *data)
 	ktf_worker_t *w = (ktf_worker_t*)data;
 	long i, val = 0;
 	int tid = w->i;
-#ifdef __liunx__
+#if 0 && (__liunx__)
 	fprintf(stderr, "i: %d, CPU: %d\n", tid , sched_getcpu());
 #endif
 	
@@ -112,7 +112,7 @@ void kt_for(void (*func)(void*, int, int, int), void *data, int n)
 	// printf("getcpu: %d\n", sched_getcpu());
 	g_itr = 0;
 	for (i = 0; i < nthreads; ++i) {
-#ifdef __linux__
+#if 0 && (__linux__)
 		cpu_set_t cpus;
 		CPU_ZERO(&cpus);
 		// CPU_SET(i, &cpus);
