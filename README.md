@@ -18,6 +18,9 @@ make
 Bwa-mem2 is the next version of the bwa-mem algorithm in [bwa][bwa]. It
 produces alignment identical to bwa and is ~80% faster.
 
+The original bwa was developed by @lh3. Performance enhancement in bwa-mem2 was
+primarily done by @sanchit-misra and @yuk12.
+
 ## Installation
 
 For general users, it is recommended to use the precompiled binaries from the
