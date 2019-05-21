@@ -18,8 +18,10 @@ make
 Bwa-mem2 is the next version of the bwa-mem algorithm in [bwa][bwa]. It
 produces alignment identical to bwa and is ~80% faster.
 
-The original bwa was developed by @lh3. Performance enhancement in bwa-mem2 was
-primarily done by @sanchit-misra and @yuk12.
+The original bwa was developed by Heng Li (@lh3). Performance enhancement in
+bwa-mem2 was primarily done by Sanchit Misra (@sanchit-misra) and Vasimuddin Md
+(@yuk12). Bwa-mem2 is distributed under the GPL3 license and is likely to be
+changed to a permissive license in the near future.
 
 ## Installation
 
