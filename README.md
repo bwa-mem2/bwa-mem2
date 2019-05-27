@@ -19,8 +19,9 @@ Bwa-mem2 is the next version of the bwa-mem algorithm in [bwa][bwa]. It
 produces alignment identical to bwa and is ~80% faster.
 
 The original bwa was developed by Heng Li (@lh3). Performance enhancement in
-bwa-mem2 was primarily done by Sanchit Misra (@sanchit-misra) and Vasimuddin Md
-(@yuk12). Bwa-mem2 is distributed under the GPL3 license and is likely to be
+bwa-mem2 was primarily done by Vasimuddin Md (@yuk12) and Sanchit Misra (@sanchit-misra)
+from Parallel Computing Lab, Intel.
+Bwa-mem2 is distributed under the GPL3 license and is likely to be
 changed to a permissive license in the near future.
 
 ## Installation
@@ -38,3 +39,9 @@ make CXX=icpc multi
 
 [bwa]: https://github.com/lh3/bwa
 [rel]: https://github.com/bwa-mem2/bwa-mem2/releases
+
+## Citation
+
+Vasimuddin Md, Sanchit Misra, Heng Li, Srinivas Aluru.
+<b> Efficient Architecture-Aware Acceleration of BWA-MEM for Multicore Systems. </b>
+<i> IEEE Parallel and Distributed Processing Symposium (IPDPS), 2019. </i>
