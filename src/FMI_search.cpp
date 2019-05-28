@@ -130,195 +130,22 @@ FMI_search::~FMI_search()
     _mm_free(cp_occ);
 }
 
-#if 0
-int32_t FMI_search::getSMEMsOnePosOneThread2(uint8_t *enc_qdb,
-											 int16_t *query_pos_array,
-											 int32_t *min_intv_array,
-											 int32_t *rid,
-											 int32_t numReads,
-											 int32_t numActive,
-											 int32_t batch_size,
-											 int32_t readlength,
-											 int32_t minSeedLen,
-											 SMEM *matchArray,
-											 int64_t *__numTotalSmem)
-{
-    int64_t numTotalSmem = *__numTotalSmem;
-    SMEM *prevArray = (SMEM *)_mm_malloc(readlength * sizeof(SMEM), 64);
-    SMEM *currArray = (SMEM *)_mm_malloc(readlength * sizeof(SMEM), 64);
-
-    numActive = 0;
-    uint32_t i;
-    // Perform SMEM for original reads
-    for(i = 0; i < numReads; i++)
-    {
-        //printf("i = %d\n", i);
-        int x = query_pos_array[i];
-        if(x == readlength) continue;
-        numActive++;
-        int numPrev = 0;
-        int numSmem = 0;
-        int next_x = x + 1;
-
-        // Forward search
-        SMEM smem;
-        smem.rid = rid[i];
-        smem.m = x;
-        smem.n = x;
-
-        uint8_t a = enc_qdb[i * readlength + x];
-        if(a < 4)
-        {
-            smem.k = count[a];
-            smem.l = count[3 - a];
-            smem.s = count[a+1] - count[a];
-            //printf("[k,l,s] = %d,%d,%d\n", smem.k, smem.l, smem.s);
-
-            int j;
-            for(j = x + 1; j < readlength; j++)
-            {
-                a = enc_qdb[i * readlength + j];
-                next_x = j + 1;
-                if(a < 4)
-                {
-                    SMEM smem_ = smem;
-
-                    // Forward extension is backward extension with the BWT of reverse complement
-                    smem_.k = smem.l;
-                    smem_.l = smem.k;
-					SMEM newSmem_ = backwardExt(smem_, 3 - a);
-					// SMEM newSmem_ = forwardExt(smem_, 3 - a);
-                    SMEM newSmem = newSmem_;
-                    newSmem.k = newSmem_.l;
-                    newSmem.l = newSmem_.k;
-                    newSmem.n = j;
-
-                    //printf("New smem: %u, %u, %u, %u, %u\n", newSmem.m, newSmem.n, newSmem.k, newSmem.l, newSmem.s);
-                    if(newSmem.s != smem.s)
-                    {
-                        //printf("Add to prev: %u, %u, %u, %u, %u\n", smem.m, smem.n, smem.k, smem.l, smem.s);
-                        prevArray[numPrev] = smem;
-                        numPrev++;
-                    }
-                    smem = newSmem;
-                    _mm_prefetch((const char *)(&cp_occ[(smem.k) >> CP_SHIFT]), _MM_HINT_T0);
-                    _mm_prefetch((const char *)(&cp_occ[(smem.l) >> CP_SHIFT]), _MM_HINT_T0);
-                    if(newSmem.s < min_intv_array[i])
-                    {
-                        next_x = j;
-                        break;
-                    }
-                }
-                else
-                {
-                    prevArray[numPrev] = smem;
-                    numPrev++;
-                    break;
-                }
-            }
-            if(smem.s >= min_intv_array[i])
-            {
-                prevArray[numPrev++] = smem;
-            }
-
-            SMEM *curr, *prev;
-            prev = prevArray;
-            curr = currArray;
-
-            int p;
-            for(p = 0; p < (numPrev/2); p++)
-            {
-                SMEM temp = prev[p];
-                prev[p] = prev[numPrev - p - 1];
-                prev[numPrev - p - 1] = temp;
-            }
-
-            //printf("Backward search\n");
-            // Backward search
-            int cur_j = readlength;
-            for(j = x - 1; j >= 0; j--)
-            {
-                int numCurr = 0;
-                int curr_s = -1;
-                a = enc_qdb[i * readlength + j];
-
-                if(a > 3)
-                {
-                    break;
-                }
-                for(p = 0; p < numPrev; p++)
-                {
-                    SMEM smem = prev[p];
-
-                    SMEM newSmem = backwardExt(smem, a);
-                    newSmem.m = j;
-
-
-                    if(newSmem.s < min_intv_array[i])
-                    {
-                        if((numCurr == 0) && (j < cur_j))
-                        {
-                            cur_j = j;
-                            if((smem.s >= min_intv_array[i]) && ((smem.n - smem.m + 1) >= minSeedLen))
-                            {
-
-                                matchArray[numTotalSmem + numSmem++] = smem;
-                            }
-                        }
-                    }
-                    if((newSmem.s >= min_intv_array[i]) && (newSmem.s != curr_s))
-                    {
-                        curr_s = newSmem.s;
-
-                        curr[numCurr++] = newSmem;
-                        _mm_prefetch((const char *)(&cp_occ[(newSmem.k) >> CP_SHIFT]), _MM_HINT_T0);
-                        _mm_prefetch((const char *)(&cp_occ[(newSmem.l) >> CP_SHIFT]), _MM_HINT_T0);
-                    }
-                }
-                SMEM *temp = prev;
-                prev = curr;
-                curr = temp;
-                numPrev = numCurr;
-                if(numCurr == 0)
-                {
-                    break;
-                }
-            }
-            if(numPrev != 0)
-            {
-                SMEM smem = prev[0];
-                if((smem.s >= min_intv_array[i]) && ((smem.n - smem.m + 1) >= minSeedLen))
-                {
-
-                    matchArray[numTotalSmem + numSmem++] = smem;
-                }
-                numPrev = 0;
-            }
-        }
-        query_pos_array[i] = next_x;
-        numTotalSmem += numSmem;
-    }
-    //printf("numTotalSmem = %ld\n", numTotalSmem);
-    (*__numTotalSmem) = numTotalSmem;
-    _mm_free(prevArray);
-    _mm_free(currArray);
-    return numActive;
-}
-#endif
 
 void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
-        int16_t *query_pos_array,
-        int32_t *min_intv_array,
-        int32_t *rid_array,
-        int32_t numReads,
-        int32_t batch_size,
-        int32_t readlength,
-        int32_t minSeedLen,
-        SMEM *matchArray,
-        int64_t *__numTotalSmem)
+										 int16_t *query_pos_array,
+										 int32_t *min_intv_array,
+										 int32_t *rid_array,
+										 int32_t numReads,
+										 int32_t batch_size,
+										 const bseq1_t *seq_,
+										 int32_t *query_cum_len_ar,
+										 int32_t max_readlength,
+										 int32_t minSeedLen,
+										 SMEM *matchArray,
+										 int64_t *__numTotalSmem)
 {
     int64_t numTotalSmem = *__numTotalSmem;
-    SMEM prevArray[readlength];
+    SMEM prevArray[max_readlength];
 
     uint32_t i;
     // Perform SMEM for original reads
@@ -328,7 +155,10 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
         int32_t rid = rid_array[i];
         int next_x = x + 1;
 
-        uint8_t a = enc_qdb[rid * readlength + x];
+		int readlength = seq_[rid].l_seq;
+		int offset = query_cum_len_ar[rid];
+        // uint8_t a = enc_qdb[rid * readlength + x];
+		uint8_t a = enc_qdb[offset + x];
 
         if(a < 4)
         {
@@ -345,7 +175,8 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
             int j;
             for(j = x + 1; j < readlength; j++)
             {
-                a = enc_qdb[rid * readlength + j];
+                // a = enc_qdb[rid * readlength + j];
+				a = enc_qdb[offset + j];
                 next_x = j + 1;
                 if(a < 4)
                 {
@@ -407,7 +238,8 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
             {
                 int numCurr = 0;
                 int curr_s = -1;
-                a = enc_qdb[rid * readlength + j];
+                // a = enc_qdb[rid * readlength + j];
+				a = enc_qdb[offset + j];
 
                 if(a > 3)
                 {
@@ -479,17 +311,19 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
 }
 
 void FMI_search::getSMEMsAllPosOneThread(uint8_t *enc_qdb,
-        int32_t *min_intv_array,
-        int32_t *rid_array,
-        int32_t numReads,
-        int32_t batch_size,
-        int32_t readlength,
-        int32_t minSeedLen,
-        SMEM *matchArray,
-        int64_t *__numTotalSmem)
+										 int32_t *min_intv_array,
+										 int32_t *rid_array,
+										 int32_t numReads,
+										 int32_t batch_size,
+										 const bseq1_t *seq_,
+										 int32_t *query_cum_len_ar,
+										 int32_t max_readlength,
+										 int32_t minSeedLen,
+										 SMEM *matchArray,
+										 int64_t *__numTotalSmem)
 {
     int16_t *query_pos_array = (int16_t *)_mm_malloc(numReads * sizeof(int16_t), 64);
-
+	
     int32_t i;
     for(i = 0; i < numReads; i++)
         query_pos_array[i] = 0;
@@ -503,124 +337,40 @@ void FMI_search::getSMEMsAllPosOneThread(uint8_t *enc_qdb,
         int32_t tail = 0;
         for(head = 0; head < numActive; head++)
         {
+			int readlength = seq_[rid_array[head]].l_seq;
             if(query_pos_array[head] < readlength)
             {
                 rid_array[tail] = rid_array[head];
                 query_pos_array[tail] = query_pos_array[head];
                 min_intv_array[tail] = min_intv_array[head];
-                tail++;
-            }
+                tail++;				
+            }				
         }
         getSMEMsOnePosOneThread(enc_qdb,
-                    query_pos_array,
-                    min_intv_array,
-                    rid_array,
-                    tail,
-                    batch_size,
-                    readlength,
-                    minSeedLen,
-                    matchArray,
-                    __numTotalSmem);
+								query_pos_array,
+								min_intv_array,
+								rid_array,
+								tail,
+								batch_size,
+								seq_,
+								query_cum_len_ar,
+								max_readlength,
+								minSeedLen,
+								matchArray,
+								__numTotalSmem);
         numActive = tail;
     } while(numActive > 0);
 
     _mm_free(query_pos_array);
 }
 
-#if 0
-int32_t FMI_search::bwtSeedStrategyOnePosOneThread(uint8_t *enc_qdb,
-        int16_t *query_pos_array,
-        int32_t *max_intv_array,
-        int32_t numReads,
-        int32_t rid,
-        int32_t readlength,
-        int32_t minSeedLen,
-        SMEM *matchArray,
-        int64_t numTotalSeed)
-{
-    //numActive = 0;
-    uint32_t i;
-    // Perform SMEM for original reads
-    for(i = 0; i < numReads; i++)
-    {
-
-        int x = query_pos_array[i];
-
-        if(x == readlength) continue;
-        //numActive++;
-        int next_x = x + 1;
-
-        //printf("Forward search\n");
-        // Forward search
-        SMEM smem;
-        smem.rid = rid;
-        smem.m = x;
-        smem.n = x;
-        uint8_t a = enc_qdb[i * readlength + x];
-
-        if(a < 4)
-        {
-            smem.k = count[a];
-            smem.l = count[3 - a];
-            smem.s = count[a+1] - count[a];
-
-            int j;
-            for(j = x + 1; j < readlength; j++)
-            {
-                next_x = j + 1;
-                a = enc_qdb[i * readlength + j];
-                if(a < 4)
-                {
-                    SMEM smem_ = smem;
-
-                    // Forward extension is backward extension with the BWT of reverse complement
-                    smem_.k = smem.l;
-                    smem_.l = smem.k;
-                    SMEM newSmem_ = backwardExt(smem_, 3 - a);
-                    //SMEM smem = backwardExt(smem, 3 - a);
-                    //smem.n = j;
-                    SMEM newSmem = newSmem_;
-                    newSmem.k = newSmem_.l;
-                    newSmem.l = newSmem_.k;
-                    newSmem.n = j;
-                    smem = newSmem;
-#ifdef ENABLE_PREFETCH
-                    _mm_prefetch((const char *)(&cp_occ[(smem.k) >> CP_SHIFT]), _MM_HINT_T0);
-                    _mm_prefetch((const char *)(&cp_occ[(smem.l) >> CP_SHIFT]), _MM_HINT_T0);
-#endif
-
-
-                    if((smem.s < max_intv_array[i]) && ((smem.n - smem.m + 1) >= minSeedLen))
-                    {
-
-                        if(smem.s > 0)
-                        {
-                            matchArray[numTotalSeed++] = smem;
-                        }
-                        break;
-                    }
-                }
-                else
-                {
-
-                    break;
-                }
-            }
-
-        }
-        query_pos_array[i] = next_x;
-    }
-
-    return numTotalSeed;
-}
-#endif
-
 int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
-        int32_t *max_intv_array,
-        int32_t numReads,
-        int32_t readlength,
-        int32_t minSeedLen,
-        SMEM *matchArray)
+												   int32_t *max_intv_array,
+												   int32_t numReads,
+												   const bseq1_t *seq_,
+												   int32_t *query_cum_len_ar,
+												   int32_t minSeedLen,
+												   SMEM *matchArray)
 {
     int32_t i;
 
@@ -628,6 +378,7 @@ int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
 
     for(i = 0; i < numReads; i++)
     {
+		int readlength = seq_[i].l_seq;
         int16_t x = 0;
         while(x < readlength)
         {
@@ -640,7 +391,10 @@ int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
             smem.rid = i;
             smem.m = x;
             smem.n = x;
-            uint8_t a = enc_qdb[i * readlength + x];
+			
+			int offset = query_cum_len_ar[i];
+			uint8_t a = enc_qdb[offset + x];
+            // uint8_t a = enc_qdb[i * readlength + x];
 
             if(a < 4)
             {
@@ -653,7 +407,8 @@ int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
                 for(j = x + 1; j < readlength; j++)
                 {
                     next_x = j + 1;
-                    a = enc_qdb[i * readlength + j];
+                    // a = enc_qdb[i * readlength + j];
+					a = enc_qdb[offset + j];
                     if(a < 4)
                     {
                         SMEM smem_ = smem;

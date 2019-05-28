@@ -41,6 +41,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 // #include <omp.h>
 #include "bntseq.h"
 #include "read_index_ele.h"
+#include "bwa.h"
 
 #if ((!__AVX2__))
 
@@ -126,93 +127,64 @@ typedef struct smem_struct
 
 #define SAL_PFD 16
 
-// #if BWA_OTHER_ELE
 class FMI_search: public indexEle
-// #else
-// class FMI_search
-// #endif
 {
-    public:
-        FMI_search(char *fmi_file_name);
-		~FMI_search();
-        //int64_t beCalls;
-
-        void getSMEMs(uint8_t *enc_qdb,
-                int32_t numReads,
-                int32_t batch_size,
-                int32_t readlength,
-                int32_t minSeedLengh,
-                int32_t numthreads,
-                SMEM *matchArray,
-                int64_t *numTotalSmem);
-
-#if 0
-        int32_t getSMEMsOnePosOneThread2(
-                uint8_t *enc_qdb,
-                int16_t *query_pos_array,
-                int32_t *min_intv_array,
-				int32_t *rid,
-                int32_t numReads,
-                int32_t numActive,
-                int32_t batch_size,
-                int32_t readlength,
-                int32_t minSeedLen,
-                SMEM *matchArray,
-                int64_t *__numTotalSmem);
-#endif
-        	   
-        void getSMEMsOnePosOneThread(
-                uint8_t *enc_qdb,
-                int16_t *query_pos_array,
-                int32_t *min_intv_array,
-                int32_t *rid_array,
-                int32_t numReads,
-                int32_t batch_size,
-                int32_t readlength,
-                int32_t minSeedLen,
-                SMEM *matchArray,
-                int64_t *__numTotalSmem);
-
-        void getSMEMsAllPosOneThread(
-                uint8_t *enc_qdb,
-                int32_t *min_intv_array,
-                int32_t *rid_array,
-                int32_t numReads,
-                int32_t batch_size,
-                int32_t readlength,
-                int32_t minSeedLen,
-                SMEM *matchArray,
-                int64_t *__numTotalSmem);
-
-#if 0
-        int32_t bwtSeedStrategyOnePosOneThread(
-                uint8_t *enc_qdb,
-                int16_t *query_pos_array,
-                int32_t *max_intv_array,
-                int32_t numReads,
-                int32_t rid,
-                int32_t readlength,
-                int32_t minSeedLen,
-                SMEM *matchArray,
-                int64_t numTotalSeed);
-#endif
-
-        int64_t bwtSeedStrategyAllPosOneThread(
-                uint8_t *enc_qdb,
-                int32_t *max_intv_array,
-                int32_t numReads,
-                int32_t readlength,
-                int32_t minSeedLen,
-                SMEM *matchArray);
-
-        void sortSMEMs(SMEM *matchArray,
-                int64_t numTotalSmem[],
-                int32_t numReads,
-                int32_t readlength,
-                int nthreads);
-        int64_t get_sa_entry(int64_t pos);
-        void get_sa_entries(int64_t *posArray, int64_t *coordArray, uint32_t count, int32_t nthreads);
-        void get_sa_entries(SMEM *smemArray, int64_t *coordArray, int32_t *coordCountArray, uint32_t count, int32_t max_occ);
+public:
+	FMI_search(char *fmi_file_name);
+	~FMI_search();
+	//int64_t beCalls;
+	
+	void getSMEMs(uint8_t *enc_qdb,
+				  int32_t numReads,
+				  int32_t batch_size,
+				  int32_t readlength,
+				  int32_t minSeedLengh,
+				  int32_t numthreads,
+				  SMEM *matchArray,
+				  int64_t *numTotalSmem);
+	
+	void getSMEMsOnePosOneThread(uint8_t *enc_qdb,
+								 int16_t *query_pos_array,
+								 int32_t *min_intv_array,
+								 int32_t *rid_array,
+								 int32_t numReads,
+								 int32_t batch_size,
+								 const bseq1_t *seq_,
+								 int32_t *query_cum_len_ar,
+								 int32_t  max_readlength,
+								 int32_t minSeedLen,
+								 SMEM *matchArray,
+								 int64_t *__numTotalSmem);
+	
+	void getSMEMsAllPosOneThread(uint8_t *enc_qdb,
+								 int32_t *min_intv_array,
+								 int32_t *rid_array,
+								 int32_t numReads,
+								 int32_t batch_size,
+								 const bseq1_t *seq_,
+								 int32_t *query_cum_len_ar,
+								 int32_t max_readlength,
+								 int32_t minSeedLen,
+								 SMEM *matchArray,
+								 int64_t *__numTotalSmem);
+		
+	
+	int64_t bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
+										   int32_t *max_intv_array,
+										   int32_t numReads,
+										   const bseq1_t *seq_,
+										   int32_t *query_cum_len_ar,
+										   int32_t minSeedLen,
+										   SMEM *matchArray);
+		
+	void sortSMEMs(SMEM *matchArray,
+				   int64_t numTotalSmem[],
+				   int32_t numReads,
+				   int32_t readlength,
+				   int nthreads);
+	int64_t get_sa_entry(int64_t pos);
+	void get_sa_entries(int64_t *posArray, int64_t *coordArray, uint32_t count, int32_t nthreads);
+	void get_sa_entries(SMEM *smemArray, int64_t *coordArray, int32_t *coordCountArray, uint32_t count, int32_t max_occ);
 
 	int64_t reference_seq_len;
 	uint32_t sentinel_index;

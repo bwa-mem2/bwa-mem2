@@ -633,16 +633,32 @@ SMEM *mem_collect_smem(const mem_opt_t *opt,
 	int64_t pos = 0;
 	int split_len = (int)(opt->min_seed_len * opt->split_factor + .499);
 	int64_t num_smem1 = 0, num_smem2 = 0, num_smem3 = 0;
-
+	int max_readlength = -1;
+	
+	int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(nseq * sizeof(int32_t), 64);
+	
+	int offset = 0;
 	for (int l=0; l<nseq; l++)
 	{
 		min_intv_ar[l] = 1;
-		for (int j=0; j<seq_[l].l_seq; j++)
-			enc_qdb[l*seq_[l].l_seq + j] = seq_[l].seq[j];
+		for (int j=0; j<seq_[l].l_seq; j++) 
+			// enc_qdb[l*seq_[l].l_seq + j] = seq_[l].seq[j];
+			enc_qdb[offset + j] = seq_[l].seq[j];
+		
+		offset += seq_[l].l_seq;		
         rid[l] = l;
 	}
+
+	max_readlength = seq_[0].l_seq;
+	query_cum_len_ar[0] = 0;
+	for(int i = 1; i < nseq; i++) {
+        query_cum_len_ar[i] = query_cum_len_ar[i - 1] + seq_[i-1].l_seq;
+		if (max_readlength < seq_[i].l_seq)
+			max_readlength = seq_[i].l_seq;
+	}
+
 	fmi->getSMEMsAllPosOneThread(enc_qdb, min_intv_ar, rid, nseq, nseq,
-								 seq_[0].l_seq, opt->min_seed_len,
+								 seq_, query_cum_len_ar, max_readlength, opt->min_seed_len,
 								 matchArray, &num_smem1);
 
 
@@ -659,7 +675,8 @@ SMEM *mem_collect_smem(const mem_opt_t *opt,
 		
 		query_pos_ar[pos] = (end + start)>>1;
 
-		assert(query_pos_ar[pos] < len); // replace 76 by macro
+		// fprintf(stderr, "query_pos: %d,len: %d\n", query_pos_ar[pos], len);
+		assert(query_pos_ar[pos] < len);
 
 		min_intv_ar[pos] = p->s + 1;
 		pos ++;
@@ -671,7 +688,9 @@ SMEM *mem_collect_smem(const mem_opt_t *opt,
 								 rid,
 								 pos,
 								 pos,
-								 seq_[0].l_seq,
+								 seq_,
+								 query_cum_len_ar,
+								 max_readlength,
 								 opt->min_seed_len,
 								 matchArray + num_smem1,
 								 &num_smem2);
@@ -682,10 +701,9 @@ SMEM *mem_collect_smem(const mem_opt_t *opt,
 			min_intv_ar[l] = opt->max_mem_intv;
 
 		num_smem3 = fmi->bwtSeedStrategyAllPosOneThread(enc_qdb, min_intv_ar,
-														nseq, seq_[0].l_seq,
+														nseq, seq_, query_cum_len_ar, 
 														opt->min_seed_len + 1,
-														matchArray + num_smem1 + num_smem2);
-		
+														matchArray + num_smem1 + num_smem2);		
 	}
 	tot_smem = num_smem1 + num_smem2 + num_smem3;
 
@@ -704,7 +722,8 @@ SMEM *mem_collect_smem(const mem_opt_t *opt,
 			ks_introsort(mem_intv1, n, &matchArray[smem_ptr]);
 		smem_ptr = pos + 1;
 	}
-		
+
+	_mm_free(query_cum_len_ar);
 	return matchArray;
 }
 
