@@ -133,7 +133,7 @@ int64_t get_limit_fsize(FILE *fpp, int64_t nread_lim,
 	return position;	
 }
 
-void memoryAlloc(ktp_aux_t *aux, worker_t &w, int64_t nreads)
+void memoryAlloc(ktp_aux_t *aux, worker_t &w)
 {
 	mem_opt_t	*opt			  = aux->opt;	
 	int memSize = nreads;
@@ -237,20 +237,24 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		uint64_t tim = __rdtsc();
 		/* Read "reads" from input file (fread) */
 		int64_t sz = 0;
-		//if (temp++ == 0) 
 		ret->seqs = bseq_read_orig(aux->task_size,
 								   &ret->n_seqs,
-								   aux->ks,
-								   aux->ks2,
+								   aux->ks, aux->ks2,
 								   &sz);
 
 		// *ret = *ret2;
 		tprof[READ_IO][0] += __rdtsc() - tim;
 		tprof[0][0] += sz;  // debug info, for accuracy checks!!
 		tprof[0][2] += ret->n_seqs;
-		// iteration ++;
-		// fprintf(stderr, "Read %d seqs, task_size: %ld\n", ret->n_seqs, aux->task_size);
-		assert(ret->n_seqs <= nreads);
+
+		if (nreads < ret->n_seqs) {
+			fprintf(stderr, "Reallocating initial memory allocations (regs, chains)!!\n");
+			free(w.regs); free(w.chain_ar);
+			int memSize = nreads = ret->n_seqs;
+			w.regs = (mem_alnreg_v *) calloc(memSize, sizeof(mem_alnreg_v));
+			w.chain_ar = (mem_chain_v*) malloc (memSize * sizeof(mem_chain_v));
+		}		
+		// assert(ret->n_seqs <= nreads);
 		
 		fprintf(stderr, "[%.4d] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
 				myrank, aux->task_size, sz, ret->n_seqs);   
@@ -515,13 +519,11 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	
 	fprintf(stderr, "\nThreads used (compute): %d\n",
 			nthreads);
-	
 	nreads = aux->actual_chunk_size/ (readLen) + 10;
-	// fprintf(stderr, "Input read length: %d\n", readLen);
 	fprintf(stderr, "Projected #read in a task: %ld\n", (long)nreads);
 	
 	/* All memory allocation */
-	memoryAlloc(aux, w, nreads);
+	memoryAlloc(aux, w);
 	
 	/* pipeline using pthreads */
 	ktp_t aux_;
@@ -994,7 +996,7 @@ int main_mem(int argc, char *argv[])
 									   &sz);
 		assert(seqs != NULL);
 		readLen = seqs[0].l_seq;
-		fprintf(stderr, "readLen: %d\n\n", readLen);
+		fprintf(stderr, "First read length: %d\n", readLen);
 		for (int i = 0; i < ns; ++i) {
 			free(seqs[i].name); free(seqs[i].comment);
 			free(seqs[i].seq); free(seqs[i].qual);

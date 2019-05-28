@@ -31,7 +31,7 @@
 ## *****************************************************************************************/
 
 EXE=		bwa-mem2
-#CXX=		icpc
+##CXX=		icpc
 ARCH_FLAGS=	-msse4.1
 SWA_FLAGS=	-DDEB=0 -DRDT=0 -DMAXI=0 -DNEW=1 -DSORT_PAIRS=0
 MEM_FLAGS=	-DPAIRED_END=1 -DMAINY=0 -DSAIS=1
