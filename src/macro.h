@@ -47,10 +47,10 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define H0_ -99
 #define SEEDS_PER_READ 500           /* Avg seeds per read */
 #define MAX_SEEDS_PER_READ 500       /* Max seeds per read */
-#define AVG_SEEDS_PER_READ 500      /* Used for storing seeds in chains*/
-#define AVG_AUX_SEEDS_PER_READ 500  /* should have same value as AVG_SEEDS_PER_READ */
+#define AVG_SEEDS_PER_READ 300      /* Used for storing seeds in chains*/
 #define BATCH_SIZE 512               /* Block of reads alloacted to a thread for processing*/
 #define BATCH_MUL 16
+#define SEEDS_PER_CHAIN 2
 
 #define SEQ_LEN8 128
 #define MAX_LINE_LEN 256

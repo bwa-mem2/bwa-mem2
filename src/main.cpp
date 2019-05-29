@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
 		ret = main_mem(argc-1, argv+1);
 		free(bwa_pg);
 		tprof[MEM][0] = __rdtsc() - tim;
-		return ret;
+		// return ret;
 	}
 	else if (strcmp(argv[1], "version") == 0)
 	{
@@ -122,6 +122,6 @@ int main(int argc, char* argv[])
 	fprintf(stderr, "\tSIMD_WIDTH8 X: %d\n", SIMD_WIDTH8);
 	fprintf(stderr, "\tSIMD_WIDTH16 X: %d\n", SIMD_WIDTH16);
 	fprintf(stderr, "\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
-	fprintf(stderr, "\tAVG_AUX_SEEDS_PER_READ: %d\n", AVG_AUX_SEEDS_PER_READ);
+
 	return 0;
 }

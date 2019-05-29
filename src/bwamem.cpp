@@ -367,8 +367,7 @@ int mem_sort_dedup_patch_rev(const mem_opt_t *opt, const bntseq_t *bns,
 
 // return 1 if the seed is merged into the chain
 static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
-						  const mem_seed_t *p, int seed_rid, mem_seed_t *auxSeedBuf,
-                          int64_t *auxSeedBufCount, int64_t auxSeedBufSize)
+						  const mem_seed_t *p, int seed_rid)
 {
 	int64_t qend, rend, x, y;
 	const mem_seed_t *last = &c->seeds[c->n-1];
@@ -390,12 +389,18 @@ static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
 		y - last->len < opt->max_chain_gap) { // grow the chain
 		if (c->n == c->m)
 		{
+			mem_seed_t *auxSeedBuf = NULL;
+			int pm = c->m;			
 			c->m <<= 1;
-            assert(((*auxSeedBufCount) + c->m) <= auxSeedBufSize);
-            memcpy((char*) (auxSeedBuf + (*auxSeedBufCount)), c->seeds, c->n * sizeof(mem_seed_t));
-			c->seeds = auxSeedBuf + (*auxSeedBufCount);
-            memset((char*) (c->seeds + c->n), 0, (c->m - c->n) * sizeof(mem_seed_t));
-            (*auxSeedBufCount) += c->m;
+			if (pm == SEEDS_PER_CHAIN) {  // re-new memory
+				auxSeedBuf = (mem_seed_t *) calloc(c->m, sizeof(mem_seed_t));
+				memcpy((char*) (auxSeedBuf), c->seeds, c->n * sizeof(mem_seed_t));
+				c->seeds = auxSeedBuf;
+			} else {  // new memory
+				auxSeedBuf = realloc(c->seeds, c->m * sizeof(mem_seed_t));
+				c->seeds = auxSeedBuf;
+			}
+            memset((char*) (c->seeds + c->n), 0, (c->m - c->n) * sizeof(mem_seed_t));			
 		}
 		c->seeds[c->n++] = *p;
 		return 1;
@@ -735,9 +740,7 @@ void mem_chain_seeds(const mem_opt_t *opt,
 					 int tid,
 					 mem_chain_v *chain_ar,
                      mem_seed_t *seedBuf,
-                     mem_seed_t *auxSeedBuf,
                      int64_t seedBufSize,
-                     int64_t auxSeedBufSize,
 					 SMEM *matchArray,
 					 int64_t num_smem)
 {
@@ -824,7 +827,7 @@ void mem_chain_seeds(const mem_opt_t *opt,
 				{
 					kb_intervalp(chn, tree, &tmp, &lower, &upper); // find the closest chain
 
-					if (!lower || !test_and_merge(opt, l_pac, lower, &s, rid, auxSeedBuf, &auxSeedBufCount, auxSeedBufSize))
+					if (!lower || !test_and_merge(opt, l_pac, lower, &s, rid))
 						to_add = 1;
 				}
 				else to_add = 1;
@@ -832,31 +835,31 @@ void mem_chain_seeds(const mem_opt_t *opt,
 				//uint64_t tim = __rdtsc();
 				if (to_add) // add the seed as a new chain
 				{
-					tmp.n = 1; tmp.m = 1; //4;
+					tmp.n = 1; tmp.m = SEEDS_PER_CHAIN;
                     if((seedBufCount + tmp.m) > seedBufSize)
                     {
-                        fprintf(stderr, "ERROR! seedBuf count exceeds size. count = %ld, "
-							   "tmp.m = %d, size = %ld\n",
-							   seedBufCount, tmp.m, seedBufSize);
-						fprintf(stderr, "Reserved memory allocated for storing seeds has falling short!!!\n");
-						fprintf(stderr, "Please increase the value of macros: "
-							   "AVG_SEEDS_PER_READ & AVG_AUX_SEEDS_PER_READ, "
-							   "in src/macro.h, re-compile and re-run.\n");
-                        exit(0);
+                        // fprintf(stderr, "ERROR! seedBuf count exceeds size. count = %ld, "
+						// 	   "tmp.m = %d, size = %ld\n",
+						// 	   seedBufCount, tmp.m, seedBufSize);
+						// fprintf(stderr, "Reserved memory allocated for storing seeds has "
+						// 		"falling short!!!\n");
+						// fprintf(stderr, "Please increase the value of macros: "
+						// 	   "AVG_SEEDS_PER_READ & AVG_AUX_SEEDS_PER_READ, "
+						// 	   "in src/macro.h, re-compile and re-run.\n");
+                        // exit(0);
+						tmp.m <<= 1;
+						tmp.seeds = (mem_seed_t *)calloc (tmp.m, sizeof(mem_seed_t));
                     }
-					
-					tmp.seeds = seedBuf + seedBufCount;
+					else {
+						tmp.seeds = seedBuf + seedBufCount;
+						seedBufCount += tmp.m;
+					}
                     memset((char*) (tmp.seeds), 0, tmp.m * sizeof(mem_seed_t));
-                    seedBufCount += tmp.m;
-					// tprof[PE21][0] += tmp.m * sizeof(mem_seed_t);
 					tmp.seeds[0] = s;
 					tmp.rid = rid;
-					//tmp.seqid = -1;
-					//if (flag ) { tmp.seqid = l; flag = 0; }
 					tmp.seqid = l;
 					tmp.is_alt = !!bns->anns[rid].is_alt;
 					kb_putp(chn, tree, &tmp);
-
 					num[l]++;					
 				}
 			}
@@ -891,9 +894,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
 					 int nseq,
 					 mem_chain_v *chain_ar,
                      mem_seed_t *seedBuf,
-                     mem_seed_t *auxSeedBuf,
                      int64_t seedBufSize,
-                     int64_t auxSeedBufSize,
 					 SMEM *matchArray,
 					 int32_t *min_intv_ar,
 					 int16_t *query_pos_ar,
@@ -948,9 +949,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
 					seq_, nseq, tid,
 					chain_ar,
                     seedBuf,
-                    auxSeedBuf,
                     seedBufSize,
-                    auxSeedBufSize,
                     matchArray,
 					num_smem);
 	
@@ -1019,8 +1018,15 @@ int mem_kernel2_core(const mem_opt_t *opt,
 	tprof[MEM_ALN2][tid] += __rdtsc() - tim;
 
 	// tim = __rdtsc();
-	for (int l=0; l<nseq; l++)
+	for (int l=0; l<nseq; l++) {
+		mem_chain_v *chain = &chain_ar[l];
+		for (int i = 0; i < chain->n; ++i) {
+			mem_chain_t chn = chain->a[i];
+			if (chn.m > SEEDS_PER_CHAIN)
+				free(chn.seeds);
+		}
 		free(chain_ar[l].a);
+	}
 	
 	int m = 0;
 	for (int l=0; l<nseq; l++)
@@ -1085,18 +1091,17 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
 	uint64_t offset = BATCH_SIZE * w->seqs[0].l_seq * tid * BATCH_MUL;
 
 	mem_kernel1_core(w->opt, w->bns, w->pac,
-							   w->seqs + seq_id,
-							   batch_size,
-							   w->chain_ar + seq_id,
-                               w->seedBuf + seq_id * AVG_SEEDS_PER_READ,
-                               w->auxSeedBuf + seq_id * AVG_SEEDS_PER_READ,
-                               w->seedBufSize, w->auxSeedBufSize,
-							   w->mmc.matchArray + offset,
-							   w->mmc.min_intv_ar + offset,
-							   w->mmc.query_pos_ar + offset,
-							   w->mmc.enc_qdb + offset,
-							   w->mmc.rid + offset,
-							   tid);
+					 w->seqs + seq_id,
+					 batch_size,
+					 w->chain_ar + seq_id,
+					 w->seedBuf + seq_id * AVG_SEEDS_PER_READ,
+					 w->seedBufSize,
+					 w->mmc.matchArray + offset,
+					 w->mmc.min_intv_ar + offset,
+					 w->mmc.query_pos_ar + offset,
+					 w->mmc.enc_qdb + offset,
+					 w->mmc.rid + offset,
+					 tid);
 	printf_(VER, "4. Done mem_kernel1_core....\n");
 }
 
@@ -1918,15 +1923,13 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 								   mem_cache *mmc, int64_t offset1, int64_t offset2,
 								   int64_t offset3, int tid)
 {
-	//SeqPair *seqPairArrayLeft = mmc->seqPairArrayLeft + offset1;
-	//SeqPair *seqPairArrayRight = mmc->seqPairArrayRight + offset1;
-	SeqPair *seqPairArrayAux = mmc->seqPairArrayAux + offset1;
-	SeqPair *seqPairArrayLeft128 = mmc->seqPairArrayLeft128 + offset1;
+	SeqPair *seqPairArrayAux	  = mmc->seqPairArrayAux + offset1;
+	SeqPair *seqPairArrayLeft128  = mmc->seqPairArrayLeft128 + offset1;
 	SeqPair *seqPairArrayRight128 = mmc->seqPairArrayRight128 + offset1;
 
-	uint8_t *seqBufLeftRef = mmc->seqBufLeftRef + offset2;
+	uint8_t *seqBufLeftRef	= mmc->seqBufLeftRef + offset2;
 	uint8_t *seqBufRightRef = mmc->seqBufRightRef + offset2;
-	uint8_t *seqBufLeftQer = mmc->seqBufLeftQer + offset3;
+	uint8_t *seqBufLeftQer	= mmc->seqBufLeftQer + offset3;
 	uint8_t *seqBufRightQer = mmc->seqBufRightQer + offset3;
 	
 	int32_t *lim_g = mmc->lim + (BATCH_SIZE + 32) * tid;
@@ -1942,14 +1945,11 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
 	int64_t leftRefOffset = 0, rightRefOffset = 0;
 	int64_t leftQerOffset = 0, rightQerOffset = 0;
-		
-	//int rid;
-	uint64_t *srt = (uint64_t *) malloc(MAX_SEEDS_PER_READ * 8);
-	uint32_t *srtgg = (uint32_t*) malloc(nseq * SEEDS_PER_READ * FAC * sizeof(uint32_t));
 
-	//__m256i idx256 = _mm256_setr_epi8(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,
-	//								  31,30,29,28,27,26,25,24,23,22,21,20,19,
-	//								  18,17,16);
+	int srt_size = MAX_SEEDS_PER_READ, fac = FAC;
+	uint64_t *srt = (uint64_t *) malloc(srt_size * 8);
+	uint32_t *srtgg = (uint32_t*) malloc(nseq * SEEDS_PER_READ * fac * sizeof(uint32_t));
+
 	int spos = 0;
 	
 	// uint64_t timUP = __rdtsc();
@@ -1957,9 +1957,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	{
 		int max = 0;
 		uint8_t *rseq = 0;
-		// uint64_t *srt;
 		
-		// uint32_t *srtg = srtgg + SEEDS_PER_READ * FAC * l;
 		uint32_t *srtg = srtgg;
 		lim_g[l+1] = 0;
 		
@@ -1980,7 +1978,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 		av->a = (mem_alnreg_t*)calloc(av->m, sizeof(mem_alnreg_t));
 
 		// aln mem allocation ends
-		// tprof[PE11][0] += chn->n;
 		for (int j=0; j<chn->n; j++)
 		{
 			c = &chn->a[j];
@@ -2030,7 +2027,11 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			_mm_prefetch((const char*) rseq, 0);
 			// _mm_prefetch((const char*) rseq + 64, 0);
 			
-			assert(c->n < MAX_SEEDS_PER_READ);  // temp
+			// assert(c->n < MAX_SEEDS_PER_READ);  // temp
+			if (c->n > srt_size) {
+				srt_size = c->n + 10;
+				srt = realloc(srt, srt_size * 8);
+			}
 			
 			for (int i = 0; i < c->n; ++i) 
 				srt[i] = (uint64_t)c->seeds[i].score<<32 | i;
@@ -2038,10 +2039,12 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			if (c->n > 1) 
 				ks_introsort_64(c->n, srt);
 			
-			// s_end = s_start + c->n;
-			assert((spos + c->n) < SEEDS_PER_READ * FAC * nseq);
-			//for (int i = s_start; i < s_end; ++i)
-			//	srtg[i] = (uint32_t) srt[i - s_start];
+			// assert((spos + c->n) < SEEDS_PER_READ * FAC * nseq);
+			if ((spos + c->n) > SEEDS_PER_READ * fac * nseq) {
+				fac <<= 1;
+				srtgg = realloc(srtgg, nseq * SEEDS_PER_READ * fac * sizeof(uint32_t));
+			}
+			
 			for (int i = 0; i < c->n; ++i)
 				srtg[spos++] = srt[i];
 
@@ -2051,7 +2054,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			for (int k=c->n-1; k >= 0; k--)
 			{
 				s = &c->seeds[(uint32_t)srt[k]];
-				//s = &c->seeds[k];
 
 				mem_alnreg_t *a;
 				// a = kv_pushp(mem_alnreg_t, *av);
@@ -2090,43 +2092,14 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 					leftQerOffset += s->qbeg;
 					assert(leftQerOffset < MAX_SEQ_LEN_QER * BATCH_SIZE * SEEDS_PER_READ);
 					
-#if 1
+
 					for (int i = 0; i < s->qbeg; ++i) qs[i] = query[s->qbeg - 1 - i];  // vectorize it!!
-#else				
-					for (int i = 0; i < s->qbeg; i+=32) {
-						int val = s->qbeg - 32 - i;
-						__mmask32 msk = 0xFFFFFFFF;
-						if (val < 0) {
-							msk = msk << (val * -1);
-						}
-						__m256i load256 = _mm256_mask_loadu_epi8(idx256, msk, (__m256i *)(query + val));
-						// __m256i perm256 = _mm256_permutexvar_epi8(idx256, load256);
-						__m256i perm256 = _mm256_shuffle_epi8(load256, idx256);
-						perm256 = _mm256_permute2f128_si256(perm256, perm256, 0x1);
-						_mm256_storeu_si256((__m256i *)(qs + i), perm256);
-					}
-#endif
 					
 					tmp = s->rbeg - rmax[0];
 					leftRefOffset += tmp;
 					assert(leftRefOffset < MAX_SEQ_LEN_REF * BATCH_SIZE * SEEDS_PER_READ);
 
-#if 1
 					for (int64_t i = 0; i < tmp; ++i) rs[i] = rseq[tmp - 1 - i]; //seq1
-#else
-					for (int i = 0; i < tmp; i+=32) {
-						int val = tmp - 32 - i;
-						__mmask32 msk = 0xFFFFFFFF;
-						if (val < 0) {
-							msk = msk << (val * -1);
-						}
-						__m256i load256 = _mm256_mask_loadu_epi8(idx256, msk, (__m256i *)(rseq + val));
-						// __m256i perm256 = _mm256_permutexvar_epi8(idx256, load256);
-						__m256i perm256 = _mm256_shuffle_epi8(load256, idx256);
-						perm256 = _mm256_permute2f128_si256(perm256, perm256, 0x1);
-						_mm256_storeu_si256((__m256i *)(rs + i), perm256);
-					}
-#endif
 					
 					sp.len2 = s->qbeg;
 					sp.len1 = tmp;
@@ -2143,7 +2116,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 						numPairsLeft16++;
 					}
 					else {							
-						//seqPairArrayLeft[numPairsLeft1++] = sp;
 						numPairsLeft1++;
 					}
 					
@@ -2187,16 +2159,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 					tprof[PE23][tid] += sp.len1 + sp.len2;
 
 					
-					// for (int i = 0; i < sp.len2; i+=32) {  //macro replacement
-					// 	__m256i load256 = _mm256_loadu_si256((__m256i *)(query + qe + i));
-					// 	_mm256_storeu_si256((__m256i *)(qs + i), load256);
-					// }
 					for (int i = 0; i < sp.len2; ++i) qs[i] = query[qe + i];
 
-					// for (int i = 0; i < sp.len1; i+=32) {  //macro replacement
-					// 	__m256i load256 = _mm256_loadu_si256((__m256i *)(rseq + re + i));
-					// 	_mm256_storeu_si256((__m256i *)(rs + i), load256);						
-					// }
 					for (int i = 0; i < sp.len1; ++i) rs[i] = rseq[re + i]; //seq1
 
 
@@ -2239,28 +2203,18 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	}
 	// tprof[MEM_ALN2_UP][tid] += __rdtsc() - timUP;
 	
-	// uint64_t timS = __rdtsc();
+
 	int32_t *hist = (int32_t *)_mm_malloc((MAX_SEQ_LEN8 + MAX_SEQ_LEN16 + 32) *
 										  sizeof(int32_t), 64);
-	for (int l=0; l<numPairsLeft; l++) {
-		SeqPair sp = seqPairArrayLeft128[l];
-	}
-
+	
 	/* Sorting based score is required as that affects the use of SIMD lanes */
 	sortPairsLenExt(seqPairArrayLeft128, numPairsLeft, seqPairArrayAux, hist,
 				  numPairsLeft128, numPairsLeft16, numPairsLeft1);
 	assert(numPairsLeft == (numPairsLeft128 + numPairsLeft16 + numPairsLeft1));
 	
-	for (int l=0; l<numPairsLeft; l++) {
-		SeqPair sp = seqPairArrayLeft128[l];
-	}
-	assert(numPairsRight == (numPairsRight128 + numPairsRight16 + numPairsRight1));
-	// tprof[SORT][tid] += __rdtsc() - timS;
 
 	// SWA
 	// uint64_t timL = __rdtsc();
-
-	// int nthreads = opt->n_threads;
 	int nthreads = 1;
 
 	// Now, process all the collected seq-pairs
@@ -2275,7 +2229,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	
 	int i;
 	// Left
-	//SeqPair *pair_ar = seqPairArrayLeft;
 	SeqPair *pair_ar = seqPairArrayLeft128 + numPairsLeft128 + numPairsLeft16;
 	SeqPair *pair_ar_aux = seqPairArrayAux;
 	int nump = numPairsLeft1;
@@ -2492,15 +2445,11 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 		sp->h0 = a->score;
 	}
 
-	// sortPairsLen_(seqPairArrayRight128, numPairsRight, seqPairArrayLeft,
-	//			  hist, numPairsRight128, numPairsRight1);
 	sortPairsLenExt(seqPairArrayRight128, numPairsRight, seqPairArrayAux,
 					hist, numPairsRight128, numPairsRight16, numPairsRight1);
 
 	assert(numPairsRight == (numPairsRight128 + numPairsRight16 + numPairsRight1));
-	//_mm_free(hist);
 
-	//pair_ar = seqPairArrayRight;
 	pair_ar = seqPairArrayRight128 + numPairsRight128 + numPairsRight16;
 	pair_ar_aux = seqPairArrayAux;
 	nump = numPairsRight1;
@@ -2724,7 +2673,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	for (int l=0; l<nseq; l++)
 	{
 		int s_start = 0, s_end = 0;
-		// uint32_t *srtg = srtgg + SEEDS_PER_READ * FAC * l;
 		uint32_t *srtg = srtgg + lim_g[l];
 		
 		int l_query = seq_[l].l_seq;
@@ -2739,17 +2687,12 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
 			s_end = s_start + c->n;
 
-			// srtg = srtgg[lim_g[l]];
-			
 			uint32_t *srt2 = srtg + s_start;
 			s_start += c->n;
 			
 			int k = 0;
 			for (k = c->n-1; k >= 0; k--)
 			{
-				// uint64_t tim_ = __rdtsc();
-				// mem_alnreg_t *a;
-				// s = &c->seeds[(uint32_t) srt[k]];
 				s = &c->seeds[srt2[k]];
 				int i = 0;
 				int v = 0;

@@ -145,8 +145,6 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w)
     w.seedBuf = (mem_seed_t *)_mm_malloc(sizeof(mem_seed_t) * memSize * AVG_SEEDS_PER_READ, 64);
 	assert(w.seedBuf != NULL);
     w.seedBufSize = BATCH_SIZE * AVG_SEEDS_PER_READ;
-    w.auxSeedBuf = (mem_seed_t *)_mm_malloc(sizeof(mem_seed_t) * memSize * AVG_AUX_SEEDS_PER_READ, 64);
-    w.auxSeedBufSize = BATCH_SIZE * AVG_AUX_SEEDS_PER_READ;
 	
 	if (w.regs == NULL || w.chain_ar == NULL) {
 		fprintf(stderr, "Memory not allocated!!\nExiting...\n");
@@ -155,46 +153,32 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w)
 
 	int64_t allocMem = memSize * sizeof(mem_alnreg_v) +
 		memSize * sizeof(mem_chain_v) +
-		sizeof(mem_seed_t) * memSize * AVG_SEEDS_PER_READ +
-		sizeof(mem_seed_t) * memSize * AVG_AUX_SEEDS_PER_READ;
+		sizeof(mem_seed_t) * memSize * AVG_SEEDS_PER_READ;
 	fprintf(stderr, "------------------------------------------\n");
 	fprintf(stderr, "Memory pre-allocation for chaining: %ld\n", allocMem);
 
 	
 	/* SWA mem allocation */
 	// int avg_seed_per_read = 35;
-	w.size = BATCH_SIZE * SEEDS_PER_READ;
-	
-	w.mmc.seqBufLeftRef = NULL;	w.mmc.seqBufLeftQer = NULL;
-	w.mmc.seqBufRightRef = NULL; w.mmc.seqBufRightQer = NULL;
-	w.mmc.seqPairArrayLeft = NULL; 	w.mmc.seqPairArrayAux = NULL;
-	w.mmc.seqPairArrayLeft128 = NULL; w.mmc.seqPairArrayRight128 = NULL;
-	
-	w.mmc.seqBufLeftRef = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)
+	w.size = BATCH_SIZE * SEEDS_PER_READ;		
+	w.mmc.seqBufLeftRef	 = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)
 												 + MAX_LINE_LEN) * opt->n_threads, 64);
-	assert(w.mmc.seqBufLeftRef != NULL);
-
-	w.mmc.seqBufLeftQer = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)
-												 + MAX_LINE_LEN) * opt->n_threads, 64);	   
-	assert(w.mmc.seqBufLeftQer != NULL);
-	
-
+	w.mmc.seqBufLeftQer	 = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)
+												 + MAX_LINE_LEN) * opt->n_threads, 64);	      
 	w.mmc.seqBufRightRef = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)
 												  + MAX_LINE_LEN) * opt->n_threads, 64);
 	w.mmc.seqBufRightQer = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)
 												  + MAX_LINE_LEN) * opt->n_threads, 64);
 	
-	//w.mmc.seqPairArrayLeft = (SeqPair *)_mm_malloc((w.size * sizeof(SeqPair)
-	//												   ) * opt->n_threads, 64);
-	//w.mmc.seqPairArrayRight = (SeqPair *)_mm_malloc((w.size * sizeof(SeqPair)
-	//						 ) * opt->n_threads, 64);
-	w.mmc.seqPairArrayAux = (SeqPair *)_mm_malloc((w.size * sizeof(SeqPair)
-						       ) * opt->n_threads, 64);
-	w.mmc.seqPairArrayLeft128 = (SeqPair *)_mm_malloc((w.size * sizeof(SeqPair)
-							   ) * opt->n_threads, 64);
-	w.mmc.seqPairArrayRight128 = (SeqPair *)_mm_malloc((w.size * sizeof(SeqPair)
-							    ) * opt->n_threads, 64);
+	w.mmc.seqPairArrayAux	   = (SeqPair *)_mm_malloc((w.size + MAX_LINE_LEN) * sizeof(SeqPair)
+													   * opt->n_threads, 64);
+	w.mmc.seqPairArrayLeft128  = (SeqPair *)_mm_malloc((w.size + MAX_LINE_LEN) * sizeof(SeqPair)
+													   * opt->n_threads, 64);
+	w.mmc.seqPairArrayRight128 = (SeqPair *)_mm_malloc((w.size + MAX_LINE_LEN) * sizeof(SeqPair)
+													   * opt->n_threads, 64);
 
+	assert(w.mmc.seqBufLeftRef != NULL);
+	assert(w.mmc.seqBufLeftQer != NULL);
 	assert(w.mmc.seqPairArrayRight128 != NULL);
 
 	allocMem = (w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2+
@@ -571,7 +555,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	free(w.chain_ar);
 	free(w.regs);
     _mm_free(w.seedBuf);
-    _mm_free(w.auxSeedBuf);
+
 	_mm_free(w.mmc.seqBufLeftRef);
 	_mm_free(w.mmc.seqBufRightRef);
 	_mm_free(w.mmc.seqBufLeftQer);
