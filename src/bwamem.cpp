@@ -397,7 +397,7 @@ static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
 				memcpy((char*) (auxSeedBuf), c->seeds, c->n * sizeof(mem_seed_t));
 				c->seeds = auxSeedBuf;
 			} else {  // new memory
-				auxSeedBuf = realloc(c->seeds, c->m * sizeof(mem_seed_t));
+				auxSeedBuf = (mem_seed_t *) realloc(c->seeds, c->m * sizeof(mem_seed_t));
 				c->seeds = auxSeedBuf;
 			}
             memset((char*) (c->seeds + c->n), 0, (c->m - c->n) * sizeof(mem_seed_t));			
@@ -1022,8 +1022,11 @@ int mem_kernel2_core(const mem_opt_t *opt,
 		mem_chain_v *chain = &chain_ar[l];
 		for (int i = 0; i < chain->n; ++i) {
 			mem_chain_t chn = chain->a[i];
-			if (chn.m > SEEDS_PER_CHAIN)
+			if (chn.m > SEEDS_PER_CHAIN) {
+				tprof[PE11][tid] ++;
 				free(chn.seeds);
+			}
+			tprof[PE12][tid]++;
 		}
 		free(chain_ar[l].a);
 	}
@@ -2030,7 +2033,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			// assert(c->n < MAX_SEEDS_PER_READ);  // temp
 			if (c->n > srt_size) {
 				srt_size = c->n + 10;
-				srt = realloc(srt, srt_size * 8);
+				srt = (int64_t *) realloc(srt, srt_size * 8);
 			}
 			
 			for (int i = 0; i < c->n; ++i) 
@@ -2042,7 +2045,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			// assert((spos + c->n) < SEEDS_PER_READ * FAC * nseq);
 			if ((spos + c->n) > SEEDS_PER_READ * fac * nseq) {
 				fac <<= 1;
-				srtgg = realloc(srtgg, nseq * SEEDS_PER_READ * fac * sizeof(uint32_t));
+				srtgg = (int32_t *) realloc(srtgg, nseq * SEEDS_PER_READ * fac * sizeof(uint32_t));
 			}
 			
 			for (int i = 0; i < c->n; ++i)

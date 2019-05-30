@@ -36,9 +36,9 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdio.h>
 
 #define VER 0
-#define printf_(x,y...)						\
-	{										\
-		if(x)								\
+#define printf_(x,y...)								\
+	{												\
+		if(x)										\
 			fprintf(stderr, y);						\
 	}
 
@@ -47,7 +47,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define H0_ -99
 #define SEEDS_PER_READ 500           /* Avg seeds per read */
 #define MAX_SEEDS_PER_READ 500       /* Max seeds per read */
-#define AVG_SEEDS_PER_READ 300      /* Used for storing seeds in chains*/
+#define AVG_SEEDS_PER_READ 300       /* Used for storing seeds in chains*/
 #define BATCH_SIZE 512               /* Block of reads alloacted to a thread for processing*/
 #define BATCH_MUL 16
 #define SEEDS_PER_CHAIN 2

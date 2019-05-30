@@ -33,9 +33,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdio.h>
 #include "macro.h"
 #include <stdint.h>
-// #if MPI_ENABLED
-// #include <mpi.h>
-// #endif
 
 
 extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
@@ -158,6 +155,14 @@ int display_stats()
 	find_opt(tprof[MEM_ALN2], nthreads, &max, &min, &avg);
 	fprintf(stderr, "\t\tBSW time, avg: %0.2lf, (%0.2lf, %0.2lf)\n",
 			avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
+
+	int agg1 = 0, agg2 = 0;
+	for (int i=0; i<nthreads; i++) {
+		agg1 = tprof[PE11][i];
+		agg2 = tprof[PE12][i];
+	}
+	fprintf(stderr, "\n\tTotal allocs: %d out total requests: %d, Rate: %0.2f\n",
+			agg1, agg2, agg1*1.0/agg2);
 
 #if HIDE
 	fprintf(stderr, "\nSTATSV\n");

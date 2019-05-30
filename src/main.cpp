@@ -122,6 +122,6 @@ int main(int argc, char* argv[])
 	fprintf(stderr, "\tSIMD_WIDTH8 X: %d\n", SIMD_WIDTH8);
 	fprintf(stderr, "\tSIMD_WIDTH16 X: %d\n", SIMD_WIDTH16);
 	fprintf(stderr, "\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
-
+	
 	return 0;
 }
