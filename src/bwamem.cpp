@@ -367,7 +367,7 @@ int mem_sort_dedup_patch_rev(const mem_opt_t *opt, const bntseq_t *bns,
 
 // return 1 if the seed is merged into the chain
 static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
-						  const mem_seed_t *p, int seed_rid)
+						  const mem_seed_t *p, int seed_rid, int tid)
 {
 	int64_t qend, rend, x, y;
 	const mem_seed_t *last = &c->seeds[c->n-1];
@@ -396,6 +396,7 @@ static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
 				auxSeedBuf = (mem_seed_t *) calloc(c->m, sizeof(mem_seed_t));
 				memcpy((char*) (auxSeedBuf), c->seeds, c->n * sizeof(mem_seed_t));
 				c->seeds = auxSeedBuf;
+				tprof[PE13][tid]++;
 			} else {  // new memory
 				auxSeedBuf = (mem_seed_t *) realloc(c->seeds, c->m * sizeof(mem_seed_t));
 				c->seeds = auxSeedBuf;
@@ -513,7 +514,7 @@ void mem_flt_chained_seeds(const mem_opt_t *opt, const bntseq_t *bns, const uint
 	}
 }
 
-int mem_chain_flt(const mem_opt_t *opt, int n_chn_, mem_chain_t *a_)
+int mem_chain_flt(const mem_opt_t *opt, int n_chn_, mem_chain_t *a_, int tid)
 {
 	int i, k, n_numc = 0;
 	if (n_chn_ == 0) return 0; // no need to filter
@@ -525,7 +526,11 @@ int mem_chain_flt(const mem_opt_t *opt, int n_chn_, mem_chain_t *a_)
 		c->w = mem_chain_weight(c);
 		if (c->w < opt->min_chain_weight)
         {
-        //free(c->seeds);
+			if (c->m > SEEDS_PER_CHAIN) {
+				tprof[PE11][tid] ++;
+				free(c->seeds);
+			}
+			//free(c->seeds);
         }
 		else a_[k++] = *c;
 	}
@@ -613,6 +618,10 @@ int mem_chain_flt(const mem_opt_t *opt, int n_chn_, mem_chain_t *a_)
 			mem_chain_t *c = &a[i];
 			if (c->kept == 0)
             {
+				if (c->m > SEEDS_PER_CHAIN) {
+					tprof[PE11][tid] ++;
+					free(c->seeds);
+				}
                 //free(c->seeds);
             }
 			else a[k++ - ilag] = a[i];
@@ -827,7 +836,7 @@ void mem_chain_seeds(const mem_opt_t *opt,
 				{
 					kb_intervalp(chn, tree, &tmp, &lower, &upper); // find the closest chain
 
-					if (!lower || !test_and_merge(opt, l_pac, lower, &s, rid))
+					if (!lower || !test_and_merge(opt, l_pac, lower, &s, rid, tid))
 						to_add = 1;
 				}
 				else to_add = 1;
@@ -849,6 +858,7 @@ void mem_chain_seeds(const mem_opt_t *opt,
                         // exit(0);
 						tmp.m <<= 1;
 						tmp.seeds = (mem_seed_t *)calloc (tmp.m, sizeof(mem_seed_t));
+						tprof[PE13][tid]++;
                     }
 					else {
 						tmp.seeds = seedBuf + seedBufCount;
@@ -962,7 +972,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
 	for (int l=0; l<nseq; l++)
 	{
 		chn = &chain_ar[l];
-		chn->n = mem_chain_flt(opt, chn->n, chn->a);
+		chn->n = mem_chain_flt(opt, chn->n, chn->a, tid);
 	}
 	printf_(VER, "7. Done mem_chain_flt..\n");
 	// tprof[MEM_ALN_M1][tid] += __rdtsc() - tim;
@@ -2033,7 +2043,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			// assert(c->n < MAX_SEEDS_PER_READ);  // temp
 			if (c->n > srt_size) {
 				srt_size = c->n + 10;
-				srt = (int64_t *) realloc(srt, srt_size * 8);
+				srt = (uint64_t *) realloc(srt, srt_size * 8);
 			}
 			
 			for (int i = 0; i < c->n; ++i) 
@@ -2045,7 +2055,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			// assert((spos + c->n) < SEEDS_PER_READ * FAC * nseq);
 			if ((spos + c->n) > SEEDS_PER_READ * fac * nseq) {
 				fac <<= 1;
-				srtgg = (int32_t *) realloc(srtgg, nseq * SEEDS_PER_READ * fac * sizeof(uint32_t));
+				srtgg = (uint32_t *) realloc(srtgg, nseq * SEEDS_PER_READ * fac * sizeof(uint32_t));
 			}
 			
 			for (int i = 0; i < c->n; ++i)

@@ -156,13 +156,14 @@ int display_stats()
 	fprintf(stderr, "\t\tBSW time, avg: %0.2lf, (%0.2lf, %0.2lf)\n",
 			avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
 
-	int agg1 = 0, agg2 = 0;
+	int agg1 = 0, agg2 = 0, agg3 = 0;
 	for (int i=0; i<nthreads; i++) {
-		agg1 = tprof[PE11][i];
-		agg2 = tprof[PE12][i];
+		agg1 += tprof[PE11][i];
+		agg2 += tprof[PE12][i];
+		agg3 += tprof[PE13][i];
 	}
-	fprintf(stderr, "\n\tTotal allocs: %d out total requests: %d, Rate: %0.2f\n",
-			agg1, agg2, agg1*1.0/agg2);
+	fprintf(stderr, "\n\tTotal allocs: %d = %d out total requests: %d, Rate: %0.2f\n",
+			agg1, agg3, agg2, agg1*1.0/agg2);
 
 #if HIDE
 	fprintf(stderr, "\nSTATSV\n");
