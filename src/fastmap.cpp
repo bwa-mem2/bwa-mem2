@@ -985,8 +985,18 @@ int main_mem(int argc, char *argv[])
 			free(seqs[i].name); free(seqs[i].comment);
 			free(seqs[i].seq); free(seqs[i].qual);
 		}
-		//kseq_rewind(aux.ks);
-		gzrewind(fp);
+		// gzrewind(fp);
+		err_gzclose(fp);		
+		fp = gzopen(argv[optind + 1], "r");
+		if (fp == 0) {
+			fprintf(stderr, "[E::%s] failed to open file `%s'.\n", __func__, argv[optind + 1]);
+			free(opt);
+			err_gzclose(fp2);
+			kseq_destroy(aux.ks2);
+			if (is_o) 
+				fclose(aux.fp);				
+			return 1;
+		}		
 		kseq_destroy(aux.ks);
 		aux.ks = kseq_init(fp);
 	}
@@ -1016,9 +1026,6 @@ int main_mem(int argc, char *argv[])
 	
 	if (is_o) {
 		fclose(aux.fp);
-// #if MPI_ENABLED
-// 		MPI_File_close(&(aux.mfp));
-// #endif
 	}
 
 	// new bwt/FMI
