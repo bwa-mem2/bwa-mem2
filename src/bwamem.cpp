@@ -870,7 +870,7 @@ void mem_chain_seeds(const mem_opt_t *opt,
 					tmp.seqid = l;
 					tmp.is_alt = !!bns->anns[rid].is_alt;
 					kb_putp(chn, tree, &tmp);
-					num[l]++;					
+					num[l]++;
 				}
 			}
 		} // seeds
@@ -1101,7 +1101,8 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
 {
 	worker_t *w = (worker_t*) data;
 	printf_(VER, "4. Calling mem_kernel1_core..%d %d\n", seq_id, tid);
-	uint64_t offset = BATCH_SIZE * w->seqs[0].l_seq * tid * BATCH_MUL;
+	// uint64_t offset = BATCH_SIZE * w->seqs[0].l_seq * tid * BATCH_MUL;
+	uint64_t offset = BATCH_SIZE * readLen * tid * BATCH_MUL;
 
 	mem_kernel1_core(w->opt, w->bns, w->pac,
 					 w->seqs + seq_id,
@@ -1705,6 +1706,7 @@ uint8_t *bns_get_seq_v2(int64_t l_pac, const uint8_t *pac, int64_t beg, int64_t 
 	if (beg >= l_pac || end <= l_pac) {
 		int64_t k, l = 0;
 		*len = end - beg;
+		assert(end-beg < BATCH_SIZE * SEEDS_PER_READ * sizeof(SeqPair));
 		
 		//seq = (uint8_t*) malloc(end - beg);
 		// seq = seqb;

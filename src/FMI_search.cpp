@@ -96,11 +96,11 @@ FMI_search::FMI_search(char *ref_file_name)
 		fprintf(stderr, "\n");
 	}
 
-// #if BWA_OTHER_ELE
+
 	fprintf(stderr, "Reading other elements of the index from files %s\n",
 			ref_file_name);
 	bwa_idx_load_ele(ref_file_name, BWA_IDX_ALL);
-// #endif
+
 #if ((!__AVX2__))
     base_mask[0][0] = 0;
     base_mask[0][1] = 0;

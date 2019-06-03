@@ -142,7 +142,7 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w)
 	w.regs = NULL; w.chain_ar = NULL; w.seedBuf = NULL;
 	w.regs = (mem_alnreg_v *) calloc(memSize, sizeof(mem_alnreg_v));
 	w.chain_ar = (mem_chain_v*) malloc (memSize * sizeof(mem_chain_v));
-    w.seedBuf = (mem_seed_t *)_mm_malloc(sizeof(mem_seed_t) * memSize * AVG_SEEDS_PER_READ, 64);
+    w.seedBuf = (mem_seed_t *) calloc(sizeof(mem_seed_t),  memSize * AVG_SEEDS_PER_READ);
 	assert(w.seedBuf != NULL);
     w.seedBufSize = BATCH_SIZE * AVG_SEEDS_PER_READ;
 	
@@ -554,7 +554,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	/* Dealloc memory allcoated in the header section */	
 	free(w.chain_ar);
 	free(w.regs);
-    _mm_free(w.seedBuf);
+    free(w.seedBuf);
 
 	_mm_free(w.mmc.seqBufLeftRef);
 	_mm_free(w.mmc.seqBufRightRef);
