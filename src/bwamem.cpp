@@ -41,6 +41,7 @@ extern int num_ranks, myrank;
 extern FMI_search *fmi;
 extern uint8_t *ref_string;       //defined in fastmap.cpp
 extern int readLen;
+extern int64_t nreads, memSize;
 //----------------
 #include "kbtree.h"
 
@@ -721,7 +722,7 @@ SMEM *mem_collect_smem(const mem_opt_t *opt,
 	}
 	tot_smem = num_smem1 + num_smem2 + num_smem3;
 
-	fmi->sortSMEMs(matchArray, &tot_smem, nseq, seq_[0].l_seq, 1);
+	fmi->sortSMEMs(matchArray, &tot_smem, nseq, seq_[0].l_seq, 1); // seq_[0].l_seq - only used for blocking when using nthreads
 
 	pos = 0;
 	int64_t smem_ptr = 0;
@@ -1103,13 +1104,21 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
 	printf_(VER, "4. Calling mem_kernel1_core..%d %d\n", seq_id, tid);
 	// uint64_t offset = BATCH_SIZE * w->seqs[0].l_seq * tid * BATCH_MUL;
 	uint64_t offset = BATCH_SIZE * readLen * tid * BATCH_MUL;
+	int seedBufSz = w->seedBufSize;
+	// if (seq_id >= memSize) {
+	// 	seedBufSz = 0;
+	// 	fprintf(stderr, "[%0.4d] Info: actual #read %ld > projected #reads %ld\n", tid, nreads, memSize);
+	// } if (seq_id < memSize && (seq_id + batch_size) >= memSize) {
+	// 	seedBufSz = memSize - seq_id;
+	// 	fprintf(stderr, "[%0.4d] Info: adjusted seedBufSz %d\n", tid, seedBufSz);
+	// }
 
 	mem_kernel1_core(w->opt, w->bns, w->pac,
 					 w->seqs + seq_id,
 					 batch_size,
 					 w->chain_ar + seq_id,
 					 w->seedBuf + seq_id * AVG_SEEDS_PER_READ,
-					 w->seedBufSize,
+					 seedBufSz,
 					 w->mmc.matchArray + offset,
 					 w->mmc.min_intv_ar + offset,
 					 w->mmc.query_pos_ar + offset,
@@ -1745,6 +1754,8 @@ uint8_t *bns_fetch_seq_v2(const bntseq_t *bns, const uint8_t *pac,
 	uint8_t *seq;
 
 	if (*end < *beg) *end ^= *beg, *beg ^= *end, *end ^= *beg; // if end is smaller, swap
+	// if (*beg > mid || mid >= *end)
+	//	fprintf(stderr, "%ld %ld %ld\n", *beg, mid, *end);
 	assert(*beg <= mid && mid < *end);
 	
 	*rid = bns_pos2rid(bns, bns_depos(bns, mid, &is_rev));
@@ -2314,6 +2325,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
 	pair_ar = seqPairArrayLeft128 + numPairsLeft128;
 	pair_ar_aux = seqPairArrayAux;
+	
 	nump = numPairsLeft16;
 	for ( i=0; i<MAX_BAND_TRY; i++)
 	{
@@ -2383,6 +2395,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 #if 1
 	pair_ar = seqPairArrayLeft128;
 	pair_ar_aux = seqPairArrayAux;
+	
 	nump = numPairsLeft128;
 	for ( i=0; i<MAX_BAND_TRY; i++)
 	{

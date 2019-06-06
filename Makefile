@@ -31,7 +31,7 @@
 ## *****************************************************************************************/
 
 EXE=		bwa-mem2
-##CXX=		icpc
+#CXX=		icpc
 ARCH_FLAGS=	-msse4.1
 SWA_FLAGS=	-DDEB=0 -DRDT=0 -DMAXI=0 -DNEW=1 -DSORT_PAIRS=0
 MEM_FLAGS=	-DPAIRED_END=1 -DMAINY=0 -DSAIS=1
@@ -47,11 +47,19 @@ ifneq ($(portable),)
 endif
 
 ifeq ($(arch),sse)
-	ARCH_FLAGS=-msse4.1
+		ARCH_FLAGS=-msse4.1
 else ifeq ($(arch),avx2)
-	ARCH_FLAGS=-mavx2
+	ifeq ($(CXX), icpc)
+		ARCH_FLAGS=-xCORE-AVX2
+	else	
+		ARCH_FLAGS=-mavx2
+	endif
 else ifeq ($(arch),avx512)
-	ARCH_FLAGS=-mavx512bw
+	ifeq ($(CXX), icpc)
+		ARCH_FLAGS=-xCORE-AVX512
+	else	
+		ARCH_FLAGS=-mavx512bw
+	endif
 else ifeq ($(arch),native)
 	ARCH_FLAGS=-march=native
 endif

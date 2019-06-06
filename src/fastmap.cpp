@@ -55,7 +55,7 @@ extern int num_ranks, myrank;
 extern int nthreads;
 uint8_t *ref_string;
 int readLen, affy[256];
-int64_t nreads;
+int64_t nreads, memSize;
 // ---------------
 void __cpuid(unsigned int i, unsigned int cpuid[4]) {
 #ifdef _WIN32
@@ -136,7 +136,7 @@ int64_t get_limit_fsize(FILE *fpp, int64_t nread_lim,
 void memoryAlloc(ktp_aux_t *aux, worker_t &w)
 {
 	mem_opt_t	*opt			  = aux->opt;	
-	int memSize = nreads;
+	memSize = nreads;
 
 	/* Mem allocation section for core kernels */
 	w.regs = NULL; w.chain_ar = NULL; w.seedBuf = NULL;
@@ -155,7 +155,7 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w)
 		memSize * sizeof(mem_chain_v) +
 		sizeof(mem_seed_t) * memSize * AVG_SEEDS_PER_READ;
 	fprintf(stderr, "------------------------------------------\n");
-	fprintf(stderr, "Memory pre-allocation for chaining: %ld\n", allocMem);
+	fprintf(stderr, "Memory pre-allocation for chaining: %0.4lf MB\n", allocMem/1e6);
 
 	
 	/* SWA mem allocation */
@@ -185,7 +185,7 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w)
 		(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads	* 2 +		
 		w.size * sizeof(SeqPair) * opt->n_threads * 3;
 	
-	fprintf(stderr, "Memory pre-allocation for BSW: %ld\n", allocMem);
+	fprintf(stderr, "Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
 	
 	w.mmc.matchArray = (SMEM *)_mm_malloc
 		(nthreads * BATCH_MUL * BATCH_SIZE * readLen * sizeof(SMEM), 64);
@@ -205,7 +205,7 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w)
 		nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int16_t) +
 		nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t) +
 		nthreads * (BATCH_SIZE + 32) * sizeof(int32_t);
-	fprintf(stderr, "Memory pre-allocation for BWT: %ld\n", allocMem);
+	fprintf(stderr, "Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
 	fprintf(stderr, "------------------------------------------\n");
 }
 
@@ -232,11 +232,13 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		tprof[0][2] += ret->n_seqs;
 
 		if (nreads < ret->n_seqs) {
-			fprintf(stderr, "Reallocating initial memory allocations (regs, chains)!!\n");
+			fprintf(stderr, "Reallocating initial memory allocations!!\n");
 			free(w.regs); free(w.chain_ar);
-			int memSize = nreads = ret->n_seqs;
-			w.regs = (mem_alnreg_v *) calloc(memSize, sizeof(mem_alnreg_v));
-			w.chain_ar = (mem_chain_v*) malloc (memSize * sizeof(mem_chain_v));
+			nreads = ret->n_seqs;
+			w.regs = (mem_alnreg_v *) calloc(nreads, sizeof(mem_alnreg_v));
+			w.chain_ar = (mem_chain_v*) malloc (nreads * sizeof(mem_chain_v));
+			w.seedBuf = (mem_seed_t *) realloc(w.seedBuf, sizeof(mem_seed_t) *
+											   nreads * AVG_SEEDS_PER_READ);
 		}		
 		// assert(ret->n_seqs <= nreads);
 		
@@ -504,7 +506,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	fprintf(stderr, "\nThreads used (compute): %d\n",
 			nthreads);
 	nreads = aux->actual_chunk_size/ (readLen) + 10;
-	fprintf(stderr, "Projected #read in a task: %ld\n", (long)nreads);
+	fprintf(stderr, "Info: projected #read in a task: %ld\n", (long)nreads);
 	
 	/* All memory allocation */
 	memoryAlloc(aux, w);
@@ -970,36 +972,7 @@ int main_mem(int argc, char *argv[])
 	}
 	tprof[MISC][1] = opt->chunk_size = aux.actual_chunk_size = aux.task_size;
 
-	{ // to find read length
-		int dummy_task_size = 4000000, ns = 0;
-		int64_t sz = 0;
-		bseq1_t *seqs = bseq_read_orig(dummy_task_size,
-									   &ns,
-									   aux.ks,
-									   NULL,
-									   &sz);
-		assert(seqs != NULL);
-		readLen = seqs[0].l_seq;
-		fprintf(stderr, "First read length: %d\n", readLen);
-		for (int i = 0; i < ns; ++i) {
-			free(seqs[i].name); free(seqs[i].comment);
-			free(seqs[i].seq); free(seqs[i].qual);
-		}
-		// gzrewind(fp);
-		err_gzclose(fp);		
-		fp = gzopen(argv[optind + 1], "r");
-		if (fp == 0) {
-			fprintf(stderr, "[E::%s] failed to open file `%s'.\n", __func__, argv[optind + 1]);
-			free(opt);
-			err_gzclose(fp2);
-			kseq_destroy(aux.ks2);
-			if (is_o) 
-				fclose(aux.fp);				
-			return 1;
-		}		
-		kseq_destroy(aux.ks);
-		aux.ks = kseq_init(fp);
-	}
+	readLen = 151;  // for memory pre-allocation // we realloc when required
 	
 	// Major function
 	fprintf(stderr, "[%.4d] 1: Calling process()\n", myrank);
