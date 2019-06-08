@@ -3628,7 +3628,7 @@ void BandedPairWiseSW::getScores16(SeqPair *pairArray,
 								   uint16_t numThreads,
 								   int8_t w)
 {
-	printf("In getscore16 SSE2..\n");
+	// printf("In getscore16 SSE2..\n");
     int i;
     int64_t startTick, endTick;
 
@@ -3656,7 +3656,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 												   uint16_t numThreads,
 												   int8_t w)
 {
-	printf("numThreads: %d\n", numThreads);	
+	// printf("numThreads: %d\n", numThreads);	
 	int64_t st1, st2, st3, st4, st5;
 	
     // st1 = ___rdtsc();
