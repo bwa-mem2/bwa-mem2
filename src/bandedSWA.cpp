@@ -546,7 +546,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 		assert(mySeq1SoA != NULL && mySeq2SoA != NULL);		
         uint8_t *seq1;
         uint8_t *seq2;
-		uint8_t h0[SIMD_WIDTH8];
+		uint8_t h0[SIMD_WIDTH8]   __attribute__((aligned(64)));
 		uint8_t band[SIMD_WIDTH8];		
 		uint8_t qlen[SIMD_WIDTH8] __attribute__((aligned(64)));
 		int8_t bsize = 0;
@@ -569,14 +569,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 		
 		int nstart = 0, nend = numPairs;
 
-#if DEB
-		int div = (spot-1)/32;
-		nstart = div*32;
-		nend = (div+1)*32;
-		int lane = (spot - 1)%32;
-		// nstart = 0;//, nend = spot;
-		printf("nstart: %d, nend: %d\n", nstart, nend);
-#endif
 		
 //#pragma omp for schedule(dynamic, 128)
 		for(i = nstart; i < nend; i+=SIMD_WIDTH8)
@@ -789,9 +781,6 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 										  uint8_t qlen[],
 										  uint8_t myband[])
 {
-#if DEB
-	int8_t Hmat[nrow + 10][ncol + 10], Fmat[nrow + 10][ncol + 10];;
-#endif
 	
 	static int cntr = 0;
 	cntr++;
@@ -814,9 +803,6 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 	int8_t	*H_v = H8__ + tid * SIMD_WIDTH8 * MAX_SEQ_LEN8;
 
 	int lane;
-#if DEB
-	lane = (spot - 1)%SIMD_WIDTH8;
-#endif
 	
     int8_t i, j;
 
@@ -1293,7 +1279,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
         uint16_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
         uint8_t *seq1;
         uint8_t *seq2;
-		uint16_t h0[SIMD_WIDTH16];
+		uint16_t h0[SIMD_WIDTH16]   __attribute__((aligned(64)));
 		uint16_t band[SIMD_WIDTH16];		
 		uint16_t qlen[SIMD_WIDTH16] __attribute__((aligned(64)));
 		int16_t bsize = 0;
@@ -1316,14 +1302,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 		
 		int nstart = 0, nend = numPairs;
 
-#if DEB
-		int div = (spot-1)/SIMD_WIDTH16;
-		nstart = div*SIMD_WIDTH16;
-		nend = (div+1)*SIMD_WIDTH16;
-		int lane = (spot - 1)%SIMD_WIDTH16;
-		nstart = 0;//, nend = spot;
-		printf("nstart: %d, nend: %d\n", nstart, nend);
-#endif
 
 //#pragma omp for schedule(dynamic, 128)
 		for(i = nstart; i < nend; i+=SIMD_WIDTH16)
@@ -1522,9 +1500,6 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 										   uint16_t qlen[],
 										   uint16_t myband[])
 {
-#if DEB
-	int16_t Hmat[nrow + 10][ncol + 10], Fmat[nrow + 10][ncol + 10];;
-#endif
 
     __m256i match256	 = _mm256_set1_epi16(this->w_match);
     __m256i mismatch256	 = _mm256_set1_epi16(this->w_mismatch);
@@ -1544,9 +1519,6 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 	int16_t	*H_v = H16__ + tid * SIMD_WIDTH16 * MAX_SEQ_LEN16;
 
 	int lane = 0;
-#if DEB
-	lane = (spot - 1) % SIMD_WIDTH16;
-#endif
 	
     int16_t i, j;
 
@@ -2202,7 +2174,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
         uint8_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN8 * SIMD_WIDTH8;
         uint8_t *seq1;
         uint8_t *seq2;
-		uint8_t h0[SIMD_WIDTH8];
+		uint8_t h0[SIMD_WIDTH8]   __attribute__((aligned(64)));
 		uint8_t band[SIMD_WIDTH8];		
 		uint8_t qlen[SIMD_WIDTH8] __attribute__((aligned(64)));
 		int8_t bsize = 0;
@@ -2227,13 +2199,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 		
 		int nstart = 0, nend = numPairs;
 
-#if DEB
-		int div = (spot-1) / SIMD_WIDTH8;
-		nstart = div * SIMD_WIDTH8;
-		nend = (div+1) * SIMD_WIDTH8;
-		int lane = (spot - 1) % SIMD_WIDTH8;
-		printf("nstart: %d, nend: %d\n", nstart, nend);
-#endif
 		
 //#pragma omp for schedule(dynamic, 128)
 		for(i = nstart; i < nend; i+=SIMD_WIDTH8)
@@ -2430,9 +2395,6 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 										  uint8_t qlen[],
 										  uint8_t myband[])
 {
-#if DEB
-	int8_t Hmat[nrow + 10][ncol + 10], Fmat[nrow + 10][ncol + 10];;
-#endif
 	
 	static int cntr = 0;
 
@@ -2454,9 +2416,6 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 	int8_t	*H_v = H8__ + tid * SIMD_WIDTH8 * MAX_SEQ_LEN8;
 	
 	int lane = 0;
-#if DEB
-	lane = (spot - 1)%32;
-#endif
 	
     int8_t lowInitValue = LOW_INIT_VALUE;
     int16_t i, j;
@@ -2587,19 +2546,6 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 		prof[DP3][0] += __rdtsc() - tim1;
 #endif
 
-#if DEB
-		_mm512_store_si512((__m512i *) head, head512);
-		_mm512_store_si512((__m512i *) tail, tail512);
-		
-		for (int l=0; l<=ncol; l++)
-			Hmat[i][l] = H_h[l * SIMD_WIDTH8 + lane];
-		
-		_mm512_store_si512((__m512i *) temp, exit0);
-		if (temp[lane]) {
-			printf("%d, h: %d, t: %d, myband: %d, beg: %d, end: %d, exit: %d\n",
-				   i, head[lane], tail[lane], myband[lane], beg, end, temp[lane]);
-		}		
-#endif
 		// beg = nbeg; end = nend;
 		__mmask64 cmp512_1 = _mm512_cmpgt_epi8_mask(i1_512, tlen512);
 
@@ -2946,7 +2892,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
         uint16_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
         uint8_t *seq1;
         uint8_t *seq2;
-		uint16_t h0[SIMD_WIDTH16];
+		uint16_t h0[SIMD_WIDTH16]   __attribute__((aligned(64)));
 		uint16_t band[SIMD_WIDTH16];		
 		uint16_t qlen[SIMD_WIDTH16] __attribute__((aligned(64)));
 		int16_t bsize = 0;
@@ -2970,14 +2916,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 		if (max < w_ambig) max = w_ambig;
 		
 		int nstart = 0, nend = numPairs;
-
-#if DEB
-		int div = (spot-1) / SIMD_WIDTH16;
-		nstart = div * SIMD_WIDTH16;
-		nend = (div+1) * SIMD_WIDTH16;
-		int lane = (spot - 1) % SIMD_WIDTH16;
-		printf("nstart: %d, nend: %d\n", nstart, nend);
-#endif
 		
 //#pragma omp for schedule(dynamic, 128)
 		for(i = nstart; i < nend; i+=SIMD_WIDTH16)
@@ -3176,9 +3114,6 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 										   uint16_t qlen[],
 										   uint16_t myband[])
 {
-#if DEB
-	int16_t Hmat[nrow + 10][ncol + 10], Fmat[nrow + 10][ncol + 10];;
-#endif
 	
 	static int cntr = 0;
 
@@ -3200,9 +3135,6 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 	int16_t	*H_v = H16__ + tid * SIMD_WIDTH16 * MAX_SEQ_LEN16;
 	
 	int lane = 0;
-#if DEB
-	lane = (spot - 1)%32;
-#endif
 	
     int16_t i, j;
 
@@ -3330,19 +3262,6 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 		prof[DP3][0] += __rdtsc() - tim1;
 #endif
 
-#if DEB
-		_mm512_store_si512((__m512i *) head, head512);
-		_mm512_store_si512((__m512i *) tail, tail512);
-		
-		for (int l=0; l<=ncol; l++)
-			Hmat[i][l] = H_h[l * SIMD_WIDTH16 + lane];
-		
-		_mm512_store_si512((__m512i *) temp, exit0);
-		if (temp[lane]) {
-			printf("%d, h: %d, t: %d, myband: %d, beg: %d, end: %d, exit: %d\n",
-				   i, head[lane], tail[lane], myband[lane], beg, end, temp[lane]);
-		}		
-#endif
 		// beg = nbeg; end = nend;
 		__mmask32 cmp512_1 = _mm512_cmpgt_epi16_mask(i1_512, tlen512);
 
@@ -3709,7 +3628,7 @@ void BandedPairWiseSW::getScores16(SeqPair *pairArray,
 								   uint16_t numThreads,
 								   int8_t w)
 {
-	// printf("In getscore16 SSE2..\n");
+	printf("In getscore16 SSE2..\n");
     int i;
     int64_t startTick, endTick;
 
@@ -3737,7 +3656,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 												   uint16_t numThreads,
 												   int8_t w)
 {
-	// printf("numThreads: %d\n", numThreads);	
+	printf("numThreads: %d\n", numThreads);	
 	int64_t st1, st2, st3, st4, st5;
 	
     // st1 = ___rdtsc();
@@ -3798,7 +3717,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 		assert(mySeq1SoA != NULL && mySeq2SoA != NULL);		
         uint8_t *seq1;
         uint8_t *seq2;
-		uint16_t h0[SIMD_WIDTH16];
+		uint16_t h0[SIMD_WIDTH16]  __attribute__((aligned(64)));
 		uint16_t band[SIMD_WIDTH16];		
 		uint16_t qlen[SIMD_WIDTH16] __attribute__((aligned(64)));
 		int16_t bsize = 0;
@@ -3822,18 +3741,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 		
 		int nstart = 0, nend = numPairs;
 
-#if DEB
-		// if (spot >= nstart && spot < nend)
-		{
-			int div = (spot-1)/SIMD_WIDTH16;
-			nstart = div*SIMD_WIDTH16;
-			nend = (div+1)*SIMD_WIDTH16;
-			int lane = (spot - 1)%SIMD_WIDTH16;
-			// nstart = 0;//, nend = spot;
-			printf("nstart: %d, nend: %d, SIMD_WIDTH16: %d\n", nstart, nend, SIMD_WIDTH16);
-		}
-#endif
-
 // #pragma omp for schedule(dynamic, 128)
 		for(i = nstart; i < nend; i+=SIMD_WIDTH16)
 		{
@@ -3841,9 +3748,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
             int32_t j, k;
             uint16_t maxLen1 = 0;
             uint16_t maxLen2 = 0;
-			//bsize = 100;
 			bsize = w;
-			
+
 			uint64_t tim;
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
@@ -3864,10 +3770,8 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
                 }
 				qlen[j] = sp.len2 * max;
                 if(maxLen1 < sp.len1) maxLen1 = sp.len1;
-                // if(minLen1 > sp.len1) minLen1 = sp.len1;
             }
 
-			//maxLen1 = ((maxLen1 + 3) >> 2) * 4;
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
                 SeqPair sp = pairArray[i + j];
@@ -3882,6 +3786,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 			_mm_store_si128((__m128i *) H2, h0_128);
 			__m128i tmp128 = _mm_sub_epi16(h0_128, o_del128);
 
+			
 			for(k = 1; k < maxLen1; k++) {
 				tmp128 = _mm_sub_epi16(tmp128, e_del128);
 				__m128i tmp128_ = _mm_max_epi16(tmp128, zero128);
@@ -4029,9 +3934,6 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 										   uint16_t qlen[],
 										   uint16_t myband[])
 {
-#if DEB
-	int16_t Hmat[nrow + 10][ncol + 10], Fmat[nrow + 10][ncol + 10];;
-#endif
 	
     __m128i match128	 = _mm_set1_epi16(this->w_match);
     __m128i mismatch128	 = _mm_set1_epi16(this->w_mismatch);
@@ -4051,9 +3953,6 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 	int16_t	*H_v = H16__ + tid * SIMD_WIDTH16 * MAX_SEQ_LEN16;
 
 	int lane = 0;
-#if DEB
-	lane = (spot - 1)%16;
-#endif
 	
     int16_t i, j;
 
@@ -4608,7 +4507,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 		assert(mySeq1SoA != NULL && mySeq2SoA != NULL);		
         uint8_t *seq1;
         uint8_t *seq2;
-		uint8_t h0[SIMD_WIDTH8];
+		uint8_t h0[SIMD_WIDTH8]   __attribute__((aligned(64)));
 		uint8_t band[SIMD_WIDTH8];		
 		uint8_t qlen[SIMD_WIDTH8] __attribute__((aligned(64)));
 		int8_t bsize = 0;
@@ -4835,9 +4734,6 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 										  uint8_t qlen[],
 										  uint8_t myband[])
 {
-#if DEB
-	int8_t Hmat[nrow + 10][ncol + 10], Fmat[nrow + 10][ncol + 10];;
-#endif
 	
     __m128i match128	 = _mm_set1_epi8(this->w_match);
     __m128i mismatch128	 = _mm_set1_epi8(this->w_mismatch);
@@ -4857,9 +4753,6 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 	int8_t	*H_v = H8__ + tid * SIMD_WIDTH8 * MAX_SEQ_LEN8;
 
 	int lane = 0;
-#if DEB
-	lane = (spot - 1)%32;
-#endif
 	
     int8_t lowInitValue = LOW_INIT_VALUE;
     int8_t i, j;
@@ -4987,21 +4880,6 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 			_mm_store_si128((__m128i *)(H_h + l * SIMD_WIDTH8), h128);
 		}
 
-#if DEB
-		{
-			// if (0 && cntr <= spot-1 && cntr + 32 > spot-1)
-			{
-			_mm_store_si128((__m128i *) head, head128);
-			_mm_store_si128((__m128i *) tail, tail128);		
-			for (int l=0; l<=ncol; l++)
-				Hmat[i][l] = H_h[l * SIMD_WIDTH8 + lane];
-			
-			_mm_store_si128((__m128i *) temp, exit0);
-			printf("%d, h: %d, t: %d, myband: %d, beg: %d, end: %d, exit: %d\n",
-				   i, head[lane], tail[lane], myband[lane], beg, end, temp[lane]);
-			}
-		}
-#endif
 
 #if RDT
 		prof[DP3][0] += __rdtsc() - tim1;
@@ -5068,15 +4946,7 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 			_mm_store_si128((__m128i *)(H_h + j * SIMD_WIDTH8), h10);
 
 			h10 = h11;
-
-			//{
-			//	_mm_store_si128((__m128i *)temp, h11);
-			//	_mm_store_si128((__m128i *)temp1, maxRS1);
-			//	printf("(%d %d, %d,%d) ",i, j, temp[0], temp1[0]);
-			//}
-
-			//j128 = _mm_add_epi8(j128, one128);
-			
+						
 			// gscore calculations
 			if (j >= minq)
 			{
