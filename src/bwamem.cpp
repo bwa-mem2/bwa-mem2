@@ -1109,9 +1109,10 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
 	// 	seedBufSz = 0;
 	// 	fprintf(stderr, "[%0.4d] Info: actual #read %ld > projected #reads %ld\n", tid, nreads, memSize);
 	// } if (seq_id < memSize && (seq_id + batch_size) >= memSize) {
-	// 	seedBufSz = memSize - seq_id;
-	// 	fprintf(stderr, "[%0.4d] Info: adjusted seedBufSz %d\n", tid, seedBufSz);
-	// }
+	if (batch_size < BATCH_SIZE) {
+		seedBufSz = memSize - seq_id;
+		// fprintf(stderr, "[%0.4d] Info: adjusted seedBufSz %d\n", tid, seedBufSz);
+	}
 
 	mem_kernel1_core(w->opt, w->bns, w->pac,
 					 w->seqs + seq_id,

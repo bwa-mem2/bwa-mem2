@@ -231,15 +231,6 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		tprof[0][0] += sz;  // debug info, for accuracy checks!!
 		tprof[0][2] += ret->n_seqs;
 
-		if (nreads < ret->n_seqs) {
-			fprintf(stderr, "Reallocating initial memory allocations!!\n");
-			free(w.regs); free(w.chain_ar);
-			nreads = ret->n_seqs;
-			w.regs = (mem_alnreg_v *) calloc(nreads, sizeof(mem_alnreg_v));
-			w.chain_ar = (mem_chain_v*) malloc (nreads * sizeof(mem_chain_v));
-			w.seedBuf = (mem_seed_t *) realloc(w.seedBuf, sizeof(mem_seed_t) *
-											   nreads * AVG_SEEDS_PER_READ);
-		}		
 		// assert(ret->n_seqs <= nreads);
 		
 		fprintf(stderr, "[%.4d] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
@@ -271,6 +262,14 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 	{
 		static int task = 0;
 		// printf("Thread entering step 1, CPU: %d\n", sched_getcpu());
+		if (nreads < ret->n_seqs) {
+			fprintf(stderr, "Reallocating initial memory allocations!!\n");
+			free(w.regs); free(w.chain_ar); free(w.seedBuf);
+			nreads = ret->n_seqs;
+			w.regs = (mem_alnreg_v *) calloc(nreads, sizeof(mem_alnreg_v));
+			w.chain_ar = (mem_chain_v*) malloc (nreads * sizeof(mem_chain_v));
+			w.seedBuf = (mem_seed_t *) calloc(sizeof(mem_seed_t), nreads * AVG_SEEDS_PER_READ);
+		}		
 								
 		fprintf(stderr, "[%.4d] 2. Calling mem_process_seqs.., task: %d\n", myrank, task++);
 
@@ -972,7 +971,7 @@ int main_mem(int argc, char *argv[])
 	}
 	tprof[MISC][1] = opt->chunk_size = aux.actual_chunk_size = aux.task_size;
 
-	readLen = 151;  // for memory pre-allocation // we realloc when required
+	readLen = READ_LEN;  // for memory pre-allocation // we realloc when required
 	
 	// Major function
 	fprintf(stderr, "[%.4d] 1: Calling process()\n", myrank);

@@ -51,6 +51,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define BATCH_SIZE 512               /* Block of reads alloacted to a thread for processing*/
 #define BATCH_MUL 20
 #define SEEDS_PER_CHAIN 2
+#define READ_LEN 151
 
 #define SEQ_LEN8 128
 #define MAX_LINE_LEN 256
