@@ -546,9 +546,8 @@ void bwa_print_sam_hdr(const bntseq_t *bns, const char *hdr_line, FILE *fp)
 #else
 	if (hdr_line) {
 		err_fputs(hdr_line, fp);
-		// err_printf("%s\n", hdr_line);
+		err_fputs("\n", fp);
 	}
-	//printf("%s\n%s\n", hdr_line, bwa_pg);
 	if (bwa_pg) err_fputs(bwa_pg, fp);
 #endif
 }
