@@ -41,7 +41,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <sstream>
 #include "fastmap.h"
 #include "FMI_search.h"
-#include "fasta_file.h"
+// #include "fasta_file.h"
 #if 0 && (__linux__)
 #include <sys/sysinfo.h>
 #endif

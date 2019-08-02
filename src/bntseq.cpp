@@ -236,6 +236,7 @@ void bns_destroy(bntseq_t *bns)
 
 static uint8_t *add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_pac, int *m_seqs, int *m_holes, bntamb1_t **q)
 {
+	fprintf(stderr, "%s\n", seq->name);
 	bntann1_t *p;
 	int i, lasts;
 	if (bns->n_seqs == *m_seqs) {

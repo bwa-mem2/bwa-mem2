@@ -166,6 +166,22 @@ int display_stats()
 			agg1, agg3, agg2, agg1*1.0/agg2);
 
 #if HIDE
+	fprintf(stderr, "\n BSW Perf.:\n");
+	find_opt(tprof[MEM_ALN2_B], 1, &max, &min, &avg);
+	fprintf(stderr, "\tLeft 16-bit time avg: %0.2lf, (%0.2lf, %0.2lf)\n",
+			avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
+	find_opt(tprof[MEM_ALN2_D], 1, &max, &min, &avg);
+	fprintf(stderr, "\tLeft 8-bit time avg: %0.2lf, (%0.2lf, %0.2lf)\n",
+			avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
+	find_opt(tprof[MEM_ALN2_C], 1, &max, &min, &avg);
+	fprintf(stderr, "\tRight 16-bit time avg: %0.2lf, (%0.2lf, %0.2lf)\n",
+			avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
+	find_opt(tprof[MEM_ALN2_E], 1, &max, &min, &avg);
+	fprintf(stderr, "\tRight 8-bit time avg: %0.2lf, (%0.2lf, %0.2lf)\n",
+			avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
+#endif
+
+#if HIDE
 	fprintf(stderr, "\nSTATSV\n");
 	fprintf(stderr, "%0.2lf\n",	tprof[PROCESS][0]*1.0/proc_freq);
 	find_opt(tprof[MEM_PROCESS2], 1, &max, &min, &avg);

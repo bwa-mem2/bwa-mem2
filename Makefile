@@ -117,7 +117,6 @@ src/fastmap.o: src/fastmap.h src/bwa.h src/bntseq.h src/bwt.h src/macro.h
 src/fastmap.o: src/bwamem.h src/kthread.h src/bandedSWA.h src/kstring.h
 src/fastmap.o: src/ksw.h src/kvec.h src/ksort.h src/utils.h src/profiling.h
 src/fastmap.o: src/FMI_search.h src/read_index_ele.h src/kseq.h
-src/fastmap.o: src/fasta_file.h
 src/kstring.o: src/kstring.h
 src/ksw.o: src/ksw.h src/macro.h
 src/kswv.o: src/kswv.h src/macro.h src/ksw.h src/bandedSWA.h
