@@ -494,13 +494,18 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
 						 mem_cache *mmc, int64_t offset1, int64_t offset2,
-						 int64_t offset3, int64_t &pcnt, int32_t &gcnt)
+						 int64_t offset3, int64_t &pcnt, int32_t &gcnt, int tid)
 {
-	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
 	uint8_t *seqBufRef = mmc->seqBufLeftRef + offset2;
 	uint8_t *seqBufQer = mmc->seqBufLeftQer + offset3;
+#if 0
+	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
 	// int32_t *gar = (int32_t*) (mmc->seqPairArrayRight128 + offset1);
 	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux + offset1);
+#else
+	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
+	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux[tid]);
+#endif
 	
 	int i, j, n_aa[2];
 	kstring_t str;
@@ -547,11 +552,15 @@ static inline void revseq(int l, uint8_t *s)
 
 // This function is equivalent to align2() for axv512 i.e #else part
 int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int64_t offset2,
-					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln)
+					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln, int tid)
 {
-	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
 	uint8_t *seqBufRef = mmc->seqBufLeftRef + offset2;
 	uint8_t *seqBufQer = mmc->seqBufLeftQer + offset3;
+#if 0
+	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
+#else
+	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
+#endif
 	//int32_t *index = (int32_t*) (mmc->seqPairArrayLeft128 + offset1);
 	//int32_t *index = (int32_t*) (mmc->seqPairArrayAux + offset1);
 
@@ -651,7 +660,7 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
 						  kswr_t **myaln, mem_cache *mmc, int offset1,
 						  int offset2, int offset3,
-						  int32_t &gcnt)
+						  int32_t &gcnt, int tid)
 {
 	extern int mem_mark_primary_se(const mem_opt_t *opt, int n, mem_alnreg_t *a, int64_t id);
 	extern int mem_approx_mapq_se(const mem_opt_t *opt, const mem_alnreg_t *a);
@@ -659,7 +668,8 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 	extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_alnreg_v *a, int l_query, const char *query);
 
 	// int32_t *gar = (int32_t*) (mmc->seqPairArrayRight128 + offset1);
-	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux + offset1);
+	// int32_t *gar = (int32_t*) (mmc->seqPairArrayAux + offset1);
+	int32_t *gar = (int32_t*) mmc->seqPairArrayAux[tid];
 	
 	int n = 0, i, j, z[2], o, subo, n_sub, extra_flag = 1, n_pri[2], n_aa[2];
 	kstring_t str;

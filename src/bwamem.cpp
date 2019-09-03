@@ -1129,10 +1129,16 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
 	printf_(VER, "4. Done mem_kernel1_core....\n");
 }
 
-int64_t sort_classify(mem_cache *mmc, int offset1, int64_t pcnt)
+int64_t sort_classify(mem_cache *mmc, int offset1, int64_t pcnt, int tid)
 {
+
+#if 0
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
 	SeqPair *seqPairArrayAux = mmc->seqPairArrayAux + offset1;
+#else
+	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
+	SeqPair *seqPairArrayAux = mmc->seqPairArrayAux[tid];
+#endif
 
 	int64_t pos8 = 0, pos16 = 0;
 	for (int i=0; i<pcnt; i++) {
@@ -1194,16 +1200,16 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 								 &w->seqs[i],
 								 &w->regs[i],
 								 &w->mmc, sizeA, sizeB, sizeC,
-								 pcnt, gcnt);
+								 pcnt, gcnt, tid);
 		}
 		// tprof[SAM1][tid] += __rdtsc() - tim;
 
-		int64_t pcnt8 = sort_classify(&w->mmc, sizeA, pcnt);
+		int64_t pcnt8 = sort_classify(&w->mmc, sizeA, pcnt, tid);
 		
 		kswr_t *aln = (kswr_t *) _mm_malloc ((pcnt + SIMD_WIDTH8) * sizeof(kswr_t), 64);
 		// processing
 		mem_sam_pe_batch(w->opt, &w->mmc, sizeA, sizeB, sizeC,
-						 pcnt, pcnt8, aln);		
+						 pcnt, pcnt8, aln, tid);		
 		
 		// post-processing
 		// tim = __rdtsc();
@@ -1213,13 +1219,14 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 		for (int i=start; i< end; i+=2)
 		{
 			mem_sam_pe_batch_post(w->opt, w->bns,
-											w->pac, w->pes,
-											(w->n_processed >> 1) + pos++,   // check!
-											&w->seqs[i],
-											&w->regs[i],
-											&myaln,
-											&w->mmc, sizeA, sizeB, sizeC,
-											gcnt);
+								  w->pac, w->pes,
+								  (w->n_processed >> 1) + pos++,   // check!
+								  &w->seqs[i],
+								  &w->regs[i],
+								  &myaln,
+								  &w->mmc, sizeA, sizeB, sizeC,
+								  gcnt,
+								  tid);
 
 			free(w->regs[i].a);
 			free(w->regs[i+1].a);
@@ -1250,7 +1257,7 @@ void mem_process_seqs(mem_opt_t *opt,
 					  int n,
 					  bseq1_t *seqs,
 					  const mem_pestat_t *pes0,
-					  worker_t w)
+					  worker_t &w)
 {
 	// worker_t w;
 	mem_pestat_t pes[4];
@@ -1950,9 +1957,17 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 								   mem_cache *mmc, int64_t offset1, int64_t offset2,
 								   int64_t offset3, int tid)
 {
+#if 0
 	SeqPair *seqPairArrayAux	  = mmc->seqPairArrayAux + offset1;
 	SeqPair *seqPairArrayLeft128  = mmc->seqPairArrayLeft128 + offset1;
 	SeqPair *seqPairArrayRight128 = mmc->seqPairArrayRight128 + offset1;
+#else
+	SeqPair *seqPairArrayAux	  = mmc->seqPairArrayAux[tid];
+	SeqPair *seqPairArrayLeft128  = mmc->seqPairArrayLeft128[tid];
+	SeqPair *seqPairArrayRight128 = mmc->seqPairArrayRight128[tid];
+	int64_t *wsize = &(mmc->wsize[tid]);
+	// fprintf(stderr, "wsize: %d\n", *wsize);
+#endif
 
 	uint8_t *seqBufLeftRef	= mmc->seqBufLeftRef + offset2;
 	uint8_t *seqBufRightRef = mmc->seqBufRightRef + offset2;
@@ -2109,8 +2124,22 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 					sp.seqid = c->seqid;
 					sp.regid = av->n - 1;
 						
-					assert(numPairsLeft < BATCH_SIZE * SEEDS_PER_READ);
+					// assert(numPairsLeft < BATCH_SIZE * SEEDS_PER_READ);
+					if (numPairsLeft >= *wsize) {
+						fprintf(stderr, "[LOG][%0.4d] Re-allocating seqPairArrays Left\n", tid);
+						*wsize <<= 1;
+						seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
+															  *wsize * sizeof(SeqPair));
+						mmc->seqPairArrayAux[tid] = seqPairArrayAux;
+						seqPairArrayLeft128 = (SeqPair *) realloc(seqPairArrayLeft128,
+																	   *wsize * sizeof(SeqPair));
+						mmc->seqPairArrayLeft128[tid] = seqPairArrayLeft128;
+						seqPairArrayRight128 = (SeqPair *) realloc(seqPairArrayRight128,
+																   *wsize * sizeof(SeqPair));
+						mmc->seqPairArrayRight128[tid] = seqPairArrayRight128;
+					}
 
+					
 					sp.idq = leftQerOffset;
 					sp.idr = leftRefOffset;
 					uint8_t *qs = seqBufLeftQer + sp.idq;
@@ -2167,7 +2196,22 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 					sp.seqid = c->seqid;
 					sp.regid = av->n - 1;
 
-					assert(numPairsRight < BATCH_SIZE * SEEDS_PER_READ);
+					// assert(numPairsRight < BATCH_SIZE * SEEDS_PER_READ);
+					if (numPairsRight >= *wsize) {
+						fprintf(stderr, "[LOG] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
+						*wsize <<= 1;
+						seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
+															  *wsize * sizeof(SeqPair));
+						mmc->seqPairArrayAux[tid] = seqPairArrayAux;
+						seqPairArrayLeft128 = (SeqPair *) realloc(seqPairArrayLeft128,
+																  *wsize * sizeof(SeqPair));
+						mmc->seqPairArrayLeft128[tid] = seqPairArrayLeft128;
+						seqPairArrayRight128 = (SeqPair *) realloc(seqPairArrayRight128,
+																		*wsize * sizeof(SeqPair));
+						mmc->seqPairArrayRight128[tid] = seqPairArrayRight128;
+					}
+
+					
 					sp.len2 = l_query - qe;
 					sp.len1 = rmax[1] - rmax[0] - re;
 

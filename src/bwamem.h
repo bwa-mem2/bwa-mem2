@@ -180,12 +180,19 @@ typedef struct {
 } smem_aux_t;
 
 typedef struct {
-	SeqPair *seqPairArrayLeft;
-	SeqPair *seqPairArrayRight;
+	//SeqPair *seqPairArrayLeft;
+	// SeqPair *seqPairArrayRight;
+	// SeqPair *seqPairArrayAux128;
+#if 0
 	SeqPair *seqPairArrayAux;
 	SeqPair *seqPairArrayLeft128;
 	SeqPair *seqPairArrayRight128;
-	SeqPair *seqPairArrayAux128;
+#else
+	SeqPair *seqPairArrayAux[112];
+	SeqPair *seqPairArrayLeft128[112];
+	SeqPair *seqPairArrayRight128[112];
+	int64_t wsize[112];
+#endif
 	uint8_t *seqBufLeftRef, *seqBufRightRef;
 	uint8_t *seqBufLeftQer, *seqBufRightQer;
 	SMEM *matchArray;
@@ -193,6 +200,7 @@ typedef struct {
 	int16_t *query_pos_ar;
 	uint8_t *enc_qdb;
 } mem_cache;
+
 // chain moved to .h
 typedef struct worker_t {
 	const mem_opt_t *opt;
@@ -270,13 +278,13 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
 						 mem_cache *mmc, int64_t offset1, int64_t offset2,
-						 int64_t offset3, int64_t &pcnt, int32_t &gcnt);
+						 int64_t offset3, int64_t &pcnt, int32_t &gcnt, int tid);
 
 int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
 						  uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
 						  kswr_t **myaln, mem_cache *mmc, int offset1, int, int,
-						  int32_t &gcnt);
+						  int32_t &gcnt, int tid);
 
 
 int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
@@ -293,7 +301,7 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 uint8_t* seqBufQer, int pcnt);
 
 int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int64_t offset2,
-					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln);
+					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln, int tid);
 
 int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
@@ -335,7 +343,7 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
      void mem_process_seqs(mem_opt_t *opt, const bntseq_t *bns,
 						   const uint8_t *pac, int64_t n_processed,
 						   int n, bseq1_t *seqs, const mem_pestat_t *pes0,
-						   worker_t w);
+						   worker_t &w);
 
 
 	/**

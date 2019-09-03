@@ -133,7 +133,7 @@ int64_t get_limit_fsize(FILE *fpp, int64_t nread_lim,
 	return position;	
 }
 
-void memoryAlloc(ktp_aux_t *aux, worker_t &w)
+void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 {
 	mem_opt_t	*opt			  = aux->opt;	
 	memSize = nreads;
@@ -169,13 +169,23 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w)
 												  + MAX_LINE_LEN) * opt->n_threads, 64);
 	w.mmc.seqBufRightQer = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)
 												  + MAX_LINE_LEN) * opt->n_threads, 64);
-	
+#if 0	
 	w.mmc.seqPairArrayAux	   = (SeqPair *)_mm_malloc((w.size + MAX_LINE_LEN) * sizeof(SeqPair)
 													   * opt->n_threads, 64);
 	w.mmc.seqPairArrayLeft128  = (SeqPair *)_mm_malloc((w.size + MAX_LINE_LEN) * sizeof(SeqPair)
 													   * opt->n_threads, 64);
 	w.mmc.seqPairArrayRight128 = (SeqPair *)_mm_malloc((w.size + MAX_LINE_LEN) * sizeof(SeqPair)
 													   * opt->n_threads, 64);
+#else
+	
+	for(int l=0; l<ntid; l++) {
+		w.mmc.seqPairArrayAux[l]      = (SeqPair *) malloc(w.size * sizeof(SeqPair));
+		w.mmc.seqPairArrayLeft128[l]  = (SeqPair *) malloc(w.size * sizeof(SeqPair));
+		w.mmc.seqPairArrayRight128[l] = (SeqPair *) malloc(w.size * sizeof(SeqPair));
+		w.mmc.wsize[l] = w.size;
+	}
+#endif
+	
 
 	assert(w.mmc.seqBufLeftRef != NULL);
 	assert(w.mmc.seqBufLeftQer != NULL);
@@ -508,7 +518,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	fprintf(stderr, "Info: projected #read in a task: %ld\n", (long)nreads);
 	
 	/* All memory allocation */
-	memoryAlloc(aux, w);
+	memoryAlloc(aux, w, nthreads);
 	
 	/* pipeline using pthreads */
 	ktp_t aux_;
@@ -562,9 +572,17 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	_mm_free(w.mmc.seqBufLeftQer);
 	_mm_free(w.mmc.seqBufRightQer);
 	
+#if 0
 	_mm_free(w.mmc.seqPairArrayAux);
 	_mm_free(w.mmc.seqPairArrayLeft128);
 	_mm_free(w.mmc.seqPairArrayRight128);
+#else
+	for(int l=0; l<nthreads; l++) {
+		free(w.mmc.seqPairArrayAux[l]);
+		free(w.mmc.seqPairArrayLeft128[l]);
+		free(w.mmc.seqPairArrayRight128[l]);
+	}
+#endif
 	
 	_mm_free(w.mmc.matchArray);
 	free(w.mmc.min_intv_ar);
