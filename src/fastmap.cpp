@@ -176,9 +176,9 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 #else
 	
 	for(int l=0; l<ntid; l++) {
-		w.mmc.seqPairArrayAux[l]      = (SeqPair *) malloc(w.size * sizeof(SeqPair));
-		w.mmc.seqPairArrayLeft128[l]  = (SeqPair *) malloc(w.size * sizeof(SeqPair));
-		w.mmc.seqPairArrayRight128[l] = (SeqPair *) malloc(w.size * sizeof(SeqPair));
+		w.mmc.seqPairArrayAux[l]      = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
+		w.mmc.seqPairArrayLeft128[l]  = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
+		w.mmc.seqPairArrayRight128[l] = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
 		w.mmc.wsize[l] = w.size;
 	}
 #endif
@@ -237,7 +237,6 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		tprof[READ_IO][0] += __rdtsc() - tim;
 		tprof[0][0] += sz;  // debug info, for accuracy checks!!
 		tprof[0][2] += ret->n_seqs;
-
 		// assert(ret->n_seqs <= nreads);
 		
 		fprintf(stderr, "[%.4d] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",

@@ -396,6 +396,7 @@ static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
 				c->seeds = auxSeedBuf;
 				tprof[PE13][tid]++;
 			} else {  // new memory
+				// fprintf(stderr, "[%0.4d] re-allocing old seed, m: %d\n", tid, c->m);
 				auxSeedBuf = (mem_seed_t *) realloc(c->seeds, c->m * sizeof(mem_seed_t));
 				c->seeds = auxSeedBuf;
 			}
@@ -854,7 +855,9 @@ void mem_chain_seeds(const mem_opt_t *opt,
 						// 	   "AVG_SEEDS_PER_READ & AVG_AUX_SEEDS_PER_READ, "
 						// 	   "in src/macro.h, re-compile and re-run.\n");
                         // exit(0);
-						tmp.m <<= 1;
+						// tmp.m <<= 1;
+						tmp.m += 1;
+						// fprintf(stderr, "[%0.4d] Callocing new seed..\n", tid);
 						tmp.seeds = (mem_seed_t *)calloc (tmp.m, sizeof(mem_seed_t));
 						tprof[PE13][tid]++;
                     }
@@ -948,8 +951,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
 	printf_(VER, "6. Done! mem_collect_smem, num_smem: %ld\n", num_smem);
 	tprof[MEM_COLLECT][tid] += __rdtsc() - tim;	
 
-	
-	// tim = __rdtsc();
+
 	/********************* Kernel 1.1: SA2REF **********************/
 	printf_(VER, "6.1. Calling mem_chain..\n");
 	//mem_chain_seeds(opt, bwt, bns, seq_, neseq, aux, tid, chain_ar);
@@ -974,8 +976,8 @@ int mem_kernel1_core(const mem_opt_t *opt,
 	}
 	printf_(VER, "7. Done mem_chain_flt..\n");
 	// tprof[MEM_ALN_M1][tid] += __rdtsc() - tim;
+
 	
-	// tim = __rdtsc();
 	printf_(VER, "8. Calling mem_flt_chained_seeds..\n");
 	for (int l=0; l<nseq; l++) {
 		chn = &chain_ar[l];
@@ -984,6 +986,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
 	}
 	printf_(VER, "8. Done mem_flt_chained_seeds..\n");
 	// tprof[MEM_ALN_M2][tid] += __rdtsc() - tim;
+
 
 	return 1;
 }
@@ -2126,13 +2129,16 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 						fprintf(stderr, "[LOG][%0.4d] Re-allocating seqPairArrays Left\n", tid);
 						*wsize += 1000;
 						seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
-															  *wsize * sizeof(SeqPair));
+															  (*wsize + MAX_LINE_LEN)
+															  * sizeof(SeqPair));
 						mmc->seqPairArrayAux[tid] = seqPairArrayAux;
 						seqPairArrayLeft128 = (SeqPair *) realloc(seqPairArrayLeft128,
-																	   *wsize * sizeof(SeqPair));
+																  (*wsize + MAX_LINE_LEN)
+																  * sizeof(SeqPair));
 						mmc->seqPairArrayLeft128[tid] = seqPairArrayLeft128;
 						seqPairArrayRight128 = (SeqPair *) realloc(seqPairArrayRight128,
-																   *wsize * sizeof(SeqPair));
+																   (*wsize + MAX_LINE_LEN)
+																   * sizeof(SeqPair));
 						mmc->seqPairArrayRight128[tid] = seqPairArrayRight128;
 					}
 
@@ -2198,13 +2204,16 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 						fprintf(stderr, "[LOG] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
 						*wsize += 1000;
 						seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
-															  *wsize * sizeof(SeqPair));
+															  (*wsize + MAX_LINE_LEN)
+															  * sizeof(SeqPair));
 						mmc->seqPairArrayAux[tid] = seqPairArrayAux;
 						seqPairArrayLeft128 = (SeqPair *) realloc(seqPairArrayLeft128,
-																  *wsize * sizeof(SeqPair));
+																  (*wsize + MAX_LINE_LEN)
+																  * sizeof(SeqPair));
 						mmc->seqPairArrayLeft128[tid] = seqPairArrayLeft128;
 						seqPairArrayRight128 = (SeqPair *) realloc(seqPairArrayRight128,
-																		*wsize * sizeof(SeqPair));
+																   (*wsize + MAX_LINE_LEN)
+																   * sizeof(SeqPair));
 						mmc->seqPairArrayRight128[tid] = seqPairArrayRight128;
 					}
 
@@ -2722,7 +2731,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 	_mm_free(hist);
 	// tprof[CRIGHT][tid] += __rdtsc() - timR;
 	
-	if (numPairsLeft >= BATCH_SIZE * SEEDS_PER_READ || numPairsRight >= BATCH_SIZE * SEEDS_PER_READ)
+	if (numPairsLeft >= *wsize || numPairsRight >= *wsize)
 	{   // refine it!
 		fprintf(stderr, "Error: This should not have happened!!!\n");
 		fprintf(stderr, "Error: assert failed for seqPair size, "

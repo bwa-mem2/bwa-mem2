@@ -488,7 +488,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 
     int32_t ii;
     int32_t roundNumPairs = ((numPairs + SIMD_WIDTH8 - 1)/SIMD_WIDTH8 ) * SIMD_WIDTH8;
-	assert(roundNumPairs < BATCH_SIZE * SEEDS_PER_READ);
+	// assert(roundNumPairs < BATCH_SIZE * SEEDS_PER_READ);
     for(ii = numPairs; ii < roundNumPairs; ii++)
     {
         pairArray[ii].id = ii;
@@ -4451,7 +4451,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 
     int32_t ii;
     int32_t roundNumPairs = ((numPairs + SIMD_WIDTH8 - 1)/SIMD_WIDTH8 ) * SIMD_WIDTH8;
-	assert(roundNumPairs < BATCH_SIZE * SEEDS_PER_READ);
+	// assert(roundNumPairs < BATCH_SIZE * SEEDS_PER_READ);
     for(ii = numPairs; ii < roundNumPairs; ii++)
     {
         pairArray[ii].id = ii;

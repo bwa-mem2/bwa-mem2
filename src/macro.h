@@ -47,7 +47,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define AVG_SEEDS_PER_READ 64       /* Used for storing seeds in chains*/
 #define BATCH_SIZE 512               /* Block of reads alloacted to a thread for processing*/
 #define BATCH_MUL 20
-#define SEEDS_PER_CHAIN 2
+#define SEEDS_PER_CHAIN 1
 #define READ_LEN 151
 
 #define SEQ_LEN8 128
