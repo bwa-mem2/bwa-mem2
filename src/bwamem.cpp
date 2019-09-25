@@ -2014,7 +2014,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 		mem_alnreg_v *av = &av_v[l];  // alignment
 		mem_chain_t *c;
 
-		_mm_prefetch((const char*) query, 0);
+		_mm_prefetch((const char*) query, _MM_HINT_NTA);
 		
 		// aln mem allocation
 		av->m = 0;
@@ -2032,8 +2032,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			int64_t tmp = 0;
 			if (c->n == 0) continue;
 			
-			_mm_prefetch((const char*) (srtg + spos + 64), 0);
-			_mm_prefetch((const char*) (lim_g), 0);
+			_mm_prefetch((const char*) (srtg + spos + 64), _MM_HINT_NTA);
+			_mm_prefetch((const char*) (lim_g), _MM_HINT_NTA);
 			
 			// get the max possible span
 			rmax[0] = l_pac<<1; rmax[1] = 0;
@@ -2070,8 +2070,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 				assert(c->rid == rid);
 			}
 
-			_mm_prefetch((const char*) rseq, 0);
-			// _mm_prefetch((const char*) rseq + 64, 0);
+			_mm_prefetch((const char*) rseq, _MM_HINT_NTA);
+			// _mm_prefetch((const char*) rseq + 64, _MM_HINT_NTA);
 			
 			// assert(c->n < MAX_SEEDS_PER_READ);  // temp
 			if (c->n > srt_size) {

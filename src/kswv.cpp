@@ -2260,11 +2260,11 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 	int16_t	*F		= F16 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM;
 	int16_t	*rowMax	= rowMax16 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_REF_SAM;
 	
-	_mm_prefetch((const char*) (F + SIMD_WIDTH16), 0);
-	_mm_prefetch((const char*) seq2SoA, 0);
-	_mm_prefetch((const char*) seq1SoA, 0);
-	_mm_prefetch((const char*) (H1 + SIMD_WIDTH16), 0);
-	_mm_prefetch((const char*) (F + SIMD_WIDTH16), 0);
+	_mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
+	_mm_prefetch((const char*) seq2SoA, _MM_HINT_NTA);
+	_mm_prefetch((const char*) seq1SoA, _MM_HINT_NTA);
+	_mm_prefetch((const char*) (H1 + SIMD_WIDTH16), _MM_HINT_NTA);
+	_mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
 
 	for (int i=ncol; i >= 0; i--) {
 		_mm512_store_si512((__m512*) (H0 + i * SIMD_WIDTH16), zero512);
@@ -2533,11 +2533,11 @@ void kswv::kswv512_16(int16_t seq1SoA[],
 
 	int16_t	*rowMax	= rowMax16 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_REF_SAM;
 	
-	_mm_prefetch((const char*) (F + SIMD_WIDTH16), 0);
-	_mm_prefetch((const char*) seq2SoA, 0);
-	_mm_prefetch((const char*) seq1SoA, 0);
-	_mm_prefetch((const char*) (H1 + SIMD_WIDTH16), 0);
-	_mm_prefetch((const char*) (F + SIMD_WIDTH16), 0);
+	_mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
+	_mm_prefetch((const char*) seq2SoA, _MM_HINT_NTA);
+	_mm_prefetch((const char*) seq1SoA, _MM_HINT_NTA);
+	_mm_prefetch((const char*) (H1 + SIMD_WIDTH16), _MM_HINT_NTA);
+	_mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
 
 	for (int i=ncol; i >= 0; i--) {
 		_mm512_store_si512((__m512*) (H0 + i * SIMD_WIDTH16), zero512);
