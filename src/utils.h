@@ -84,7 +84,7 @@ extern "C" {
 	FILE *err_xopen_core(const char *func, const char *fn, const char *mode);
 	FILE *err_xreopen_core(const char *func, const char *fn, const char *mode, FILE *fp);
 	gzFile err_xzopen_core(const char *func, const char *fn, const char *mode);
-    size_t err_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+	size_t err_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 	size_t err_fread_noeof(void *ptr, size_t size, size_t nmemb, FILE *stream);
 
 	int err_gzread(gzFile file, void *ptr, unsigned int len);

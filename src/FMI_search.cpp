@@ -29,6 +29,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 
 #include <stdio.h>
 #include "FMI_search.h"
+#include "utils.h"
 
 extern int myrank, num_ranks;
 
@@ -52,7 +53,7 @@ FMI_search::FMI_search(char *ref_file_name)
 		exit(EXIT_FAILURE);
     }
 
-    fread(&reference_seq_len, sizeof(int64_t), 1, cpstream);
+    err_fread_noeof(&reference_seq_len, sizeof(int64_t), 1, cpstream);
     assert(reference_seq_len > 0);
     assert(reference_seq_len <= (0xffffffffU * (int64_t)CP_BLOCK_SIZE));
 	if(myrank == 0)
@@ -62,10 +63,10 @@ FMI_search::FMI_search(char *ref_file_name)
     int64_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
     cp_occ = NULL;
 
-    fread(&count[0], sizeof(int64_t), 5, cpstream);
+    err_fread_noeof(&count[0], sizeof(int64_t), 5, cpstream);
     cp_occ = (CP_OCC *)_mm_malloc(cp_occ_size * sizeof(CP_OCC), 64);
 
-    fread(cp_occ, sizeof(CP_OCC), cp_occ_size, cpstream);
+    err_fread_noeof(cp_occ, sizeof(CP_OCC), cp_occ_size, cpstream);
     int64_t ii = 0;
     for(ii = 0; ii < 5; ii++)// update read count structure
     {
@@ -73,8 +74,8 @@ FMI_search::FMI_search(char *ref_file_name)
     }
     sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len * sizeof(int8_t), 64);
     sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len * sizeof(uint32_t), 64);
-    fread(sa_ms_byte, sizeof(int8_t), reference_seq_len, cpstream);
-    fread(sa_ls_word, sizeof(uint32_t), reference_seq_len, cpstream);
+    err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len, cpstream);
+    err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len, cpstream);
     fclose(cpstream);
 
     sentinel_index = -1;
