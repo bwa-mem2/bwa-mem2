@@ -288,7 +288,8 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
 						 mem_alnreg_v *ma, SeqPair *seqPairArray, uint8_t* seqBufRef,
-						 uint8_t* seqBufQer, int pcnt, int32_t gcnt, int32_t *gar);
+						 uint8_t* seqBufQer, int pcnt, int32_t gcnt, int32_t *gar,
+						 int wsize);
 
 int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],

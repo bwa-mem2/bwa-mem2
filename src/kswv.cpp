@@ -718,6 +718,12 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
 		te512_ = _mm512_mask_blend_epi16(mask2 >> SIMD_WIDTH16, te512_, i512);
 	}	
 #if 1
+	// Added new block -- due to bug
+	int16_t rlen[SIMD_WIDTH8] __attribute((aligned(64)));
+	for (int i=0; i<SIMD_WIDTH8; i++) rlen[i] = p[i].len1;
+	__m512i rlen512 = _mm512_load_si512(rlen);
+	__m512i rlen512_ = _mm512_load_si512(rlen + SIMD_WIDTH16);
+	
 	for (int i=minh+1; i<limit; i++)
 	{
 		__m512i i512 = _mm512_set1_epi16(i);
@@ -727,6 +733,11 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
 		__mmask64 mask2 = _mm512_cmpgt_epu8_mask(rmax512, max512);
 		__mmask64 mask1 = mask11 | (mask12 << SIMD_WIDTH16);
 		mask2 &= mask1;
+		// new, bug
+		__mmask64 mask11_ = _mm512_cmpgt_epi16_mask(rlen512, i512);
+		__mmask64 mask12_ = _mm512_cmpgt_epi16_mask(rlen512_, i512);
+		__mmask64 mask1_ = mask11_ | (mask12_ << SIMD_WIDTH16);
+		mask2 &= mask1_;		
 		max512 = _mm512_mask_blend_epi8(mask2, max512, rmax512);
 		te512 = _mm512_mask_blend_epi16(mask2, te512, i512);
 		te512_ = _mm512_mask_blend_epi16(mask2 >> SIMD_WIDTH16, te512_, i512);	
@@ -2415,6 +2426,11 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 		te512 = _mm512_mask_blend_epi16(mask2, te512, i512);
 	}	
 
+	// New, due to latest bug
+	int16_t rlen[SIMD_WIDTH16] __attribute((aligned(64)));
+	for (int i=0; i<SIMD_WIDTH16; i++) rlen[i] = p[i].len1;
+	__m512i rlen512 = _mm512_load_si512(rlen);
+	
 	for (int i=minh+1; i<limit; i++)
 	{
 		__m512i i512 = _mm512_set1_epi16(i);
@@ -2422,6 +2438,9 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 		__mmask32 mask1 = _mm512_cmpgt_epi16_mask(i512, high512);
 		__mmask32 mask2 = _mm512_cmpgt_epi16_mask(rmax512, max512);
 		mask2 &= mask1;
+		// new, due to latest bug
+		__mmask32 mask1_ = _mm512_cmpgt_epi16_mask(rlen512, i512);
+		mask2 &= mask1_;
 		max512 = _mm512_mask_blend_epi16(mask2, max512, rmax512);
 		te512 = _mm512_mask_blend_epi16(mask2, te512, i512);	
 	}

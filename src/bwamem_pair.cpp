@@ -502,6 +502,7 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 #else
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
 	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux[tid]);
+	int64_t *wsize = &(mmc->wsize[tid]);
 #endif
 	
 	int i, j, n_aa[2];
@@ -529,7 +530,7 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 				int64_t val = mem_matesw_batch_pre(opt, bns, pac, pes, &b[i].a[j],
 												   s[!i].l_seq, (uint8_t*)s[!i].seq,
 												   &a[!i], seqPairArray, seqBufRef,
-												   seqBufQer, pcnt, gcnt, gar);
+												   seqBufQer, pcnt, gcnt, gar, *wsize);
 				pcnt = val;
 				gcnt += 4;
 			}
@@ -557,6 +558,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
 #else
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
+	// int64_t *wsize = &(mmc->wsize[tid]);
 #endif
 	//int32_t *index = (int32_t*) (mmc->seqPairArrayLeft128 + offset1);
 	//int32_t *index = (int32_t*) (mmc->seqPairArrayAux + offset1);
@@ -592,7 +594,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 	
 #if __AVX512BW__
 	pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pcnt8, nthreads, 0);
-	pwsw->getScores16(seqPairArray, seqBufRef, seqBufQer, aln, pcnt-pcnt8, nthreads, 0);
+	pwsw->getScores16(seqPairArray + pcnt8, seqBufRef, seqBufQer, aln + pcnt8, pcnt-pcnt8, nthreads, 0);
 #else
 	fprintf(stderr, "Error: This should not have happened!! \nPlease look in to AVX512 macros\n");
 	exit(0);
@@ -625,7 +627,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 	tim = __rdtsc();
 #if __AVX512BW__
 	pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pos8, nthreads, 1);
-	pwsw->getScores16(seqPairArray, seqBufRef, seqBufQer, aln, pos16, nthreads, 1);
+	pwsw->getScores16(seqPairArray + pos8, seqBufRef, seqBufQer, aln + pos8, pos16, nthreads, 1);
 #else
 	fprintf(stderr, "Error: This should not have happened!! \nPlease look in to AVX512 macros\n");
 	exit(0);
@@ -850,7 +852,8 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
 						 mem_alnreg_v *ma, SeqPair *seqPairArray, uint8_t* seqBufRef,
-						 uint8_t* seqBufQer, int pcnt, int32_t gcnt, int32_t *gar)
+						 uint8_t* seqBufQer, int pcnt, int32_t gcnt, int32_t *gar,
+						 int wsize)
 {
 	extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 									const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
@@ -925,7 +928,8 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 
 			SeqPair sp;
 			sp.h0 = xtra;
-			assert(pcnt < BATCH_SIZE * SEEDS_PER_READ);
+			// assert(pcnt < BATCH_SIZE * SEEDS_PER_READ);
+			assert(pcnt < wsize);
 			
 			sp.idq = qerOffset;
 			sp.idr = refOffset;
@@ -938,8 +942,10 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 			assert(sp.len1 >= 0 && sp.len2 >= 0);
 			assert(refOffset + sp.len1 < MAX_SEQ_LEN_REF * BATCH_SIZE * SEEDS_PER_READ);
 			assert(qerOffset + sp.len2 < MAX_SEQ_LEN_QER * BATCH_SIZE * SEEDS_PER_READ);
-			assert(pcnt < BATCH_SIZE * SEEDS_PER_READ);
-			assert(gcnt + r < BATCH_SIZE * SEEDS_PER_READ);
+			// assert(pcnt < BATCH_SIZE * SEEDS_PER_READ);
+			// assert(gcnt + r < BATCH_SIZE * SEEDS_PER_READ);
+			assert(pcnt < wsize);
+			assert(gcnt + r < wsize);
 			
 			for (int l=0; l<sp.len1; l++) rs[l] = ref[l];
 			for (int l=0; l<sp.len2; l++) qs[l] = seq[l];

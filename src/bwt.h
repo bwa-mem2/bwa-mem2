@@ -24,7 +24,6 @@
 */
 
 /*
-Modified and release under GPLv3. See LICENSE.
 Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
                                 Heng Li <hli@jimmy.harvard.edu>
 */
