@@ -185,10 +185,10 @@ typedef struct {
 	SeqPair *seqPairArrayLeft128;
 	SeqPair *seqPairArrayRight128;
 #else
-	SeqPair *seqPairArrayAux[112];
-	SeqPair *seqPairArrayLeft128[112];
-	SeqPair *seqPairArrayRight128[112];
-	int64_t wsize[112];
+	SeqPair *seqPairArrayAux[MAX_THREADS];
+	SeqPair *seqPairArrayLeft128[MAX_THREADS];
+	SeqPair *seqPairArrayRight128[MAX_THREADS];
+	int64_t wsize[MAX_THREADS];
 #endif
 	uint8_t *seqBufLeftRef, *seqBufRightRef;
 	uint8_t *seqBufLeftQer, *seqBufRightQer;
