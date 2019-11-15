@@ -21,8 +21,7 @@ produces alignment identical to bwa and is ~80% faster.
 The original bwa was developed by Heng Li (@lh3). Performance enhancement in
 bwa-mem2 was primarily done by Vasimuddin Md (@yuk12) and Sanchit Misra (@sanchit-misra)
 from Parallel Computing Lab, Intel.
-Bwa-mem2 is distributed under the GPL3 license and is likely to be
-changed to a permissive license in the near future.
+Bwa-mem2 is distributed under the MIT license.
 
 ## Installation
 
