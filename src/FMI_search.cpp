@@ -120,6 +120,13 @@ FMI_search::FMI_search(char *ref_file_name)
     fprintf(stderr, "Done reading Index!!\n");
 }
 
+FMI_search::FMI_search(char *ref_file_name, int which)
+{
+	fprintf(stderr, "Reading other elements of the index from files %s\n",
+			ref_file_name);
+	bwa_idx_load_ele(ref_file_name, which);
+}
+
 FMI_search::~FMI_search()
 {
     _mm_free(sa_ms_byte);

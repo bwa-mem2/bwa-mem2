@@ -52,6 +52,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "macro.h"
 #include "profiling.h"
 #include "FMI_search.h"
+#include "ertseeding.h"
 
 #define MEM_MAPQ_COEF 30.0
 #define MEM_MAPQ_MAX  60
@@ -215,6 +216,13 @@ typedef struct worker_t {
     int64_t seedBufSize;
     mem_seed_t *auxSeedBuf;
     int64_t auxSeedBufSize;
+    uint64_t* kmer_offsets;
+    uint8_t* mlt_table;
+    uint8_t* leaf_table;
+    uint8_t* lep;
+    mem_t* smems;
+    u64v* hits_ar;
+    int useErt;
 } worker_t;
 
 
@@ -281,7 +289,7 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
 						  uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
 						  kswr_t **myaln, mem_cache *mmc, int offset1, int, int,
-						  int32_t &gcnt, int tid);
+						  int32_t &gcnt, int tid, int useErt);
 
 
 int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
@@ -307,6 +315,12 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
 						  int32_t *gar, mem_cache *mmc, int , int, int);
 
+int mem_matesw_batch_post_orig(const mem_opt_t *opt, const bntseq_t *bns,
+						       const uint8_t *pac, const mem_pestat_t pes[4],
+                               const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
+                               mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
+                               int32_t *gar, mem_cache *mmc, int , int, int);
+
 int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
 						  const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
@@ -314,7 +328,7 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 
 int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 			   const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2],
-			   mem_alnreg_v a[2]);
+			   mem_alnreg_v a[2], int useErt);
 
 	/**
 	 * Align a batch of sequences and generate the alignments in the SAM format
@@ -342,7 +356,6 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 						   const uint8_t *pac, int64_t n_processed,
 						   int n, bseq1_t *seqs, const mem_pestat_t *pes0,
 						   worker_t &w);
-
 
 	/**
 	 * Generate CIGAR and forward-strand position from alignment region
@@ -374,5 +387,7 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 	 */
 	void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n, const mem_alnreg_v *regs, mem_pestat_t pes[4]);
 
+    void sort_alnreg_re(int n, mem_alnreg_t* a);
+    void sort_alnreg_score(int n, mem_alnreg_t* a);
 
 #endif

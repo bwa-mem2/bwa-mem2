@@ -128,6 +128,7 @@ class FMI_search: public indexEle
 {
 public:
 	FMI_search(char *fmi_file_name);
+	FMI_search(char *fmi_file_name, int which);
 	~FMI_search();
 	//int64_t beCalls;
 	

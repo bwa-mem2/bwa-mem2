@@ -339,7 +339,7 @@ uint32_t *bwa_gen_cigar(const int8_t mat[25], int q, int r, int w_, int64_t l_pa
 /*********************
  * Full index reader *
  *********************/
-#if 0
+// #if 0
 char *bwa_idx_infer_prefix(const char *hint)
 {
 	char *prefix;
@@ -499,7 +499,7 @@ int bwa_idx2mem(bwaidx_t *idx)
 
 	return bwa_mem2idx(k, mem, idx);
 }
-#endif
+// #endif
 
 /***********************
  * SAM header routines *

@@ -130,6 +130,154 @@ int64_t get_limit_fsize(FILE *fpp, int64_t nread_lim,
 	return position;	
 }
 
+void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int ntid, char* idx_prefix) {
+	mem_opt_t	*opt			  = aux->opt;	
+	memSize = nreads;
+
+	/* Mem allocation section for core kernels */
+	w.regs = NULL; w.chain_ar = NULL; w.hits_ar = NULL; w.seedBuf = NULL;
+	w.regs = (mem_alnreg_v *) calloc(memSize, sizeof(mem_alnreg_v));
+	w.chain_ar = (mem_chain_v*) malloc (memSize * sizeof(mem_chain_v));
+	w.seedBuf = (mem_seed_t *) calloc(memSize * AVG_SEEDS_PER_READ, sizeof(mem_seed_t));
+	assert(w.seedBuf != NULL);
+    w.seedBufSize = BATCH_SIZE * AVG_SEEDS_PER_READ;
+	
+	if (w.regs == NULL || w.chain_ar == NULL || w.seedBuf == NULL) {
+		fprintf(stderr, "Memory not allocated!!\nExiting...\n");
+		exit(0);
+	}
+
+	int64_t allocMem = memSize * sizeof(mem_alnreg_v) +
+		memSize * sizeof(mem_chain_v) +
+		sizeof(mem_seed_t) * memSize * AVG_SEEDS_PER_READ;
+	fprintf(stderr, "------------------------------------------\n");
+	fprintf(stderr, "Memory pre-allocation for chaining: %0.4lf MB\n", allocMem/1e6);
+
+	
+	/* SWA mem allocation */
+	// int avg_seed_per_read = 35;
+	w.size = BATCH_SIZE * SEEDS_PER_READ;		
+	w.mmc.seqBufLeftRef	 = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)
+												 + MAX_LINE_LEN) * opt->n_threads, 64);
+	w.mmc.seqBufLeftQer	 = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)
+												 + MAX_LINE_LEN) * opt->n_threads, 64);	      
+	w.mmc.seqBufRightRef = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)
+												  + MAX_LINE_LEN) * opt->n_threads, 64);
+	w.mmc.seqBufRightQer = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)
+												  + MAX_LINE_LEN) * opt->n_threads, 64);
+	for(int l=0; l<ntid; l++) {
+		w.mmc.seqPairArrayAux[l]      = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
+		w.mmc.seqPairArrayLeft128[l]  = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
+		w.mmc.seqPairArrayRight128[l] = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
+		w.mmc.wsize[l] = w.size;
+	}
+
+	assert(w.mmc.seqBufLeftRef != NULL);
+	assert(w.mmc.seqBufLeftQer != NULL);
+	assert(w.mmc.seqPairArrayRight128 != NULL);
+
+	allocMem = (w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2+
+		(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads	* 2 +		
+		w.size * sizeof(SeqPair) * opt->n_threads * 3;
+	
+	fprintf(stderr, "Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
+    
+    w.mmc.lim = (int32_t *) _mm_malloc
+		(nthreads * (BATCH_SIZE + 32) * sizeof(int32_t), 64);
+
+	allocMem = nthreads * (BATCH_SIZE + 32) * sizeof(int32_t);
+	fprintf(stderr, "Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
+	fprintf(stderr, "------------------------------------------\n");
+   
+    char* kmer_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
+    strcpy(kmer_tbl_file_name, idx_prefix); 
+    strcat(kmer_tbl_file_name, ".kmer_table");
+    char* ml_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
+    strcpy(ml_tbl_file_name, idx_prefix);
+    strcat(ml_tbl_file_name, ".mlt_table");
+    char* leaf_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
+    strcpy(leaf_tbl_file_name, idx_prefix);
+    strcat(leaf_tbl_file_name, ".leaf_table");
+
+    FILE *kmer_tbl_fd, *ml_tbl_fd, *leaf_tbl_fd;
+
+    kmer_tbl_fd = fopen(kmer_tbl_file_name, "rb");
+    if (kmer_tbl_fd == NULL) {
+        fprintf(stderr, "[M::%s::ERT] Can't open k-mer index\n.", __func__);
+        exit(1);
+    }
+    ml_tbl_fd = fopen(ml_tbl_file_name, "rb");
+    if (ml_tbl_fd == NULL) {
+        fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
+        exit(1);
+    }
+    leaf_tbl_fd = fopen(leaf_tbl_file_name, "rb");
+    if (leaf_tbl_fd == NULL) {
+        fprintf(stderr, "[M::%s::ERT] Can't open separated leaf data file\n.", __func__);
+        exit(1);
+    }
+        
+	free(kmer_tbl_file_name);
+	free(ml_tbl_file_name);
+	free(leaf_tbl_file_name);
+
+    double ctime, rtime;
+    ctime = cputime(); rtime = realtime();
+    allocMem = numKmers * 8L; 
+    //
+    // Read k-mer index
+    //
+    w.kmer_offsets = (uint64_t*) malloc(numKmers * sizeof(uint64_t));
+    if (bwa_verbose >= 3) {
+        fprintf(stderr, "[M::%s::ERT] Reading kmer index to memory\n", __func__);
+    }
+    fread(w.kmer_offsets, sizeof(uint64_t), numKmers, kmer_tbl_fd);
+    // 
+    // Read multi-level tree index
+    //
+    fseek(ml_tbl_fd, 0L, SEEK_END);
+    long size = ftell(ml_tbl_fd);
+    allocMem += size;
+    w.mlt_table = (uint8_t*) malloc(size * sizeof(uint8_t));
+    fseek(ml_tbl_fd, 0L, SEEK_SET);        
+    if (bwa_verbose >= 3) {
+        fprintf(stderr, "[M::%s::ERT] Reading multi-level tree index to memory\n", __func__);
+    }
+    fread(w.mlt_table, sizeof(uint8_t), size, ml_tbl_fd); 
+    // 
+    // Read leaf table
+    //
+    fseek(leaf_tbl_fd, 0L, SEEK_END);
+    size = ftell(leaf_tbl_fd);
+    allocMem += size;
+    w.leaf_table = (uint8_t*) malloc(size * sizeof(uint8_t));
+    fseek(leaf_tbl_fd, 0L, SEEK_SET);        
+    if (bwa_verbose >= 3) {
+        fprintf(stderr, "[M::%s::ERT] Reading leaf table to memory\n", __func__);
+    }
+    fread(w.leaf_table, sizeof(uint8_t), size, leaf_tbl_fd); 
+    
+    fclose(kmer_tbl_fd);
+    fclose(ml_tbl_fd);
+    fclose(leaf_tbl_fd);
+
+    if (bwa_verbose >= 3) {        
+        fprintf(stderr, "[M::%s::ERT] Index tables loaded in %.3f CPU sec, %.3f real sec...\n", __func__, cputime() - ctime, realtime() - rtime);
+    }
+
+    allocMem += ((nthreads * BATCH_MUL * readLen * sizeof(mem_t)) + (nthreads * sizeof(u64v)));
+    w.smems = (mem_t*) malloc(nthreads * BATCH_MUL * readLen * sizeof(mem_t));
+	w.hits_ar = (u64v*) malloc(nthreads * sizeof(u64v));
+    for (int i = 0 ; i < nthreads; ++i) {
+        kv_init_base(uint64_t, w.hits_ar[i], MAX_HITS_PER_READ);
+    }
+    w.useErt = 1;
+
+    fprintf(stderr, "Memory pre-allocation for ERT: %0.4lf GB\n", allocMem/1e9);
+	fprintf(stderr, "------------------------------------------\n");
+
+}
+
 void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 {
 	mem_opt_t	*opt			  = aux->opt;	
@@ -214,6 +362,8 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 		nthreads * (BATCH_SIZE + 32) * sizeof(int32_t);
 	fprintf(stderr, "Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
 	fprintf(stderr, "------------------------------------------\n");
+    
+    w.useErt = 0;
 }
 
 ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, worker_t &w)
@@ -414,7 +564,7 @@ static void *ktp_worker(void *data) {
 	pthread_exit(0);
 }
 
-static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
+static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads, char* ert_idx_prefix)
 {
 	ktp_aux_t	*aux			  = (ktp_aux_t*) shared;
 	worker_t	 w;
@@ -513,8 +663,14 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	nreads = aux->actual_chunk_size/ (readLen) + 10;
 	fprintf(stderr, "Info: projected #read in a task: %ld\n", (long)nreads);
 	
-	/* All memory allocation */
-	memoryAlloc(aux, w, nthreads);
+    
+    /* All memory allocation */
+    if (ert_idx_prefix) {
+        memoryAllocErt(aux, w, nthreads, ert_idx_prefix);
+    }
+    else {
+        memoryAlloc(aux, w, nthreads);
+    }
 	
 	/* pipeline using pthreads */
 	ktp_t aux_;
@@ -579,12 +735,24 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 		free(w.mmc.seqPairArrayRight128[l]);
 	}
 #endif
-	
-	_mm_free(w.mmc.matchArray);
-	free(w.mmc.min_intv_ar);
-	free(w.mmc.query_pos_ar);
-	free(w.mmc.enc_qdb);
-	free(w.mmc.rid);
+
+    if (ert_idx_prefix) {
+        free(w.kmer_offsets);
+        free(w.mlt_table);
+        free(w.leaf_table);
+        free(w.smems);
+        for (int i = 0 ; i < nthreads; ++i) {
+            kv_destroy(w.hits_ar[i]);
+        }
+        free(w.hits_ar);
+    }
+    else {    
+        _mm_free(w.mmc.matchArray);
+        free(w.mmc.min_intv_ar);
+        free(w.mmc.query_pos_ar);
+        free(w.mmc.enc_qdb);
+        free(w.mmc.rid);
+    }
 	_mm_free(w.mmc.lim);
 	return 0;
 }
@@ -661,7 +829,8 @@ int main_mem(int argc, char *argv[])
 	int			 fixed_chunk_size		   = -1;
 	char		*p, *rg_line			   = 0, *hdr_line = 0;
 	const char	*mode					   = 0;
-	
+    char  *idx_prefix                = 0;
+
 	mem_opt_t		*opt, opt0;
 	gzFile			 fp, fp2   = 0;
 	mem_pestat_t	 pes[4];
@@ -680,7 +849,7 @@ int main_mem(int argc, char *argv[])
 	memset(&opt0, 0, sizeof(mem_opt_t));
 	
 	/* Parse input arguments */
-	while ((c = getopt(argc, argv, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:q:")) >= 0)
+	while ((c = getopt(argc, argv, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:q:Z:")) >= 0)
 	{
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') no_mt_io = 1;
@@ -815,6 +984,9 @@ int main_mem(int argc, char *argv[])
 			if (*p != 0 && ispunct(*p) && isdigit(p[1]))
 				pes[1].low  = (int)(strtod(p+1, &p) + .499);
 		}
+		else if (c == 'Z') {
+            idx_prefix = optarg;
+        }
 		else {
 			free(opt);
 			if (is_o)
@@ -887,15 +1059,20 @@ int main_mem(int argc, char *argv[])
 	/* Matrix for SWA */
 	bwa_fill_scmat(opt->a, opt->b, opt->mat);
 	// tprof[PREPROCESS][0] += __rdtsc() - tim;
-	
+
 	/* Load bwt2/FMI index */
 	{
 		uint64_t tim = __rdtsc();
 
 		fprintf(stderr, "Ref file: %s\n", argv[optind]);			
-		fmi = new FMI_search(argv[optind]);
-		tprof[FMI][0] += __rdtsc() - tim;
 		
+        if (!idx_prefix) {
+            fmi = new FMI_search(argv[optind]);
+        }
+        else {
+            fmi = new FMI_search(argv[optind], BWA_IDX_BNS | BWA_IDX_PAC);
+        }
+        tprof[FMI][0] += __rdtsc() - tim;
 		// reading ref string from the file
 		tim = __rdtsc();
 		fprintf(stderr, "Reading reference genome..\n");
@@ -926,11 +1103,12 @@ int main_mem(int argc, char *argv[])
 		fclose(fr);
 		fprintf(stderr, "Reference genome size: %ld bp\n", rlen);
 		fprintf(stderr, "Done readng reference genome !!\n\n");
-	}
 
-	if (ignore_alt)
-		for (i = 0; i < fmi->idx->bns->n_seqs; ++i)
-			fmi->idx->bns->anns[i].is_alt = 0;
+    }
+
+    if (ignore_alt)
+        for (i = 0; i < fmi->idx->bns->n_seqs; ++i)
+            fmi->idx->bns->anns[i].is_alt = 0;
 
 	/* READS file operations */
 	fp = gzopen(argv[optind + 1], "r");
@@ -970,7 +1148,7 @@ int main_mem(int argc, char *argv[])
 	}
 #endif
 
-	bwa_print_sam_hdr(fmi->idx->bns, hdr_line, aux.fp);
+    bwa_print_sam_hdr(fmi->idx->bns, hdr_line, aux.fp);
 
 	// aux.totEl += ftell(aux.fp);
 	// aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads; // IMP modification
@@ -991,9 +1169,10 @@ int main_mem(int argc, char *argv[])
 	fprintf(stderr, "[%.4d] 1: Calling process()\n", myrank);
 
 	uint64_t tim = __rdtsc();
-	/* Relay process function */
-	process(&aux, fp, fp2, no_mt_io? 1:2);
-	
+
+    /* Relay process function */
+    process(&aux, fp, fp2, no_mt_io? 1:2, idx_prefix);
+
 	tprof[PROCESS][0] += __rdtsc() - tim;
 
 	// free memory
@@ -1015,7 +1194,7 @@ int main_mem(int argc, char *argv[])
 	}
 
 	// new bwt/FMI
-	delete(fmi);	
+    delete(fmi);
 	
 	return 0;
 }

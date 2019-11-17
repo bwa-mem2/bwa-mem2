@@ -29,6 +29,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 *****************************************************************************************/
 
 #include "bwamem.h"
+#include "ertseeding.h"
 #include "FMI_search.h"
 
 //----------------
@@ -49,7 +50,13 @@ KBTREE_INIT(chn, mem_chain_t, chain_cmp)
 KSORT_INIT(mem_intv, bwtintv_t, intv_lt)
 #define intv_lt1(a, b) ((((uint64_t)(a).m) <<32 | ((uint64_t)(a).n)) < (((uint64_t)(b).m) <<32 | ((uint64_t)(b).n)))  // trial
 KSORT_INIT(mem_intv1, SMEM, intv_lt1)  // debug
-			
+
+#define smem_lt(a, b) ((a).start == (b).start ? (a).end > (b).end : (a).start < (b).start)
+KSORT_INIT(mem_smem, mem_t, smem_lt)
+
+#define smem_lt_2(a, b) ((a).start == (b).start ? (a).end < (b).end : (a).start < (b).start)
+KSORT_INIT(mem_smem_sort_lt, mem_t, smem_lt_2)
+
 #define max_(x, y) ((x)>(y)?(x):(y))
 #define min_(x, y) ((x)>(y)?(y):(x))
 			
@@ -108,6 +115,19 @@ static void smem_aux_destroy(smem_aux_t *a)
 	free(a);
 }
 
+static inline void add_cigar(const mem_opt_t *opt, mem_aln_t *p, kstring_t *str, int which)
+{
+	int i;
+	if (p->n_cigar) { // aligned
+		for (i = 0; i < p->n_cigar; ++i) {
+			int c = p->cigar[i]&0xf;
+			if (!(opt->flag&MEM_F_SOFTCLIP) && !p->is_alt && (c == 3 || c == 4))
+				c = which? 4 : 3; // use hard clipping for supplementary alignments
+			kputw(p->cigar[i]>>4, str); kputc("MIDSH"[c], str);
+		}
+	} else kputc('*', str); // having a coordinate but unaligned (e.g. when copy_mate is true)
+}
+
 mem_opt_t *mem_opt_init()
 {
 	mem_opt_t *o;
@@ -161,6 +181,14 @@ KSORT_INIT(mem_ars_hash, mem_alnreg_t, alnreg_hlt)
 
 #define alnreg_hlt2(a, b) ((a).is_alt < (b).is_alt || ((a).is_alt == (b).is_alt && ((a).score > (b).score || ((a).score == (b).score && (a).hash < (b).hash))))
 KSORT_INIT(mem_ars_hash2, mem_alnreg_t, alnreg_hlt2)
+
+void sort_alnreg_re(int n, mem_alnreg_t* a) {
+    ks_introsort(mem_ars2, n, a);
+}
+
+void sort_alnreg_score(int n, mem_alnreg_t* a) {
+    ks_introsort(mem_ars, n, a);
+}
 
 #define PATCH_MAX_R_BW 0.05f
 #define PATCH_MIN_SC_RATIO 0.90f
@@ -227,6 +255,58 @@ int mem_patch_reg(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 #define MEM_MINSC_COEF 5.5f
 #define MEM_SEEDSW_COEF 0.05f
 int stat;
+
+int mem_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
+				    const uint8_t *pac, uint8_t *query, int n,
+				    mem_alnreg_t *a)
+{
+	int m, i, j;
+	if (n <= 1) return n;
+	for (i = 0; i < n; ++i) a[i].n_comp = 1;
+
+	for (i = 1; i < n; ++i)
+	{
+		mem_alnreg_t *p = &a[i];
+		if (p->rid != a[i-1].rid || p->rb >= a[i-1].re + opt->max_chain_gap)
+			continue; // then no need to go into the loop below
+		
+		for (j = i - 1; j >= 0 && p->rid == a[j].rid && p->rb < a[j].re + opt->max_chain_gap; --j) {
+			mem_alnreg_t *q = &a[j];
+			int64_t or_, oq, mr, mq;
+			int score, w;
+			if (q->qe == q->qb) continue; // a[j] has been excluded
+			or_ = q->re - p->rb; // overlap length on the reference
+			oq = q->qb < p->qb? q->qe - p->qb : p->qe - q->qb; // overlap length on the query
+			mr = q->re - q->rb < p->re - p->rb? q->re - q->rb : p->re - p->rb; // min ref len in alignment
+			mq = q->qe - q->qb < p->qe - p->qb? q->qe - q->qb : p->qe - p->qb; // min qry len in alignment
+            if (or_ > opt->mask_level_redun * mr && oq > opt->mask_level_redun * mq) { // one of the hits is redundant
+				if (p->score < q->score)
+				{
+					p->qe = p->qb;
+					break;
+				}
+				else q->qe = q->qb;
+			}
+			else if (q->rb < p->rb && (score = mem_patch_reg(opt, bns, pac, query, q, p, &w)) > 0) { // then merge q into p
+				p->n_comp += q->n_comp + 1;
+				p->seedcov = p->seedcov > q->seedcov? p->seedcov : q->seedcov;
+				p->sub = p->sub > q->sub? p->sub : q->sub;
+				p->csub = p->csub > q->csub? p->csub : q->csub;
+				p->qb = q->qb, p->rb = q->rb;
+				p->truesc = p->score = score;
+				p->w = w;
+				q->qb = q->qe;
+			}
+		}
+	}
+	for (i = 0, m = 0; i < n; ++i) // exclude identical hits
+		if (a[i].qe > a[i].qb) {
+			if (m != i) a[m++] = a[i];
+			else ++m;
+		}
+	n = m;
+	return m;
+}
 
 int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, uint8_t *query, int n,
@@ -898,6 +978,198 @@ void mem_chain_seeds(const mem_opt_t *opt,
 	_mm_free(sa_coord);
 }
 
+void mem_chain_new(const mem_opt_t *opt, 
+                   const bntseq_t *bns, 
+                   int len, 
+                   const uint8_t *seq, 
+                   mem_t* smems, 
+                   int64_t num_smem, 
+                   mem_chain_v* chain, 
+                   int seqid, 
+                   u64v* hits,
+                   mem_seed_t *seedBuf,
+                   int64_t seedBufSize,
+                   int64_t& seedBufCount,
+                   int tid) 
+{
+	int i, b = 0, e = 0, l_rep = 0;
+	int64_t l_pac = bns->l_pac;
+	kbtree_t(chn) *tree;
+	
+    if (len < opt->min_seed_len) return; // if the query is shorter than the seed length, no match
+	tree = kb_init(chn, KB_DEFAULT_SIZE + 8); // +8, due to addition of counters in chain
+    for (i = 0, b = e = l_rep = 0; i < num_smem; ++i) { // compute frac_rep
+        mem_t *p = &smems[i];
+        int sb = p->start, se = p->end;
+        if (p->hitcount <= opt->max_occ) continue;
+        if (sb > e) l_rep += e - b, b = sb, e = se;
+        else e = e > se? e : se;
+    }
+    l_rep += e - b;
+
+    for (i = 0; i < num_smem; ++i) {
+        mem_t *p = &smems[i];
+        int step, count, slen = p->end - p->start; // seed length
+        int64_t k;
+        // if (slen < opt->min_seed_len) continue; // ignore if too short or too repetitive
+        step = p->hitcount > opt->max_occ? p->hitcount / opt->max_occ : 1;
+        // step = p->hits.n > opt->max_occ? p->hits.n / opt->max_occ : 1;
+        for (k = count = 0; k < p->hitcount && count < opt->max_occ; k += step, ++count) {
+            mem_chain_t tmp, *lower, *upper; 
+            mem_seed_t s;
+            int rid, to_add = 0;
+            if (p->forward || p->fetch_leaves) {
+                s.rbeg = tmp.pos = hits->a[p->hitbeg + k]; // this is the base coordinate in the forward-reverse reference
+            }
+            else {
+                // Hit was obtained by backward search and corresponds to location of reverse complemented SMEM
+                // Add correction to hit position to get locations of SMEM.
+                s.rbeg = tmp.pos = (bns->l_pac << 1) - (hits->a[p->hitbeg + k] + slen - 1) - 1; 
+            }
+            s.qbeg = p->start;
+            s.len = p->end - p->start;
+            s.score = s.len;
+            rid = bns_intv2rid(bns, s.rbeg, s.rbeg + s.len);
+            if (rid < 0) continue; // bridging multiple reference sequences or the forward-reverse boundary; TODO: split the seed; don't discard it!!!
+            if (kb_size(tree)) {
+                kb_intervalp(chn, tree, &tmp, &lower, &upper); // find the closest chain
+                if (!lower || !test_and_merge(opt, l_pac, lower, &s, rid, tid)) to_add = 1;
+            } else to_add = 1;
+            if (to_add) { // add the seed as a new chain
+		        tmp.n = 1; tmp.m = SEEDS_PER_CHAIN;
+                if ((seedBufCount + tmp.m) > seedBufSize) {
+                    tmp.m += 1;
+                    tmp.seeds = (mem_seed_t *)calloc (tmp.m, sizeof(mem_seed_t));
+                }
+                else {
+                    tmp.seeds = seedBuf + seedBufCount;
+                    seedBufCount += tmp.m;
+		            memset(tmp.seeds, 0, tmp.m * sizeof(mem_seed_t));
+                }
+                tmp.seeds[0] = s;
+                tmp.rid = rid;
+                tmp.seqid = seqid;
+                tmp.is_alt = !!bns->anns[rid].is_alt;
+                kb_putp(chn, tree, &tmp);
+            }
+        }
+        // kv_destroy(p->hits);
+    }   
+	kv_resize(mem_chain_t, *chain, kb_size(tree));
+
+	#define traverse_func(p_) (chain->a[chain->n++] = *(p_))
+	__kb_traverse(mem_chain_t, tree, traverse_func);
+	#undef traverse_func
+
+	for (i = 0; i < chain->n; ++i) chain->a[i].frac_rep = (float)l_rep / len;
+	if (bwa_verbose >= 4) printf("* fraction of repetitive seeds: %.3f\n", (float)l_rep / len);
+
+	kb_destroy(chn, tree);
+}
+
+int mem_kernel1_core_ert(const mem_opt_t *opt,
+                         const bntseq_t *bns,
+					     const uint8_t *pac,
+					     bseq1_t *seq_,
+					     int nseq,
+					     mem_chain_v *chain_ar,
+                         mem_seed_t *seedBuf,
+                         int64_t seedBufSize,
+                         uint64_t* kmer_offsets,
+                         uint8_t* mlt_table,
+                         uint8_t* leaf_table,
+                         mem_t* smems,
+                         u64v* hits,
+					     int tid)
+{	
+	int i;
+	int64_t num_smem = 0;
+ 	mem_chain_v *chn;
+    int64_t seedBufCount = 0;
+	/* convert to 2-bit encoding if we have not done so */
+    for (int l=0; l<nseq; l++)
+	{
+		num_smem = 0;
+        char *seq = seq_[l].seq;
+		int len = seq_[l].l_seq;
+        uint8_t unpacked_rc_queue_buf[READ_LEN];
+        assert(len <= READ_LEN);
+		for (i = 0; i < len; ++i) {
+			seq[i] = seq[i] < 4? seq[i] : nst_nt4_table[(int)seq[i]]; //nst_nt4??
+            unpacked_rc_queue_buf[len - i - 1] = seq[i] < 4 ? 3 - seq[i] : 4; 
+        }
+        
+        int split_len = (int)(opt->min_seed_len * opt->split_factor + .499);
+
+        index_aux_t iaux;
+        iaux.kmer_offsets = kmer_offsets;
+        iaux.mlt_table = mlt_table;
+        iaux.leaf_table = leaf_table;
+        iaux.bns = bns;
+        iaux.pac = pac;
+
+        read_aux_t raux;
+        raux.min_seed_len = opt->min_seed_len;
+        raux.l_seq = len;
+        raux.read_name = seq_[l].name;
+        raux.unpacked_queue_buf = (uint8_t*) seq;
+        raux.unpacked_rc_queue_buf = unpacked_rc_queue_buf;
+
+        int smem_start_idx = 0;
+        hits->n = 0;
+
+        /// 1. Compute SMEMs
+        // printf_(VER, "Calling get_seeds..,l:%d tid: %d\n", l, tid);
+        get_seeds(&iaux, &raux, &smems[smem_start_idx], num_smem, hits);
+
+        /// 2. Reseeding: Break down larger SMEMs
+        int old_n = num_smem;
+        int64_t num_smem_reseed = 0;
+        for (i = 0; i < old_n; ++i) {
+            int qbeg = smems[smem_start_idx + i].start;
+            int qend = smems[smem_start_idx + i].end;
+            if ((qend - qbeg) < split_len || smems[smem_start_idx + i].hitcount > opt->split_width) {
+                continue;
+            }
+
+            reseed(&iaux, &raux, &smems[smem_start_idx + num_smem], 
+                   (qbeg + qend) >> 1, smems[smem_start_idx + i].hitcount + 1, 
+                   &smems[smem_start_idx + i].pt, num_smem_reseed, hits);
+
+            num_smem += num_smem_reseed;
+            num_smem_reseed = 0;
+        }
+            
+        /// 3. Apply LAST heuristic to find out non-overlapping seeds
+        int64_t num_smem_last = 0;
+        // printf_(VER, "Calling LAST.., l:%d tid: %d\n", l, tid);
+        last(&iaux, &raux, &smems[smem_start_idx + num_smem], opt->max_mem_intv, num_smem_last, hits);
+
+        num_smem += num_smem_last;
+       
+        ks_introsort(mem_smem_sort_lt, num_smem, &smems[smem_start_idx]);
+
+		kv_init(chain_ar[l]);
+        mem_chain_new(opt, bns, len, (uint8_t*)seq, 
+                      &smems[smem_start_idx], num_smem, &chain_ar[l], l, 
+                      hits, 
+		              seedBuf, seedBufSize, seedBufCount, 
+		              tid);
+        chn = &chain_ar[l];
+        chn->n = mem_chain_flt(opt, chn->n, chn->a, tid);
+
+        mem_flt_chained_seeds(opt, bns, pac, seq_, chn->n, chn->a);
+
+        if (hits->n >= 4000 * SEEDS_PER_READ) {
+            printf_(VER, "Found %d SMEMS and %d hits.., l:%d tid: %d\n", num_smem, hits->n, l, tid);
+        }
+        if (num_smem > BATCH_MUL * readLen) {
+            assert(0);
+        }
+	}
+	return 1;
+}
+
 int mem_kernel1_core(const mem_opt_t *opt,
 					 const bntseq_t *bns,
 					 const uint8_t *pac,
@@ -1114,18 +1386,36 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
 		// fprintf(stderr, "[%0.4d] Info: adjusted seedBufSz %d\n", tid, seedBufSz);
 	}
 
-	mem_kernel1_core(w->opt, w->bns, w->pac,
-					 w->seqs + seq_id,
-					 batch_size,
-					 w->chain_ar + seq_id,
-					 w->seedBuf + seq_id * AVG_SEEDS_PER_READ,
-					 seedBufSz,
-					 w->mmc.matchArray + offset,
-					 w->mmc.min_intv_ar + offset,
-					 w->mmc.query_pos_ar + offset,
-					 w->mmc.enc_qdb + offset,
-					 w->mmc.rid + offset,
-					 tid);
+    if (w->useErt) {
+        assert(tid < nthreads);
+        uint64_t smem_offset = readLen * tid * BATCH_MUL;
+        mem_kernel1_core_ert(w->opt, w->bns, w->pac,
+                             w->seqs + seq_id,
+                             batch_size,
+                             w->chain_ar + seq_id,
+                             w->seedBuf + seq_id * AVG_SEEDS_PER_READ,
+                             seedBufSz,
+                             w->kmer_offsets,
+                             w->mlt_table,
+                             w->leaf_table,
+                             w->smems + smem_offset,
+                             w->hits_ar + tid, 
+                             tid);
+    }
+    else {
+        mem_kernel1_core(w->opt, w->bns, w->pac,
+                         w->seqs + seq_id,
+                         batch_size,
+                         w->chain_ar + seq_id,
+                         w->seedBuf + seq_id * AVG_SEEDS_PER_READ,
+                         seedBufSz,
+                         w->mmc.matchArray + offset,
+                         w->mmc.min_intv_ar + offset,
+                         w->mmc.query_pos_ar + offset,
+                         w->mmc.enc_qdb + offset,
+                         w->mmc.rid + offset,
+                         tid);
+    }
 	printf_(VER, "4. Done mem_kernel1_core....\n");
 }
 
@@ -1183,7 +1473,8 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 					   w->pac, w->pes,
 					   (w->n_processed >> 1) + pos++,   // check!
 					   &w->seqs[i],
-					   &w->regs[i]);
+					   &w->regs[i],
+                       w->useErt);
 			
 			free(w->regs[i].a);
 			free(w->regs[i+1].a);
@@ -1226,7 +1517,8 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 								  &myaln,
 								  &w->mmc, sizeA, sizeB, sizeC,
 								  gcnt,
-								  tid);
+								  tid,
+                                  w->useErt);
 
 			free(w->regs[i].a);
 			free(w->regs[i+1].a);
@@ -1559,6 +1851,7 @@ void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str,
 		kputsn("\tNM:i:", 6, str); kputw(p->NM, str);
 		kputsn("\tMD:Z:", 6, str); kputs((char*)(p->cigar + p->n_cigar), str);
 	}
+	if (m && m->n_cigar) { kputsn("\tMC:Z:", 6, str); add_cigar(opt, m, str, which); }
 	if (p->score >= 0) { kputsn("\tAS:i:", 6, str); kputw(p->score, str); }
 	if (p->sub >= 0) { kputsn("\tXS:i:", 6, str); kputw(p->sub, str); }
 	if (bwa_rg_id[0]) { kputsn("\tRG:Z:", 6, str); kputs(bwa_rg_id, str); }
