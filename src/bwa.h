@@ -32,6 +32,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define BWA_H_
 
 #include <stdint.h>
+#include <zlib.h>
 #include "bntseq.h"
 #include "bwt.h"
 #include "macro.h"
@@ -68,6 +69,8 @@ bseq1_t *bseq_read_orig(int chunk_size, int *n_, void *ks1_, void *ks2_, int64_t
 bseq1_t *bseq_read(int chunk_size, int *n_, void *ks1_,
 				   void *ks2_, FILE* fpp, int len,
 				   int64_t *sz);
+
+bseq1_t *bseq_read_one_fasta_file(int chunk_size, int *n_, gzFile fp, int64_t *s);
 
 void bseq_classify(int n, bseq1_t *seqs, int m[2], bseq1_t *sep[2]);
 

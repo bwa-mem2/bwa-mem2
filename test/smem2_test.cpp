@@ -30,7 +30,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include<stdio.h>
 #include<stdlib.h>
 #include<stdint.h>
-#include "fasta_file.h"
 #include "FMI_search.h"
 #include <omp.h>
 #include <string.h>
@@ -104,6 +103,8 @@ int main(int argc, char **argv) {
 
     assert(numReads > 0);
     assert(numReads * readlength < QUERY_DB_SIZE);
+    int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(numReads * sizeof(int32_t), 64);
+    bseq1_t *seqs = (bseq1_t *)_mm_malloc(numReads * sizeof(bseq1_t), 64);
 
     FMI_search *fmiSearch = new FMI_search(argv[1]);
 
@@ -112,6 +113,8 @@ int main(int argc, char **argv) {
     long cind,st;
     uint64_t r;
     for (st=0; st < numReads; st++) {
+        query_cum_len_ar[st] = st * readlength;
+        seqs[st].l_seq = readlength;
         cind=st*readlength;
         for(r = 0; r < readlength; ++r) {
             switch(query_seq[r+cind])
@@ -167,6 +170,8 @@ int main(int argc, char **argv) {
             rid_array,
             numReads,
             batch_size,
+            seqs,
+            query_cum_len_ar,
             readlength,
             minSeedLen,
             matchArray,

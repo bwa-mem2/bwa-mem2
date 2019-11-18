@@ -209,6 +209,12 @@ bseq1_t *bseq_read_orig(int chunk_size, int *n_, void *ks1_, void *ks2_, int64_t
 	return seqs;
 }
 
+bseq1_t *bseq_read_one_fasta_file(int chunk_size, int *n_, gzFile fp, int64_t *s)
+{
+    kseq_t *ks = kseq_init(fp);
+    return bseq_read_orig(chunk_size, n_, ks, NULL, s);
+}
+
 void bseq_classify(int n, bseq1_t *seqs, int m[2], bseq1_t *sep[2])
 {
 	int i, has_last;

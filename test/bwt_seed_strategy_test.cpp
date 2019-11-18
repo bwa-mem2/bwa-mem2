@@ -30,7 +30,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include<stdio.h>
 #include<stdlib.h>
 #include<stdint.h>
-#include "fasta_file.h"
 #include "FMI_search.h"
 #include <omp.h>
 #include <string.h>
@@ -39,7 +38,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <ittnotify.h>
 #endif
 
-#define QUERY_DB_SIZE 12500000000L
+#define QUERY_DB_SIZE 512000000
 
 int myrank, num_ranks;
 
@@ -54,16 +53,24 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    char *query_seq=(char *)malloc(QUERY_DB_SIZE*sizeof(char));
-    int64_t numReads;
-    numReads=read_multi_fasta_file(argv[2],query_seq);
+    int32_t numReads = 0;
+    int64_t total_size = 0;
+    gzFile fp = gzopen(argv[2], "r");
+	if (fp == 0)
+	{
+		fprintf(stderr, "[E::%s] fail to open file `%s'.\n", __func__, argv[2]);
+        exit(EXIT_FAILURE);
+	}
+    
+    printf("before reading sequences\n");
+    bseq1_t *seqs = bseq_read_one_fasta_file(QUERY_DB_SIZE, &numReads, fp, &total_size);
 
-    if(numReads==-1)
+    if(seqs == NULL)
     {
-        printf("Error opening query'%s'. Bailing out.",argv[2]);
-        free(query_seq);
-        return -1;
+        printf("ERROR! seqs = NULL\n");
+        exit(0);
     }
+    int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(numReads * sizeof(int32_t), 64);
 
     FMI_search *fmiSearch = new FMI_search(argv[1]);
 
@@ -78,9 +85,10 @@ int main(int argc, char **argv) {
     int64_t cind,st;
     uint64_t r;
     for (st=0; st < numReads; st++) {
+        query_cum_len_ar[st] = st * readlength;
         cind=st*readlength;
         for(r = 0; r < readlength; ++r) {
-            switch(query_seq[r+cind])
+            switch(seqs[st].seq[r])
             {
                 case '0': enc_qdb[r+cind]=0;
                           break;
@@ -133,9 +141,11 @@ int main(int argc, char **argv) {
     numTotalSmem[0] = fmiSearch->bwtSeedStrategyAllPosOneThread(enc_qdb,
             max_intv_array,
             numReads,
-            readlength,
+            seqs,
+            query_cum_len_ar,
             minSeedLen,
             matchArray);
+
     endTick = __rdtsc();
 #ifdef VTUNE_ANALYSIS
     __itt_pause();
@@ -176,7 +186,6 @@ int main(int argc, char **argv) {
         }
     }
     
-    free(query_seq);
     free(enc_qdb);
     _mm_free(matchArray);
     _mm_free(max_intv_array);
