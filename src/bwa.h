@@ -64,13 +64,13 @@ typedef struct {
 extern int bwa_verbose;
 extern char bwa_rg_id[256];
 
-bseq1_t *bseq_read_orig(int chunk_size, int *n_, void *ks1_, void *ks2_, int64_t *s);
+bseq1_t *bseq_read_orig(int64_t chunk_size, int *n_, void *ks1_, void *ks2_, int64_t *s);
 
-bseq1_t *bseq_read(int chunk_size, int *n_, void *ks1_,
+bseq1_t *bseq_read(int64_t chunk_size, int *n_, void *ks1_,
 				   void *ks2_, FILE* fpp, int len,
 				   int64_t *sz);
 
-bseq1_t *bseq_read_one_fasta_file(int chunk_size, int *n_, gzFile fp, int64_t *s);
+bseq1_t *bseq_read_one_fasta_file(int64_t chunk_size, int *n_, gzFile fp, int64_t *s);
 
 void bseq_classify(int n, bseq1_t *seqs, int m[2], bseq1_t *sep[2]);
 

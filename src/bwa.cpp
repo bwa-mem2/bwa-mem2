@@ -69,7 +69,7 @@ static inline void kseq2bseq1(const kseq_t *ks, bseq1_t *s)
 
 /* Customized for MPI processing */
 //bseq1_t *bseq_read(int chunk_size, int *n_, void *ks1_, void *ks2_)
-bseq1_t *bseq_read(int chunk_size, int *n_, void *ks1_, void *ks2_,
+bseq1_t *bseq_read(int64_t chunk_size, int *n_, void *ks1_, void *ks2_,
 				   FILE* fpp, int len, int64_t *s)
 {
 	kseq_t *ks = (kseq_t*)ks1_, *ks2 = (kseq_t*)ks2_;
@@ -161,7 +161,7 @@ bseq1_t *bseq_read(int chunk_size, int *n_, void *ks1_, void *ks2_,
 	return seqs;
 }
 
-bseq1_t *bseq_read_orig(int chunk_size, int *n_, void *ks1_, void *ks2_, int64_t *s)
+bseq1_t *bseq_read_orig(int64_t chunk_size, int *n_, void *ks1_, void *ks2_, int64_t *s)
 {
 	kseq_t *ks = (kseq_t*)ks1_, *ks2 = (kseq_t*)ks2_;
 	int64_t size = 0, m, n;
@@ -209,7 +209,7 @@ bseq1_t *bseq_read_orig(int chunk_size, int *n_, void *ks1_, void *ks2_, int64_t
 	return seqs;
 }
 
-bseq1_t *bseq_read_one_fasta_file(int chunk_size, int *n_, gzFile fp, int64_t *s)
+bseq1_t *bseq_read_one_fasta_file(int64_t chunk_size, int *n_, gzFile fp, int64_t *s)
 {
     kseq_t *ks = kseq_init(fp);
     return bseq_read_orig(chunk_size, n_, ks, NULL, s);
