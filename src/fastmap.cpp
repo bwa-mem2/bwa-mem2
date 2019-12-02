@@ -267,9 +267,10 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int ntid, char* idx_prefix) {
 
     allocMem += ((nthreads * BATCH_MUL * readLen * sizeof(mem_t)) + (nthreads * sizeof(u64v)));
     w.smems = (mem_t*) malloc(nthreads * BATCH_MUL * readLen * sizeof(mem_t));
-	w.hits_ar = (u64v*) malloc(nthreads * sizeof(u64v));
+    w.hit_size = MAX_LINE_LEN * sizeof(u64v);
+    w.hits_ar = (u64v*) malloc(nthreads * w.hit_size);
     for (int i = 0 ; i < nthreads; ++i) {
-        kv_init_base(uint64_t, w.hits_ar[i], MAX_HITS_PER_READ);
+        kv_init_base(uint64_t, w.hits_ar[i * MAX_LINE_LEN], MAX_HITS_PER_READ);
     }
     w.useErt = 1;
 
@@ -742,7 +743,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads, char
         free(w.leaf_table);
         free(w.smems);
         for (int i = 0 ; i < nthreads; ++i) {
-            kv_destroy(w.hits_ar[i]);
+            kv_destroy(w.hits_ar[i * MAX_LINE_LEN]);
         }
         free(w.hits_ar);
     }
@@ -820,6 +821,7 @@ static void usage(const mem_opt_t *opt)
 	fprintf(stderr, "                 specify the mean, standard deviation (10%% of the mean if absent), max\n");
 	fprintf(stderr, "                 (4 sigma from the mean if absent) and min of the insert size distribution.\n");
 	fprintf(stderr, "                 FR orientation only. [inferred]\n");
+	fprintf(stderr, "   -Z STR        ERT index prefix name. When using ERT specify path to BWT index prefix as <idxbase>\n");
 	fprintf(stderr, "Note: Please read the man page for detailed description of the command line and options.\n");
 }
 

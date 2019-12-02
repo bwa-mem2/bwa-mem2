@@ -222,6 +222,7 @@ typedef struct worker_t {
     uint8_t* lep;
     mem_t* smems;
     u64v* hits_ar;
+    int64_t hit_size;
     int useErt;
 } worker_t;
 

@@ -1024,7 +1024,7 @@ void mem_chain_new(const mem_opt_t *opt,
             else {
                 // Hit was obtained by backward search and corresponds to location of reverse complemented SMEM
                 // Add correction to hit position to get locations of SMEM.
-                s.rbeg = tmp.pos = (bns->l_pac << 1) - (hits->a[p->hitbeg + k] + slen - 1) - 1; 
+                s.rbeg = tmp.pos = (bns->l_pac << 1) - (hits->a[p->hitbeg + k] + slen - p->end_correction); 
             }
             s.qbeg = p->start;
             s.len = p->end - p->start;
@@ -1091,6 +1091,10 @@ int mem_kernel1_core_ert(const mem_opt_t *opt,
 	{
 		num_smem = 0;
         char *seq = seq_[l].seq;
+        int hasN = 0;
+	    if (strchr(seq, 'N') || strchr(seq, 'n')) {
+	        hasN = 1;
+	    }
 		int len = seq_[l].l_seq;
         uint8_t unpacked_rc_queue_buf[READ_LEN];
         assert(len <= READ_LEN);
@@ -1120,7 +1124,15 @@ int mem_kernel1_core_ert(const mem_opt_t *opt,
 
         /// 1. Compute SMEMs
         // printf_(VER, "Calling get_seeds..,l:%d tid: %d\n", l, tid);
+        if (hasN) {
+            get_seeds(&iaux, &raux, &smems[smem_start_idx], num_smem, hits);
+        }
+        else {
+            get_seeds_prefix(&iaux, &raux, &smems[smem_start_idx], num_smem, hits);
+        }
+        /*
         get_seeds(&iaux, &raux, &smems[smem_start_idx], num_smem, hits);
+        */
 
         /// 2. Reseeding: Break down larger SMEMs
         int old_n = num_smem;
@@ -1131,11 +1143,21 @@ int mem_kernel1_core_ert(const mem_opt_t *opt,
             if ((qend - qbeg) < split_len || smems[smem_start_idx + i].hitcount > opt->split_width) {
                 continue;
             }
-
+            if (hasN) {
+                reseed(&iaux, &raux, &smems[smem_start_idx + num_smem], 
+                       (qbeg + qend) >> 1, smems[smem_start_idx + i].hitcount + 1, 
+                       &smems[smem_start_idx + i].pt, num_smem_reseed, hits);
+            }
+            else {
+                reseed_prefix(&iaux, &raux, &smems[smem_start_idx + num_smem], 
+                              (qbeg + qend) >> 1, smems[smem_start_idx + i].hitcount + 1, 
+                              &smems[smem_start_idx + i].pt, num_smem_reseed, hits);
+            }
+            /*
             reseed(&iaux, &raux, &smems[smem_start_idx + num_smem], 
                    (qbeg + qend) >> 1, smems[smem_start_idx + i].hitcount + 1, 
                    &smems[smem_start_idx + i].pt, num_smem_reseed, hits);
-
+            */
             num_smem += num_smem_reseed;
             num_smem_reseed = 0;
         }
@@ -1388,7 +1410,7 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
 
     if (w->useErt) {
         assert(tid < nthreads);
-        uint64_t smem_offset = readLen * tid * BATCH_MUL;
+        uint64_t smem_offset = tid * readLen * BATCH_MUL;
         mem_kernel1_core_ert(w->opt, w->bns, w->pac,
                              w->seqs + seq_id,
                              batch_size,
@@ -1399,7 +1421,7 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
                              w->mlt_table,
                              w->leaf_table,
                              w->smems + smem_offset,
-                             w->hits_ar + tid, 
+                             w->hits_ar + (tid * MAX_LINE_LEN), 
                              tid);
     }
     else {
@@ -1553,7 +1575,7 @@ void mem_process_seqs(mem_opt_t *opt,
 {
 	// worker_t w;
 	mem_pestat_t pes[4];
-	double ctime, rtime;
+	double ctime, rtime, ctime1, rtime1;
 	
 	ctime = cputime(); rtime = realtime();
 	// global_bns = bns;
@@ -1570,10 +1592,13 @@ void mem_process_seqs(mem_opt_t *opt,
 	fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_bwt\n", myrank);
 	
 	kt_for(worker_bwt, &w, n_); // SMEMs (+SAL)
+    fprintf(stderr, "time_worker_bwt %.3f CPU sec, real %.3f sec\n", cputime() - ctime, realtime() - rtime);
 
 	fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_aln\n", myrank);
-	
+    ctime1 = cputime(); rtime1 = realtime(); 
 	kt_for(worker_aln, &w, n_); // BSW
+    fprintf(stderr, "time_worker_aln %.3f CPU sec, real %.3f sec\n", cputime() - ctime1, realtime() - rtime1);
+
 	tprof[WORKER10][0] += __rdtsc() - tim;		
 
 
@@ -1593,7 +1618,9 @@ void mem_process_seqs(mem_opt_t *opt,
 	tim = __rdtsc();
 	fprintf(stderr, "[%0.4d] 10. Calling kt_for - worker_sam\n", myrank);
 	
+    ctime1 = cputime(); rtime1 = realtime(); 
 	kt_for(worker_sam, &w,  n_);   // SAM	
+    fprintf(stderr, "time_worker_sam %.3f CPU sec, real %.3f sec\n", cputime() - ctime1, realtime() - rtime1);
   	tprof[WORKER20][0] += __rdtsc() - tim;
 
 	fprintf(stderr, "\t[%0.4d][ M::%s] Processed %d reads in %.3f "

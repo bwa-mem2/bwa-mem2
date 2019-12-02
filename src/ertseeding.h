@@ -50,6 +50,8 @@ typedef struct {
     int fetch_leaves;
     int hitbeg;
     int hitcount;
+    int end_correction;
+    int is_multi_hit;
     pivot_t pt;
     // u64v hits; //!< Hits for MEM
 } mem_t;
@@ -103,11 +105,16 @@ typedef struct {
     int prev_pivot;                 // Pivot used in the previous iteration (i-1)
     int prev_prev_pivot;            // Pivot used in iteration i-2 (useful for reseeding)
     int stop_be;                    // Stop backward search early if no new SMEMs can be found for pivot
+    int mem_end_limit;
 } smem_helper_t;
 
 void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t& num_smem, u64v* hits);
 
+void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t& num_smem, u64v* hits);
+
 void reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start, int limit, pivot_t* pt, int64_t& num_smem, u64v* hits);
+
+void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start, int limit, pivot_t* pt, int64_t& num_smem, u64v* hits);
 
 void last(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int limit, int64_t& num_smem, u64v* hits);
 
