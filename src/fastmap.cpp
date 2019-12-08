@@ -265,11 +265,13 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int ntid, char* idx_prefix) {
         fprintf(stderr, "[M::%s::ERT] Index tables loaded in %.3f CPU sec, %.3f real sec...\n", __func__, cputime() - ctime, realtime() - rtime);
     }
 
-    allocMem += ((nthreads * BATCH_MUL * readLen * sizeof(mem_t)) + (nthreads * sizeof(u64v)));
-    w.smems = (mem_t*) malloc(nthreads * BATCH_MUL * readLen * sizeof(mem_t));
-    w.hit_size = MAX_LINE_LEN * sizeof(u64v);
-    w.hits_ar = (u64v*) malloc(nthreads * w.hit_size);
+    allocMem += ((nthreads * readLen * readLen * sizeof(mem_t)) + (nthreads * sizeof(u64v)));
+    w.smemBufSize = MAX_LINE_LEN * sizeof(mem_v);
+    w.smems = (mem_v*) malloc(nthreads * w.smemBufSize);
+    w.hitBufSize = MAX_LINE_LEN * sizeof(u64v);
+    w.hits_ar = (u64v*) malloc(nthreads * w.hitBufSize);
     for (int i = 0 ; i < nthreads; ++i) {
+        kv_init_base(mem_t, w.smems[i * MAX_LINE_LEN], BATCH_MUL * READ_LEN);
         kv_init_base(uint64_t, w.hits_ar[i * MAX_LINE_LEN], MAX_HITS_PER_READ);
     }
     w.useErt = 1;
@@ -741,10 +743,11 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads, char
         free(w.kmer_offsets);
         free(w.mlt_table);
         free(w.leaf_table);
-        free(w.smems);
         for (int i = 0 ; i < nthreads; ++i) {
+            kv_destroy(w.smems[i * MAX_LINE_LEN]);
             kv_destroy(w.hits_ar[i * MAX_LINE_LEN]);
         }
+        free(w.smems);
         free(w.hits_ar);
     }
     else {    

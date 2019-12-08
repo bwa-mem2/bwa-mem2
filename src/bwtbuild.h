@@ -30,6 +30,8 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #ifndef BWT_BWTBUILD_H
 #define BWT_BWTBUILD_H
 
+void build_binaryRef(const char* prefix);
+
 int build_index(const char *prefix);
 
 #endif

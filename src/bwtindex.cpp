@@ -209,9 +209,9 @@ int bwa_bwt2sa(int argc, char *argv[]) // the "bwt2sa" command
 
 int bwa_index(int argc, char *argv[]) // the "index" command
 {
-	int c, algo_type = BWTALGO_AUTO, is_64 = 0, block_size = 10000000, readLength = 101, num_threads = 1;
+	int c, algo_type = BWTALGO_AUTO, is_64 = 0, block_size = 10000000, readLength = READ_LEN, num_threads = 1;
 	char *prefix = 0, *str;
-	while ((c = getopt(argc, argv, "6a:p:b:t:l:")) >= 0) {
+	while ((c = getopt(argc, argv, "6a:p:b:t:")) >= 0) {
 		switch (c) {
             case 'a': // if -a is not set, algo_type will be determined later
                 if (strcmp(optarg, "rb2") == 0) algo_type = BWTALGO_RB2;
@@ -231,9 +231,6 @@ int bwa_index(int argc, char *argv[]) // the "index" command
                       break;
             case 't':
                       num_threads = atoi(optarg); 
-                      break;
-            case 'l':
-                      readLength = atoi(optarg);
                       break;
             default: return 1;
 		}
@@ -269,6 +266,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
         strcat(kmer_tbl_file_name, ".kmer_table");
         buildKmerTrees(kmer_tbl_file_name, bid, prefix, num_threads, readLength);
         free(kmer_tbl_file_name);
+        build_binaryRef(prefix);
     }
     else if (algo_type == BWTALGO_MEM2) {
 	    bwa_idx_build_mem2(argv[optind], prefix);

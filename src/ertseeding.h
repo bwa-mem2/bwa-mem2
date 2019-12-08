@@ -108,14 +108,14 @@ typedef struct {
     int mem_end_limit;
 } smem_helper_t;
 
-void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t& num_smem, u64v* hits);
+void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits);
 
-void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t& num_smem, u64v* hits);
+void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits);
 
-void reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start, int limit, pivot_t* pt, int64_t& num_smem, u64v* hits);
+void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int limit, pivot_t* pt, u64v* hits);
 
-void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start, int limit, pivot_t* pt, int64_t& num_smem, u64v* hits);
+void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int limit, pivot_t* pt, u64v* hits);
 
-void last(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int limit, int64_t& num_smem, u64v* hits);
+void last(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int limit, u64v* hits);
 
 #endif

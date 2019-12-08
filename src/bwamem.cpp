@@ -543,19 +543,21 @@ void mem_print_chain(const bntseq_t *bns, mem_chain_v *chn)
 	for (i = 0; i < chn->n; ++i)
 	{
 		mem_chain_t *p = &chn->a[i];
-		fprintf(stderr, "* Found CHAIN(%d): n=%d; weight=%d", i, p->n, mem_chain_weight(p));
+		// fprintf(stderr, "* Found CHAIN(%d): n=%d; weight=%d", i, p->n, mem_chain_weight(p));
+		printf("* Found CHAIN(%d): n=%d; weight=%d", i, p->n, mem_chain_weight(p));
 		for (j = 0; j < p->n; ++j)
 		{
 			bwtint_t pos;
 			int is_rev;
 			pos = bns_depos(bns, p->seeds[j].rbeg, &is_rev);
 			if (is_rev) pos -= p->seeds[j].len - 1;
-			fprintf(stderr, "\t%d;%d;%d,%ld(%s:%c%ld)",
+			printf("\t%d;%d;%d,%ld(%s:%c%ld)",
 					   p->seeds[j].score, p->seeds[j].len, p->seeds[j].qbeg,
 					   (long)p->seeds[j].rbeg, bns->anns[p->rid].name,
 					   "+-"[is_rev], (long)(pos - bns->anns[p->rid].offset) + 1);
 		}
-		fputc('\n', stderr);
+		// fputc('\n', stderr);
+        printf("\n");
 	}
 }
 
@@ -982,8 +984,7 @@ void mem_chain_new(const mem_opt_t *opt,
                    const bntseq_t *bns, 
                    int len, 
                    const uint8_t *seq, 
-                   mem_t* smems, 
-                   int64_t num_smem, 
+                   mem_v* smems, 
                    mem_chain_v* chain, 
                    int seqid, 
                    u64v* hits,
@@ -998,8 +999,8 @@ void mem_chain_new(const mem_opt_t *opt,
 	
     if (len < opt->min_seed_len) return; // if the query is shorter than the seed length, no match
 	tree = kb_init(chn, KB_DEFAULT_SIZE + 8); // +8, due to addition of counters in chain
-    for (i = 0, b = e = l_rep = 0; i < num_smem; ++i) { // compute frac_rep
-        mem_t *p = &smems[i];
+    for (i = 0, b = e = l_rep = 0; i < smems->n; ++i) { // compute frac_rep
+        mem_t *p = &smems->a[i];
         int sb = p->start, se = p->end;
         if (p->hitcount <= opt->max_occ) continue;
         if (sb > e) l_rep += e - b, b = sb, e = se;
@@ -1007,8 +1008,8 @@ void mem_chain_new(const mem_opt_t *opt,
     }
     l_rep += e - b;
 
-    for (i = 0; i < num_smem; ++i) {
-        mem_t *p = &smems[i];
+    for (i = 0; i < smems->n; ++i) {
+        mem_t *p = &smems->a[i];
         int step, count, slen = p->end - p->start; // seed length
         int64_t k;
         // if (slen < opt->min_seed_len) continue; // ignore if too short or too repetitive
@@ -1029,6 +1030,7 @@ void mem_chain_new(const mem_opt_t *opt,
             s.qbeg = p->start;
             s.len = p->end - p->start;
             s.score = s.len;
+            // printf("[SEED],%d,%d,%ld\n", s.qbeg, s.qbeg + s.len, s.rbeg);
             rid = bns_intv2rid(bns, s.rbeg, s.rbeg + s.len);
             if (rid < 0) continue; // bridging multiple reference sequences or the forward-reverse boundary; TODO: split the seed; don't discard it!!!
             if (kb_size(tree)) {
@@ -1078,18 +1080,17 @@ int mem_kernel1_core_ert(const mem_opt_t *opt,
                          uint64_t* kmer_offsets,
                          uint8_t* mlt_table,
                          uint8_t* leaf_table,
-                         mem_t* smems,
+                         mem_v* smems,
                          u64v* hits,
 					     int tid)
 {	
 	int i;
-	int64_t num_smem = 0;
  	mem_chain_v *chn;
     int64_t seedBufCount = 0;
 	/* convert to 2-bit encoding if we have not done so */
     for (int l=0; l<nseq; l++)
 	{
-		num_smem = 0;
+        smems->n = 0;
         char *seq = seq_[l].seq;
         int hasN = 0;
 	    if (strchr(seq, 'N') || strchr(seq, 'n')) {
@@ -1102,7 +1103,10 @@ int mem_kernel1_core_ert(const mem_opt_t *opt,
 			seq[i] = seq[i] < 4? seq[i] : nst_nt4_table[(int)seq[i]]; //nst_nt4??
             unpacked_rc_queue_buf[len - i - 1] = seq[i] < 4 ? 3 - seq[i] : 4; 
         }
-        
+       
+#ifdef PRINT_SMEM
+        printf("=====> Processing read '%s' <=====\n", seq_[l].name);
+#endif
         int split_len = (int)(opt->min_seed_len * opt->split_factor + .499);
 
         index_aux_t iaux;
@@ -1119,75 +1123,49 @@ int mem_kernel1_core_ert(const mem_opt_t *opt,
         raux.unpacked_queue_buf = (uint8_t*) seq;
         raux.unpacked_rc_queue_buf = unpacked_rc_queue_buf;
 
-        int smem_start_idx = 0;
         hits->n = 0;
 
-        /// 1. Compute SMEMs
-        // printf_(VER, "Calling get_seeds..,l:%d tid: %d\n", l, tid);
         if (hasN) {
-            get_seeds(&iaux, &raux, &smems[smem_start_idx], num_smem, hits);
+            get_seeds(&iaux, &raux, smems, hits);
         }
         else {
-            get_seeds_prefix(&iaux, &raux, &smems[smem_start_idx], num_smem, hits);
+            get_seeds_prefix(&iaux, &raux, smems, hits);
         }
-        /*
-        get_seeds(&iaux, &raux, &smems[smem_start_idx], num_smem, hits);
-        */
 
         /// 2. Reseeding: Break down larger SMEMs
-        int old_n = num_smem;
-        int64_t num_smem_reseed = 0;
+        int old_n = smems->n;
         for (i = 0; i < old_n; ++i) {
-            int qbeg = smems[smem_start_idx + i].start;
-            int qend = smems[smem_start_idx + i].end;
-            if ((qend - qbeg) < split_len || smems[smem_start_idx + i].hitcount > opt->split_width) {
+            int qbeg = smems->a[i].start;
+            int qend = smems->a[i].end;
+            if ((qend - qbeg) < split_len || smems->a[i].hitcount > opt->split_width) {
                 continue;
             }
             if (hasN) {
-                reseed(&iaux, &raux, &smems[smem_start_idx + num_smem], 
-                       (qbeg + qend) >> 1, smems[smem_start_idx + i].hitcount + 1, 
-                       &smems[smem_start_idx + i].pt, num_smem_reseed, hits);
+                reseed(&iaux, &raux, smems, 
+                       (qbeg + qend) >> 1, smems->a[i].hitcount + 1, 
+                       &smems->a[i].pt, hits);
             }
             else {
-                reseed_prefix(&iaux, &raux, &smems[smem_start_idx + num_smem], 
-                              (qbeg + qend) >> 1, smems[smem_start_idx + i].hitcount + 1, 
-                              &smems[smem_start_idx + i].pt, num_smem_reseed, hits);
+                reseed_prefix(&iaux, &raux, smems, 
+                              (qbeg + qend) >> 1, smems->a[i].hitcount + 1, 
+                              &smems->a[i].pt, hits);
             }
-            /*
-            reseed(&iaux, &raux, &smems[smem_start_idx + num_smem], 
-                   (qbeg + qend) >> 1, smems[smem_start_idx + i].hitcount + 1, 
-                   &smems[smem_start_idx + i].pt, num_smem_reseed, hits);
-            */
-            num_smem += num_smem_reseed;
-            num_smem_reseed = 0;
         }
             
         /// 3. Apply LAST heuristic to find out non-overlapping seeds
-        int64_t num_smem_last = 0;
-        // printf_(VER, "Calling LAST.., l:%d tid: %d\n", l, tid);
-        last(&iaux, &raux, &smems[smem_start_idx + num_smem], opt->max_mem_intv, num_smem_last, hits);
-
-        num_smem += num_smem_last;
+        last(&iaux, &raux, smems, opt->max_mem_intv, hits);
        
-        ks_introsort(mem_smem_sort_lt, num_smem, &smems[smem_start_idx]);
+        ks_introsort(mem_smem_sort_lt, smems->n, smems->a);
 
 		kv_init(chain_ar[l]);
         mem_chain_new(opt, bns, len, (uint8_t*)seq, 
-                      &smems[smem_start_idx], num_smem, &chain_ar[l], l, 
+                      smems, &chain_ar[l], l, 
                       hits, 
 		              seedBuf, seedBufSize, seedBufCount, 
 		              tid);
         chn = &chain_ar[l];
         chn->n = mem_chain_flt(opt, chn->n, chn->a, tid);
-
         mem_flt_chained_seeds(opt, bns, pac, seq_, chn->n, chn->a);
-
-        if (hits->n >= 4000 * SEEDS_PER_READ) {
-            printf_(VER, "Found %d SMEMS and %d hits.., l:%d tid: %d\n", num_smem, hits->n, l, tid);
-        }
-        if (num_smem > BATCH_MUL * readLen) {
-            assert(0);
-        }
 	}
 	return 1;
 }
@@ -1410,7 +1388,6 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
 
     if (w->useErt) {
         assert(tid < nthreads);
-        uint64_t smem_offset = tid * readLen * BATCH_MUL;
         mem_kernel1_core_ert(w->opt, w->bns, w->pac,
                              w->seqs + seq_id,
                              batch_size,
@@ -1420,7 +1397,7 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
                              w->kmer_offsets,
                              w->mlt_table,
                              w->leaf_table,
-                             w->smems + smem_offset,
+                             w->smems + (tid * MAX_LINE_LEN),
                              w->hits_ar + (tid * MAX_LINE_LEN), 
                              tid);
     }

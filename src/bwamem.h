@@ -220,9 +220,10 @@ typedef struct worker_t {
     uint8_t* mlt_table;
     uint8_t* leaf_table;
     uint8_t* lep;
-    mem_t* smems;
+    mem_v* smems;
     u64v* hits_ar;
-    int64_t hit_size;
+    int64_t hitBufSize;
+    int64_t smemBufSize; 
     int useErt;
 } worker_t;
 

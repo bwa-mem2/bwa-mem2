@@ -596,69 +596,45 @@ int build_sa(std::string ref_db, String<int64_t> sa, int64_t *count, int64_t *su
     return 0;
 }
 
-int build_index(const char *prefix) {
+#else
 
-    int64_t startTick;
-    startTick = __rdtsc();
-       
+void build_binaryRef(const char* prefix) {
+
     std::string reference_seq;
     char pac_file_name[200];
     sprintf(pac_file_name, "%s.pac", prefix);
     pac2nt(pac_file_name, reference_seq);
-    int status;
     char *binary_ref_seq = (char *)_mm_malloc((reference_seq.length())*sizeof(char), 64);
     char binary_ref_name[200];
     sprintf(binary_ref_name, "%s.0123", prefix);
     std::fstream binary_ref_stream (binary_ref_name, ios::out | ios::binary);
-    binary_ref_stream.seekg(0);	
-    printf("init ticks = %ld\n", __rdtsc() - startTick);
-    startTick = __rdtsc();
+    binary_ref_stream.seekg(0); 
     int64_t i;
     for(i = 0; i < reference_seq.length(); i++)
     {
         switch(reference_seq[i])
         {
             case 'A':
-            binary_ref_seq[i] = 0;
-            break;
+                binary_ref_seq[i] = 0;
+                break;
             case 'C':
-            binary_ref_seq[i] = 1;
-            break;
+                binary_ref_seq[i] = 1;
+                break;
             case 'G':
-            binary_ref_seq[i] = 2;
-            break;
+                binary_ref_seq[i] = 2;
+                break;
             case 'T':
-            binary_ref_seq[i] = 3;
-            break;
+                binary_ref_seq[i] = 3;
+                break;
             default:
-            binary_ref_seq[i] = 4;
-
+                binary_ref_seq[i] = 4;
         }
     }
     printf("ref seq len = %ld\n", reference_seq.length());
     binary_ref_stream.write(binary_ref_seq, reference_seq.length() * sizeof(char));
-    printf("binary seq ticks = %ld\n", __rdtsc() - startTick);
-    startTick = __rdtsc();
-
-    reference_seq+='$';
-    int64_t count[16];
-    String<int64_t> sa;
-    String<char> bwt;
-
-    int64_t *suffix_array=(int64_t *)_mm_malloc(length(reference_seq) * sizeof(int64_t), 64);
-    startTick = __rdtsc();
-    status=build_sa(reference_seq, sa, count, suffix_array);
-    printf("build index ticks = %ld\n", __rdtsc() - startTick);
-    startTick = __rdtsc();
-
-    build_fm_index_avx(prefix, binary_ref_seq, length(reference_seq) - 1, suffix_array, count);
-	build_fm_index_sse(prefix, binary_ref_seq, length(reference_seq) - 1, suffix_array, count);
     _mm_free(binary_ref_seq);
-    _mm_free(suffix_array);
-    return 0;
-}
 
-#else
+}
 
 int build_index(const char *prefix) {
 

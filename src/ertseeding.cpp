@@ -615,8 +615,7 @@ void getNextByteIdx_dfs(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx,
             mem->hitcount += raux->num_hits;
             for (k = 0; k < raux->num_hits; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 nextByteIdx += 5;
                 ref_pos = 0;
             }
@@ -624,14 +623,13 @@ void getNextByteIdx_dfs(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx,
         else {
             raux->num_hits = 1;
             mem->hitcount += raux->num_hits;
-            // kv_push(uint64_t, *hits, leaf_data >> 7);
-            kv_push_hits(uint64_t, *hits, leaf_data >> 7);
+            kv_push(uint64_t, *hits, leaf_data >> 7);
         }
     }
     else if (code_c == UNIFORM) {
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -677,8 +675,7 @@ void leaf_gather_dh(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf_data, uin
     mem->hitcount += hit_count;
     for (k = 0; k < hit_count; ++k) {
         memcpy(&ref_pos, &leaf_data[leaf_byte_idx], 5);               
-        // kv_push(uint64_t, *hits, ref_pos >> 7);
-        kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+        kv_push(uint64_t, *hits, ref_pos >> 7);
         leaf_byte_idx += 5;
         ref_pos = 0;        
     }
@@ -743,23 +740,21 @@ void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte
             for (k = 0; k < raux->num_hits; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
                 nextByteIdx += 5;
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 ref_pos = 0;
             }
             mem->fetch_leaves = 1;
         } 
         else {
             mem->hitcount += 1;
-            // kv_push(uint64_t, *hits, leaf_data >> 7);
-            kv_push_hits(uint64_t, *hits, leaf_data >> 7);
+            kv_push(uint64_t, *hits, leaf_data >> 7);
         }
     }
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -846,8 +841,7 @@ void getNextByteIdx_backward_dh(read_aux_t* raux, uint8_t* mlt_data, uint8_t* le
         for (k = 0; k < countRef; ++k) {
             memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
             nextByteIdx += 5;
-            // kv_push(uint64_t, *hits, ref_pos >> 7);
-            kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+            kv_push(uint64_t, *hits, ref_pos >> 7);
             ref_pos = 0;
         }
         if (countRef > 1) {
@@ -856,9 +850,9 @@ void getNextByteIdx_backward_dh(read_aux_t* raux, uint8_t* mlt_data, uint8_t* le
     }
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -948,8 +942,7 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
                 for (k = 0; k < raux->num_hits; ++k) {
                     memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
                     nextByteIdx += 5;
-                    // kv_push(uint64_t, *hits, ref_pos >> 7);
-                    kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                    kv_push(uint64_t, *hits, ref_pos >> 7);
                     ref_pos = 0;
                 }
                 *i += 1;
@@ -960,9 +953,9 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
     }
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -1059,8 +1052,7 @@ void getNextByteIdx_backward_dh_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint
             for (k = 0; k < countRef; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
                 nextByteIdx += 5;
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 ref_pos = 0;
             }
             *i += 1;
@@ -1070,9 +1062,9 @@ void getNextByteIdx_backward_dh_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint
     }
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -1180,8 +1172,7 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
             mem->hitcount += raux->num_hits;
             for (k = 0; k < raux->num_hits; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 nextByteIdx += 5;
                 ref_pos = 0;
             }
@@ -1189,8 +1180,7 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
         else {
             raux->num_hits = 1;
             mem->hitcount += raux->num_hits;
-            // kv_push(uint64_t, *hits, leaf_data >> 7);
-            kv_push_hits(uint64_t, *hits, leaf_data >> 7);
+            kv_push(uint64_t, *hits, leaf_data >> 7);
         }
         lep_idx = raux->nextLEPBit >> 6;
         lep_bit_idx = raux->nextLEPBit & (0x3FULL);
@@ -1200,9 +1190,9 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
     }
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -1229,6 +1219,9 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
         if (j == countBP) {
             /// Check if we reached the end of the read
             if (*i == raux->l_seq) {
+                if (mem->start == 0) {
+                    leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits); 
+                }
                 lep_idx = raux->nextLEPBit >> 6;
                 lep_bit_idx = raux->nextLEPBit & (0x3FULL);
                 raux->lep[lep_idx] |= (1ULL << lep_bit_idx);
@@ -1266,6 +1259,9 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
             getNextByteIdx(raux, mlt_data, &nextByteIdx, i, mem, hits);
         }
         else {
+            if (mem->start == 0) {
+                leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits); 
+            }
             raux->lep[raux->nextLEPBit >> 6] |= (1ULL << (raux->nextLEPBit & (0x3FULL)));
             raux->nextLEPBit += 1;
         }
@@ -1322,8 +1318,7 @@ void getNextByteIdx_dh(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf_data, 
         mem->hitcount += countRef;
         for (k = 0; k < countRef; ++k) {
             memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-            // kv_push(uint64_t, *hits, ref_pos >> 7);
-            kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+            kv_push(uint64_t, *hits, ref_pos >> 7);
             nextByteIdx += 5;
             ref_pos = 0;
         }
@@ -1335,9 +1330,9 @@ void getNextByteIdx_dh(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf_data, 
     }
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -1364,6 +1359,9 @@ void getNextByteIdx_dh(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf_data, 
         if (j == countBP) {
             /// Check if we reached the end of the read
             if (*i == raux->l_seq) {
+                if (mem->start == 0) {
+                    leaf_gather_dh(raux, mlt_data, leaf_data, &nextByteIdx, mem, hits); 
+                }
                 lep_idx = raux->nextLEPBit >> 6;
                 lep_bit_idx = raux->nextLEPBit & (0x3FULL);
                 raux->lep[lep_idx] |= (1ULL << lep_bit_idx);
@@ -1401,6 +1399,9 @@ void getNextByteIdx_dh(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf_data, 
             getNextByteIdx_dh(raux, mlt_data, leaf_data, &nextByteIdx, i, mem, hits);
         }
         else {
+            if (mem->start == 0) {
+                leaf_gather_dh(raux, mlt_data, leaf_data, &nextByteIdx, mem, hits); 
+            }
             raux->lep[raux->nextLEPBit >> 6] |= (1ULL << (raux->nextLEPBit & (0x3FULL)));
             raux->nextLEPBit += 1;
         }
@@ -1465,8 +1466,7 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
             mem->hitcount += raux->num_hits;
             for (k = 0; k < raux->num_hits; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 nextByteIdx += 5;
                 ref_pos = 0;
             }
@@ -1489,9 +1489,9 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
     }
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -1518,6 +1518,9 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
         if (j == countBP) {
             /// Check if we reached the end of the read
             if (*i == raux->l_seq) {
+                if (mem->start == 0) {
+                    leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits); 
+                }
                 lep_idx = raux->nextLEPBit >> 6;
                 lep_bit_idx = raux->nextLEPBit & (0x3FULL);
                 raux->lep[lep_idx] |= (1ULL << lep_bit_idx);
@@ -1560,6 +1563,9 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
                 getNextByteIdx_wlimit(raux, mlt_data, &nextByteIdx, i, mem, visited, hits);
             }
             else {
+                if (mem->start == 0) {
+                    leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits); 
+                }
                 raux->lep[raux->nextLEPBit >> 6] |= (1ULL << (raux->nextLEPBit & (0x3FULL)));
                 raux->nextLEPBit += 1;
             }
@@ -1629,8 +1635,7 @@ void getNextByteIdx_dh_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf
             mem->hitcount += countRef;
             for (k = 0; k < countRef; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 nextByteIdx += 5;
             }
             *i += 1;
@@ -1652,9 +1657,9 @@ void getNextByteIdx_dh_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf
     }
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -1681,6 +1686,9 @@ void getNextByteIdx_dh_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf
         if (j == countBP) {
             /// Check if we reached the end of the read
             if (*i == raux->l_seq) {
+                if (mem->start == 0) {
+                    leaf_gather_dh(raux, mlt_data, leaf_data, &nextByteIdx, mem, hits); 
+                }
                 lep_idx = raux->nextLEPBit >> 6;
                 lep_bit_idx = raux->nextLEPBit & (0x3FULL);
                 raux->lep[lep_idx] |= (1ULL << lep_bit_idx);
@@ -1723,6 +1731,9 @@ void getNextByteIdx_dh_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf
                 getNextByteIdx_dh_wlimit(raux, mlt_data, leaf_data, &nextByteIdx, i, mem, visited, hits);
             }
             else {
+                if (mem->start == 0) {
+                    leaf_gather_dh(raux, mlt_data, leaf_data, &nextByteIdx, mem, hits); 
+                }
                 raux->lep[raux->nextLEPBit >> 6] |= (1ULL << (raux->nextLEPBit & (0x3FULL)));
                 raux->nextLEPBit += 1;
             }
@@ -1781,8 +1792,7 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
             mem->hitcount += raux->num_hits;
             for (k = 0; k < raux->num_hits; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 nextByteIdx += 5;
                 ref_pos = 0;
             }
@@ -1790,16 +1800,15 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
         else {
             raux->num_hits = 1;
             mem->hitcount += raux->num_hits;
-            // kv_push(uint64_t, *hits, leaf_data >> 7);
-            kv_push_hits(uint64_t, *hits, leaf_data >> 7);
+            kv_push(uint64_t, *hits, leaf_data >> 7);
         }
         *i += 1;
     }
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -1898,8 +1907,7 @@ void getNextByteIdx_dh_last(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf_d
         mem->hitcount += countRef;
         for (k = 0; k < countRef; ++k) {
             memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-            // kv_push(uint64_t, *hits, ref_pos >> 7);
-            kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+            kv_push(uint64_t, *hits, ref_pos >> 7);
             nextByteIdx += 5;
             ref_pos = 0;                
         }
@@ -1907,9 +1915,9 @@ void getNextByteIdx_dh_last(read_aux_t* raux, uint8_t* mlt_data, uint8_t* leaf_d
     }
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -2008,8 +2016,7 @@ void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* h
         memcpy(&ref_pos, &mlt_data[byte_idx], 5);                         
         byte_idx += 5;
         mem->hitcount += 1;
-        // kv_push(uint64_t, *hits, ref_pos >> 7);
-        kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+        kv_push(uint64_t, *hits, ref_pos >> 7);
         *i += kmerSize;
         mem->rc_end = *i;
     }
@@ -2072,8 +2079,7 @@ void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* h
             memcpy(&ref_pos, &mlt_data[byte_idx], 5);                         
             byte_idx += 5; 
             mem->hitcount += 1;
-            // kv_push(uint64_t, *hits, ref_pos >> 7);
-            kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+            kv_push(uint64_t, *hits, ref_pos >> 7);
             *i += xmerSize;
             mem->rc_end = *i;
         }
@@ -2269,14 +2275,13 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
             mem->hitcount += raux->num_hits;
             for (k = 0; k < raux->num_hits; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 nextByteIdx += 5;
                 ref_pos = 0;
             }
             i += 1;
             mem->end = i;
-	    mem->is_multi_hit = 1;
+	        mem->is_multi_hit = 1;
         }
         else {
             mem->end = i;
@@ -2289,9 +2294,9 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
     } 
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -2342,13 +2347,13 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
             if (i < raux->l_seq) {
                 getNextByteIdx_fetch_leaves_prefix_reseed(raux, mlt_data, &nextByteIdx, i, mem, visited, hits);
             }
-	    else {
-	        mem->end = i;
+            else {
+                mem->end = i;
                 int mem_len = mem->end - mem->start;
-		if (mem_len >= raux->min_seed_len) {
-		    leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits);
+                if (mem_len >= raux->min_seed_len) {
+                    leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits);
                 } 
-	    }
+            }
         }
         else {
 	        mem->end = i;
@@ -2404,8 +2409,7 @@ void getNextByteIdx_fetch_leaves_prefix(read_aux_t* raux, uint8_t* mlt_data, uin
             mem->hitcount += raux->num_hits;
             for (k = 0; k < raux->num_hits; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 nextByteIdx += 5;
                 ref_pos = 0;
             }
@@ -2413,17 +2417,16 @@ void getNextByteIdx_fetch_leaves_prefix(read_aux_t* raux, uint8_t* mlt_data, uin
         else {
             raux->num_hits = 1;
             mem->hitcount += raux->num_hits;
-            // kv_push(uint64_t, *hits, leaf_data >> 7);
-            kv_push_hits(uint64_t, *hits, leaf_data >> 7);
+            kv_push(uint64_t, *hits, leaf_data >> 7);
         }
         i += 1;
         mem->end = i;
     } 
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -2513,8 +2516,7 @@ void getNextByteIdx_fetch_leaves(read_aux_t* raux, uint8_t* mlt_data, uint64_t* 
             mem->hitcount += raux->num_hits;
             for (k = 0; k < raux->num_hits; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 nextByteIdx += 5;
                 ref_pos = 0;
             }
@@ -2522,16 +2524,15 @@ void getNextByteIdx_fetch_leaves(read_aux_t* raux, uint8_t* mlt_data, uint64_t* 
         else {
             raux->num_hits = 1;
             mem->hitcount += raux->num_hits;
-            // kv_push(uint64_t, *hits, leaf_data >> 7);
-            kv_push_hits(uint64_t, *hits, leaf_data >> 7);
+            kv_push(uint64_t, *hits, leaf_data >> 7);
         }
         i += 1;
     } 
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -2618,14 +2619,13 @@ void getNextByteIdx_fetch_leaves_prefix_reseed_dh(read_aux_t* raux, uint8_t* mlt
             mem->hitcount += countRef;
             for (k = 0; k < countRef; ++k) {
                 memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-                // kv_push(uint64_t, *hits, ref_pos >> 7);
-                kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+                kv_push(uint64_t, *hits, ref_pos >> 7);
                 nextByteIdx += 5;
                 ref_pos = 0;
             }
             i += 1;
             mem->end = i;
-	    mem->is_multi_hit = 1;
+            mem->is_multi_hit = 1;
         }
         else {
             mem->end = i;
@@ -2638,9 +2638,9 @@ void getNextByteIdx_fetch_leaves_prefix_reseed_dh(read_aux_t* raux, uint8_t* mlt
     } 
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -2752,8 +2752,7 @@ void getNextByteIdx_fetch_leaves_prefix_dh(read_aux_t* raux, uint8_t* mlt_data, 
         mem->hitcount += countRef;
         for (k = 0; k < countRef; ++k) {
             memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-            // kv_push(uint64_t, *hits, ref_pos >> 7);
-            kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+            kv_push(uint64_t, *hits, ref_pos >> 7);
             nextByteIdx += 5;
             ref_pos = 0;
         }
@@ -2762,9 +2761,9 @@ void getNextByteIdx_fetch_leaves_prefix_dh(read_aux_t* raux, uint8_t* mlt_data, 
     } 
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -2853,8 +2852,7 @@ void getNextByteIdx_fetch_leaves_dh(read_aux_t* raux, uint8_t* mlt_data, uint8_t
         mem->hitcount += countRef;
         for (k = 0; k < countRef; ++k) {
             memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
-            // kv_push(uint64_t, *hits, ref_pos >> 7);
-            kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+            kv_push(uint64_t, *hits, ref_pos >> 7);
             nextByteIdx += 5;
             ref_pos = 0;
         }
@@ -2862,9 +2860,9 @@ void getNextByteIdx_fetch_leaves_dh(read_aux_t* raux, uint8_t* mlt_data, uint8_t
     } 
     else if (code_c == UNIFORM) {
         uint32_t j;
-        uint8_t countBP = mlt_data[nextByteIdx++];
-        uint8_t numBitsForBP = countBP << 1;
-        uint8_t numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
+        int countBP = mlt_data[nextByteIdx++];
+        int numBitsForBP = countBP << 1;
+        int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
@@ -3102,8 +3100,7 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
         byte_idx++;
         memcpy(&ref_pos, &mlt_data[byte_idx], 5);                         
         mem->hitcount += 1;
-        // kv_push(uint64_t, *hits, ref_pos >> 7);
-        kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+        kv_push(uint64_t, *hits, ref_pos >> 7);
         byte_idx += 5;                                                    
         i += kmerSize;
         mem->end = i;
@@ -3172,8 +3169,7 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
             byte_idx++;
             memcpy(&ref_pos, &mlt_data[byte_idx], 5);                         
             mem->hitcount += 1;
-            // kv_push(uint64_t, *hits, ref_pos >> 7);
-            kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+            kv_push(uint64_t, *hits, ref_pos >> 7);
             byte_idx += 5;                                                    
             i += (kmerSize + xmerSize);
             mem->end = i;
@@ -3401,8 +3397,7 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
         byte_idx++;
         memcpy(&ref_pos, &mlt_data[byte_idx], 5);                         
         mem->hitcount += 1;
-        // kv_push(uint64_t, *hits, ref_pos >> 7);
-        kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+        kv_push(uint64_t, *hits, ref_pos >> 7);
         byte_idx += 5;                                                    
         *i += kmerSize;
     }
@@ -3487,8 +3482,7 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
             byte_idx++;
             memcpy(&ref_pos, &mlt_data[byte_idx], 5);                         
             mem->hitcount += 1;
-            // kv_push(uint64_t, *hits, ref_pos >> 7);
-            kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+            kv_push(uint64_t, *hits, ref_pos >> 7);
             byte_idx += 5;                                                    
             *i += xmerSize;
         }
@@ -3759,8 +3753,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
         byte_idx++;
         memcpy(&ref_pos, &mlt_data[byte_idx], 5);                         
         mem->hitcount += 1;
-        // kv_push(uint64_t, *hits, ref_pos >> 7);
-        kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+        kv_push(uint64_t, *hits, ref_pos >> 7);
         byte_idx += 5;                                                    
         *i += kmerSize;
     }
@@ -3824,8 +3817,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
             byte_idx++;
             memcpy(&ref_pos, &mlt_data[byte_idx], 5);                         
             mem->hitcount += 1;
-            // kv_push(uint64_t, *hits, ref_pos >> 7);
-            kv_push_hits(uint64_t, *hits, ref_pos >> 7);
+            kv_push(uint64_t, *hits, ref_pos >> 7);
             byte_idx += 5;                                                    
             *i += xmerSize;
         }
@@ -3895,7 +3887,7 @@ inline int init_mem(uint64_t* lep, mem_t* mem, int j, int seq_len, int min_seed_
  *
  * @return n            number of backward extensions to skip
  */
-int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_helper_t* sh, mem_t* smems, int64_t& num_smem, u64v* hits) {
+int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_helper_t* sh, mem_v* smems, u64v* hits) {
 
     mem->start = raux->l_seq - mem->rc_end; //!< Adjust start position of LMEM
     int lmemLen = mem->end - mem->start, rmemLen = -1, next_be_point;
@@ -3937,7 +3929,7 @@ int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t*
     next_be_point = mem->end;
     if (mem->hitcount == 1) {
         if (lmemLen >= raux->min_seed_len) {
-            smems[num_smem++] = *mem; 
+            kv_push(mem_t, *smems, *mem);
         }
         else {
             next_be_point += (raux->min_seed_len - lmemLen);
@@ -3977,7 +3969,7 @@ int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t*
                 next_be_point = mem->end;
             }
             if (rmemLen >= raux->min_seed_len && mem->end <= sh->mem_end_limit) {
-                smems[num_smem++] = *mem; 
+                kv_push(mem_t, *smems, *mem);
             }
             else {
                 next_be_point += (raux->min_seed_len - rmemLen);       
@@ -4011,7 +4003,7 @@ int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t*
  *
  * @return n            number of backward extensions to skip
  */
-int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_helper_t* sh, mem_t* smems, int64_t& num_smem, u64v* hits) {
+int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_helper_t* sh, mem_v* smems, u64v* hits) {
 
     mem->start = raux->l_seq - mem->rc_end; //!< Adjust start position of LMEM
     int lmemLen = mem->end - mem->start, rmemLen = -1, next_be_point;
@@ -4053,7 +4045,7 @@ int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, s
     next_be_point = mem->end;
     if (mem->hitcount == 1) {
         if (lmemLen >= raux->min_seed_len) {
-            smems[num_smem++] = *mem; 
+            kv_push(mem_t, *smems, *mem);
         }
         else {
             next_be_point += (raux->min_seed_len - lmemLen);
@@ -4090,7 +4082,7 @@ int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, s
             rmemLen = mem->end - mem->start;
             next_be_point = mem->end;
             if (rmemLen >= raux->min_seed_len) {
-                smems[num_smem++] = *mem; 
+                kv_push(mem_t, *smems, *mem);
             }
             else {
 		        next_be_point += (raux->min_seed_len - rmemLen);    
@@ -4121,7 +4113,7 @@ int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, s
  * @param sh            helper data structure to keep track of start and end positions of previously identified MEMs
  * @param smems         List of SMEMs
  */
-void check_and_add_smem(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_helper_t* sh, mem_t* smems, int64_t& num_smem, u64v* hits) {
+void check_and_add_smem(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_helper_t* sh, mem_v* smems, u64v* hits) {
 
     mem->start = raux->l_seq - mem->rc_end; //!< Adjust start position of LMEM
     int lmemLen = mem->end - mem->start;
@@ -4161,7 +4153,7 @@ void check_and_add_smem(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_he
                 mem->pt.c_pivot = sh->curr_pivot;
                 mem->pt.p_pivot = sh->prev_pivot;
                 mem->pt.pp_pivot = sh->prev_prev_pivot;
-                smems[num_smem++] = *mem; 
+                kv_push(mem_t, *smems, *mem);
                 if (mem->start <= (sh->prev_pivot + 1)) {
                     sh->stop_be = 1;
                 }
@@ -4179,7 +4171,7 @@ void check_and_add_smem(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_he
  * @param raux          read related parameters
  * @param smems         list of SMEMs and their hits
  */
-void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t& num_smem, u64v* hits) {
+void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
 
     smem_helper_t sh;
     memset(&sh, 0, sizeof(smem_helper_t));
@@ -4230,10 +4222,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t
         if (rm.start == 0) {
             if (rmemLen >= raux->min_seed_len) {
                 if (rm.hitcount > 0) { 
-                    // rm.pt.c_pivot = sh.curr_pivot;
-                    // rm.pt.p_pivot = sh.prev_pivot;
-                    // rm.pt.pp_pivot = sh.prev_prev_pivot; 
-                    smems[num_smem++] = rm;
+                    kv_push(mem_t, *smems, rm);
                 }
             }
             else {
@@ -4263,7 +4252,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t
                         int rc_i = seq_len - be_point; 
                         raux->read_buf = raux->unpacked_rc_queue_buf;
                         leftExtend(iaux, raux, &rc_i, &m, hits);
-                        next_j = check_and_add_smem_prefix(iaux, raux, &m, &sh, smems, num_smem, hits);
+                        next_j = check_and_add_smem_prefix(iaux, raux, &m, &sh, smems, hits);
                         // if (sh.stop_be) break;
                     }
                 }
@@ -4296,16 +4285,16 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t
         memset(raux->lep, 0, 5 * sizeof(uint64_t));
     }
     #ifdef PRINT_SMEM
-        ks_introsort(mem_smem_sort_lt_ert, num_smem, smems); //!< Sort SMEMs based on start pos in read. For DEBUG. 
-        for (i = 0; i < num_smem; ++i) {
+        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); //!< Sort SMEMs based on start pos in read. For DEBUG. 
+        for (i = 0; i < smems->n; ++i) {
             // printf("[SMEM]:%d,%d\n", smems->a[i].start, smems->a[i].end);
             int idx;
-            for (idx = 0; idx < smems[i].hitcount; ++idx) {
-                if (smems[i].forward || smems[i].fetch_leaves) {
-                    printf("[SMEM]:%d,%d,%lu\n", smems[i].start, smems[i].end, hits->a[smems[i].hitbeg + idx]);
+            for (idx = 0; idx < smems->a[i].hitcount; ++idx) {
+                if (smems->a[i].forward || smems->a[i].fetch_leaves) {
+                    printf("[SMEM]:%d,%d,%lu\n", smems->a[i].start, smems->a[i].end, hits->a[smems->a[i].hitbeg + idx]);
                 }
                 else {
-                    printf("[SMEM]:%d,%d,%lu\n", smems[i].start, smems[i].end, (iaux->bns->l_pac << 1) - hits->a[smems[i].hitbeg + idx] - (smems[i].end - smems[i].start - smems[i].end_correction));
+                    printf("[SMEM]:%d,%d,%lu\n", smems->a[i].start, smems->a[i].end, (iaux->bns->l_pac << 1) - hits->a[smems->a[i].hitbeg + idx] - (smems->a[i].end - smems->a[i].start - smems->a[i].end_correction));
                 }
             }
         }
@@ -4319,7 +4308,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t
  * @param raux          read related parameters
  * @param smems         list of SMEMs and their hits
  */
-void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t& num_smem, u64v* hits) {
+void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
 
     smem_helper_t sh;
     memset(&sh, 0, sizeof(smem_helper_t));
@@ -4373,7 +4362,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t& num_s
                     rm.pt.c_pivot = sh.curr_pivot;
                     rm.pt.p_pivot = sh.prev_pivot;
                     rm.pt.pp_pivot = sh.prev_prev_pivot; 
-                    smems[num_smem++] = rm;
+                    kv_push(mem_t, *smems, rm);
                 }
             }
             else {
@@ -4400,7 +4389,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t& num_s
                         int rc_i = seq_len - be_point; 
                         raux->read_buf = raux->unpacked_rc_queue_buf;
                         leftExtend(iaux, raux, &rc_i, &m, hits);
-                        check_and_add_smem(iaux, raux, &m, &sh, smems, num_smem, hits);
+                        check_and_add_smem(iaux, raux, &m, &sh, smems, hits);
                         if (sh.stop_be) break;
                     }
                 }
@@ -4430,16 +4419,16 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t& num_s
         memset(raux->lep, 0, 5 * sizeof(uint64_t));
     }
     #ifdef PRINT_SMEM
-        ks_introsort(mem_smem_sort_lt_ert, num_smem, smems); //!< Sort SMEMs based on start pos in read. For DEBUG. 
-        for (i = 0; i < num_smem; ++i) {
+        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); //!< Sort SMEMs based on start pos in read. For DEBUG. 
+        for (i = 0; i < smems->n; ++i) {
             // printf("[SMEM]:%d,%d\n", smems->a[i].start, smems->a[i].end);
             int idx;
-            for (idx = 0; idx < smems[i].hitcount; ++idx) {
-                if (smems[i].forward || smems[i].fetch_leaves) {
-                    printf("[SMEM]:%d,%d,%lu\n", smems[i].start, smems[i].end, hits->a[smems[i].hitbeg + idx]);
+            for (idx = 0; idx < smems->a[i].hitcount; ++idx) {
+                if (smems->a[i].forward || smems->a[i].fetch_leaves) {
+                    printf("[SMEM]:%d,%d,%lu\n", smems->a[i].start, smems->a[i].end, hits->a[smems->a[i].hitbeg + idx]);
                 }
                 else {
-                    printf("[SMEM]:%d,%d,%lu\n", smems[i].start, smems[i].end, (iaux->bns->l_pac << 1) - hits->a[smems[i].hitbeg + idx] - (smems[i].end - smems[i].start));
+                    printf("[SMEM]:%d,%d,%lu\n", smems->a[i].start, smems->a[i].end, (iaux->bns->l_pac << 1) - hits->a[smems->a[i].hitbeg + idx] - (smems->a[i].end - smems->a[i].start));
                 }
             }
         }
@@ -4456,7 +4445,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int64_t& num_s
  * @param limit         hit threshold below which tree traversal must stop
  * @param pt            track pivot information to reduce work done during reseeding
  */
-void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start, int limit, pivot_t* pt, int64_t& num_smem, u64v* hits) {
+void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int limit, pivot_t* pt, u64v* hits) {
 
     smem_helper_t sh;
     memset(&sh, 0, sizeof(smem_helper_t));
@@ -4504,7 +4493,7 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start,
     if (rm.start == 0) {
         if (rmemLen >= raux->min_seed_len) {
             if (rm.hitcount > 0) { 
-                smems[num_smem++] = rm;
+                kv_push(mem_t, *smems, rm);
             }
         }
         else {
@@ -4536,7 +4525,7 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start,
                     int rc_i = seq_len - be_point; 
                     raux->read_buf = raux->unpacked_rc_queue_buf;
                     leftExtend_wlimit(iaux, raux, &rc_i, &m, hits);
-                    next_j = check_and_add_smem_prefix_reseed(iaux, raux, &m, &sh, smems, num_smem, hits);
+                    next_j = check_and_add_smem_prefix_reseed(iaux, raux, &m, &sh, smems, hits);
                     // if (sh.stop_be) break;
                 }
             }
@@ -4545,15 +4534,15 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start,
         }
     }
     #ifdef PRINT_SMEM
-        ks_introsort(mem_smem_sort_lt_ert, num_smem, smems); //!< Debug: Sort SMEMs based on start pos in read. 
-        for (i = 0; i < num_smem; ++i) {
+        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); //!< Debug: Sort SMEMs based on start pos in read. 
+        for (i = 0; i < smems->n; ++i) {
             int idx;
-            for (idx = 0; idx < smems[i].hitcount; ++idx) {
-                if (smems[i].forward || smems[i].fetch_leaves) {
-                    printf("[Reseed]:%d,%d,%lu\n", smems[i].start, smems[i].end, hits->a[smems[i].hitbeg + idx]);
+            for (idx = 0; idx < smems->a[i].hitcount; ++idx) {
+                if (smems->a[i].forward || smems->a[i].fetch_leaves) {
+                    printf("[Reseed]:%d,%d,%lu\n", smems->a[i].start, smems->a[i].end, hits->a[smems->a[i].hitbeg + idx]);
                 }
                 else {
-                    printf("[Reseed]:%d,%d,%lu\n", smems[i].start, smems[i].end, (iaux->bns->l_pac << 1) - hits->a[smems[i].hitbeg + idx] - (smems[i].end - smems[i].start - smems[i].end_correction));
+                    printf("[Reseed]:%d,%d,%lu\n", smems->a[i].start, smems->a[i].end, (iaux->bns->l_pac << 1) - hits->a[smems->a[i].hitbeg + idx] - (smems->a[i].end - smems->a[i].start - smems->a[i].end_correction));
                 }
             }
         }
@@ -4570,7 +4559,7 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start,
  * @param limit         hit threshold below which tree traversal must stop
  * @param pt            track pivot information to reduce work done during reseeding
  */
-void reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start, int limit, pivot_t* pt, int64_t& num_smem, u64v* hits) {
+void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int limit, pivot_t* pt, u64v* hits) {
 
     smem_helper_t sh;
     memset(&sh, 0, sizeof(smem_helper_t));
@@ -4618,7 +4607,7 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start, int li
     if (rm.start == 0) {
         if (rmemLen >= raux->min_seed_len) {
             if (rm.hitcount > 0) { 
-                smems[num_smem++] = rm;
+                kv_push(mem_t, *smems, rm);
             }
         }
         else {
@@ -4646,7 +4635,7 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start, int li
                     int rc_i = seq_len - be_point; 
                     raux->read_buf = raux->unpacked_rc_queue_buf;
                     leftExtend_wlimit(iaux, raux, &rc_i, &m, hits);
-                    check_and_add_smem(iaux, raux, &m, &sh, smems, num_smem, hits);
+                    check_and_add_smem(iaux, raux, &m, &sh, smems, hits);
                     if (sh.stop_be) break;
                 }
             }
@@ -4654,15 +4643,15 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start, int li
         }
     }
     #ifdef PRINT_SMEM
-        ks_introsort(mem_smem_sort_lt_ert, num_smem, smems); //!< Debug: Sort SMEMs based on start pos in read. 
-        for (i = 0; i < num_smem; ++i) {
+        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); //!< Debug: Sort SMEMs based on start pos in read. 
+        for (i = 0; i < smems->n; ++i) {
             int idx;
-            for (idx = 0; idx < smems[i].hitcount; ++idx) {
-                if (smems[i].forward || smems[i].fetch_leaves) {
-                    printf("[Reseed]:%d,%d,%lu\n", smems[i].start, smems[i].end, hits->a[smems[i].hitbeg + idx]);
+            for (idx = 0; idx < smems->a[i].hitcount; ++idx) {
+                if (smems->a[i].forward || smems->a[i].fetch_leaves) {
+                    printf("[Reseed]:%d,%d,%lu\n", smems->a[i].start, smems->a[i].end, hits->a[smems->a[i].hitbeg + idx]);
                 }
                 else {
-                    printf("[Reseed]:%d,%d,%lu\n", smems[i].start, smems[i].end, (iaux->bns->l_pac << 1) - hits->a[smems[i].hitbeg + idx] - (smems[i].end - smems[i].start));
+                    printf("[Reseed]:%d,%d,%lu\n", smems->a[i].start, smems->a[i].end, (iaux->bns->l_pac << 1) - hits->a[smems->a[i].hitbeg + idx] - (smems->a[i].end - smems->a[i].start));
                 }
             }
         }
@@ -4677,7 +4666,7 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int start, int li
  * @param smems         list of SMEMs and their hits
  * @param limit         hit threshold above which tree traversal must stop
  */
-void last(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int limit, int64_t& num_smem, u64v* hits) {
+void last(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int limit, u64v* hits) {
 
     int i = 0;
     const uint8_t minSeedLen = raux->min_seed_len + 1; // LAST exits seeding only when seed length >= 20
@@ -4724,7 +4713,7 @@ void last(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int limit, int64_t&
         int rmemLen = rm.end - rm.start;
         if (rmemLen >= minSeedLen) {
             if (rm.hitcount > 0 && rm.hitcount < raux->limit) { 
-                smems[num_smem++] = rm;
+                kv_push(mem_t, *smems, rm);
             }
             else {
                 hits->n -= rm.hitcount;
@@ -4751,11 +4740,11 @@ void last(index_aux_t* iaux, read_aux_t* raux, mem_t* smems, int limit, int64_t&
         }
     }
     #ifdef PRINT_SMEM
-        ks_introsort(mem_smem_sort_lt_ert, num_smem, smems); //!< Debug: Sort SMEMs based on start pos in read. 
-        for (i = 0; i < num_smem; ++i) {
+        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); //!< Debug: Sort SMEMs based on start pos in read. 
+        for (i = 0; i < smems->n; ++i) {
             int idx;
-            for (idx = 0; idx < smems[i].hitcount; ++idx) {
-                printf("[LAST]:%d,%d,%lu\n", smems[i].start, smems[i].end, hits->a[smems[i].hitbeg + idx]);
+            for (idx = 0; idx < smems->a[i].hitcount; ++idx) {
+                printf("[LAST]:%d,%d,%lu\n", smems->a[i].start, smems->a[i].end, hits->a[smems->a[i].hitbeg + idx]);
             } 
         }
     #endif
