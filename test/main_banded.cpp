@@ -34,7 +34,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <time.h>
 #include <limits>
 #include <unistd.h>
-#include "../src/bandedSWA.h"
+#include "bandedSWA.h"
 //#include "bandedSWA.h"
 
 

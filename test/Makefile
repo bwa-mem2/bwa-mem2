@@ -34,7 +34,7 @@ CXX=		icpc
 CXXFLAGS=	-std=c++11 -fopenmp -mtune=native -march=native
 CPPFLAGS=	-DENABLE_PREFETCH -DBWA_OTHER_ELE=0
 INCLUDES=	-I../src
-LIBS=		-fopenmp
+LIBS=		-L.. -fopenmp -lz -lbwa
 
 .PHONY:all clean depend
 .SUFFIXES:.cpp .o
@@ -44,45 +44,33 @@ LIBS=		-fopenmp
 
 all:$(EXE)
 
-FMI_search.o:../src/FMI_search.cpp
-	$(CC) -c $(CXXFLAGS) $< -o $@
+fmi_test:fmi_test.o ../libbwa.a
+	$(CXX) -o $@ $^ $(LIBS)
 
-fmi_test:fmi_test.o FMI_search.o
-	$(CC) -o $@ $^ $(LIBS)
+smem2_test: smem2_test.o ../libbwa.a
+	$(CXX) -o $@ $^ $(LIBS)
 
-smem2_test: smem2_test.o FMI_search.o
-	$(CC) -o $@ $^ $(LIBS)
+sa2ref_test: sa2ref_test.o ../libbwa.a
+	$(CXX) -o $@ $^ $(LIBS)
 
-sa2ref_test: sa2ref_test.o FMI_search.o
-	$(CC) -o $@ $^ $(LIBS)
+bwt_seed_strategy_test:bwt_seed_strategy_test.o ../libbwa.a
+	$(CXX) -o $@ $^ $(LIBS)
 
-bwt_seed_strategy_test:bwt_seed_strategy_test.o FMI_search.o
-	$(CC) -o $@ $^ $(LIBS)
-
-bandedSWA.o:../src/bandedSWA.cpp ../src/bandedSWA.h
-	$(CXX) -c $(CXXFLAGS) $< -o $@
-
-xeonbsw:main_banded.o bandedSWA.o
+xeonbsw:main_banded.o ../libbwa.a
 	$(CXX) -o $@ $^ $(LIBS)
 
 clean:
 	rm -fr *.o $(EXE)
 
-depend:
-	(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) -- *.cpp ../src/FMI_search.cpp ../src/bandedSWA.cpp)
 
 # DO NOT DELETE
 
-bwt_seed_strategy_test.o: ../src/fasta_file.h ../src/FMI_search.h
-bwt_seed_strategy_test.o: ../src/bntseq.h ../src/read_index_ele.h
-bwt_seed_strategy_test.o: ../src/utils.h ../src/macro.h
-fmi_test.o: ../src/fasta_file.h ../src/FMI_search.h ../src/bntseq.h
-fmi_test.o: ../src/read_index_ele.h ../src/utils.h ../src/macro.h
+bwt_seed_strategy_test.o: ../src/FMI_search.h ../src/bntseq.h ../src/read_index_ele.h
+bwt_seed_strategy_test.o: ../src/bwa.h ../src/bwt.h ../src/utils.h ../src/macro.h
+fmi_test.o: ../src/FMI_search.h ../src/bntseq.h ../src/read_index_ele.h
+fmi_test.o: ../src/bwa.h ../src/bwt.h ../src/utils.h ../src/macro.h
 main_banded.o: ../src/bandedSWA.h ../src/macro.h
-sa2ref_test.o: ../src/fasta_file.h ../src/FMI_search.h ../src/bntseq.h
-sa2ref_test.o: ../src/read_index_ele.h ../src/utils.h ../src/macro.h
-smem2_test.o: ../src/fasta_file.h ../src/FMI_search.h ../src/bntseq.h
-smem2_test.o: ../src/read_index_ele.h ../src/utils.h ../src/macro.h
-../src/FMI_search.o: ../src/FMI_search.h ../src/bntseq.h
-../src/FMI_search.o: ../src/read_index_ele.h ../src/utils.h ../src/macro.h
-../src/bandedSWA.o: ../src/bandedSWA.h ../src/macro.h
+sa2ref_test.o: ../src/FMI_search.h ../src/bntseq.h ../src/read_index_ele.h
+sa2ref_test.o: ../src/bwa.h ../src/bwt.h ../src/utils.h ../src/macro.h
+smem2_test.o: ../src/FMI_search.h ../src/bntseq.h ../src/read_index_ele.h
+smem2_test.o: ../src/bwa.h ../src/bwt.h ../src/utils.h ../src/macro.h

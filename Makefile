@@ -39,6 +39,7 @@ OBJS=		src/fastmap.o src/bwtindex.o src/main.o src/utils.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bwt.o src/ertindex.o src/bntseq.o src/bwamem.o src/ertseeding.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
 			src/bwamem_extra.o src/bwtbuild.o src/QSufSort.o src/bwt_gen.o src/rope.o src/rle.o src/is.o
+BWA_LIB=    libbwa.a
 
 ifneq ($(portable),)
 	LIBS+=-static-libgcc -static-libstdc++
@@ -60,6 +61,9 @@ else ifeq ($(arch),avx512)
 	endif
 else ifeq ($(arch),native)
 	ARCH_FLAGS=-march=native
+else
+# To provide a different architecture flag like -march=core-avx2.
+	ARCH_FLAGS=$(arch)
 endif
 
 CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
@@ -73,16 +77,19 @@ CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 all:$(EXE)
 
 multi:
-	rm -f src/*.o; $(MAKE) arch=sse    EXE=bwa-mem2.sse41    CXX=$(CXX) all
-	rm -f src/*.o; $(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
-	rm -f src/*.o; $(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
-	$(CXX) -Wall -O3 -g src/runsimd.cpp -o bwa-mem2
+	rm -f src/*.o $(BWA_LIB); $(MAKE) arch=sse    EXE=bwa-mem2.sse41    CXX=$(CXX) all
+	rm -f src/*.o $(BWA_LIB); $(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
+	rm -f src/*.o $(BWA_LIB); $(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
+	$(CXX) -Wall -O3 src/runsimd.cpp -o bwa-mem2
 
-$(EXE):$(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ $(LIBS)
+$(EXE):$(BWA_LIB) src/main.o
+	$(CXX) $(CXXFLAGS) $(BWA_LIB) src/main.o -o $@ $(LIBS)
+
+$(BWA_LIB):$(OBJS)
+	ar rcs $(BWA_LIB) $(OBJS)
 
 clean:
-	rm -fr src/*.o $(EXE) bwa-mem2.sse41 bwa-mem2.avx2 bwa-mem2.avx512bw
+	rm -fr src/*.o $(BWA_LIB) $(EXE) bwa-mem2.sse41 bwa-mem2.avx2 bwa-mem2.avx512bw
 
 depend:
 	(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CXXFLAGS) $(CPPFLAGS) -I. -- src/*.cpp)
@@ -90,7 +97,7 @@ depend:
 # DO NOT DELETE
 
 src/FMI_search.o: src/FMI_search.h src/bntseq.h src/read_index_ele.h
-src/FMI_search.o: src/utils.h src/macro.h
+src/FMI_search.o: src/utils.h src/macro.h src/bwa.h src/bwt.h
 src/bandedSWA.o: src/bandedSWA.h src/macro.h
 src/bntseq.o: src/bntseq.h src/utils.h src/macro.h src/kseq.h src/khash.h
 src/bwa.o: src/bntseq.h src/bwa.h src/bwt.h src/macro.h src/ksw.h src/utils.h

@@ -31,7 +31,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include<stdio.h>
 #include<stdlib.h>
 #include<stdint.h>
-#include "fasta_file.h"
 #include "FMI_search.h"
 #include <omp.h>
 #include <string.h>
