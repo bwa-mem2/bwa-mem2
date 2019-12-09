@@ -21,7 +21,6 @@ struct _node_t {
     uint64_t start_addr;
     uint64_t* hits;
     uint8_t seq[READ_LEN + 1];
-    uint8_t** leaf_prefix; //!< Each leaf node is prefixed with x bp
     node_t* parent_node;
     node_t* child_nodes[4];
 };
@@ -42,8 +41,6 @@ typedef struct {
     char* filePrefix;
     uint64_t* byte_offsets;
     uint64_t end_offset;
-    uint64_t leaf_table_offsets;
-    uint64_t maxLeafPtr;
 } thread_data_t;
 
 // FIXME : Add to options later
@@ -63,11 +60,7 @@ void handleLeaf(const bwt_t* bwt, const bntseq_t* bns, const uint8_t* pac, bwtin
 
 void ert_build_table(const bwt_t* bwt, const bntseq_t* bns, const uint8_t* pac, bwtintv_t ik, bwtintv_t ok[4], uint8_t* mlt_data, uint8_t* mh_data, uint64_t* size, uint64_t* mh_size, uint8_t* aq, uint64_t* numHits, uint64_t* max_next_ptr, uint64_t next_ptr_width, int step, int max_depth);
 
-void ert_build_table_sl(const bwt_t* bwt, const bntseq_t* bns, const uint8_t* pac, bwtintv_t ik, bwtintv_t ok[4], uint8_t* mlt_data, uint8_t* leaf_data, uint64_t* size, uint64_t* leaf_tbl_size, uint8_t* aq, uint64_t* numHits, uint64_t* max_next_ptr, uint64_t next_ptr_width, int step, int max_depth, uint64_t* maxLeafPtr);
-
 void ert_traverse_kmertree(node_t* n, uint8_t* mlt_data, uint8_t* mh_data, uint64_t* byte_idx, uint64_t* mh_byte_idx, uint8_t depth, uint64_t* numHits, uint64_t* max_ptr, uint64_t next_ptr_width, int step);
-
-void ert_traverse_kmertree_sl(node_t* n, uint8_t* mlt_data, uint8_t* leaf__data, uint64_t* byte_idx, uint64_t* leaf_byte_idx, uint8_t depth, uint64_t* numHits, uint64_t* max_ptr, uint64_t next_ptr_width, int step, uint64_t* maxLeafPtr);
 
 void ert_destroy_kmertree(node_t* n);
 

@@ -85,7 +85,6 @@ typedef struct {
     uint64_t nextLEPBit;            // Index into the LEP bit-vector
     uint64_t mlt_start_addr;        // Start address of multi-level ERT
     uint64_t mh_start_addr;         // Start address of multi-hits for each k-mer
-    uint64_t lft_start_addr;         // Start address of multi-hits for each k-mer
     char* read_name;                // Read name
     char* queue_buf;                // Read sequence
     char* rc_queue_buf;             // Reverse complemented read sequence

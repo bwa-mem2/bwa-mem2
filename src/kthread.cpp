@@ -76,22 +76,22 @@ static void *ktf_worker(void *data)
 	for (;;) {
 		i = __sync_fetch_and_add(&w->i, w->t->n_threads);
 		// i = __sync_fetch_and_add(&g_itr, 1);
-		int st = i * BATCH_SIZE;
+		long st = i * BATCH_SIZE;
 		if (st >= w->t->n) break;
-        int ed = (i + 1) * BATCH_SIZE < w->t->n? (i + 1) * BATCH_SIZE : w->t->n;
+        long ed = (i + 1) * BATCH_SIZE < w->t->n? (i + 1) * BATCH_SIZE : w->t->n;
 		w->t->func(w->t->data, st, ed-st, w - w->t->w);
 	}
 
 	while ((i = steal_work(w->t)) >= 0) {
-		int st = i * BATCH_SIZE;
-		int ed = (i + 1) * BATCH_SIZE < w->t->n? (i + 1) * BATCH_SIZE : w->t->n;
+		long st = i * BATCH_SIZE;
+		long ed = (i + 1) * BATCH_SIZE < w->t->n? (i + 1) * BATCH_SIZE : w->t->n;
 		w->t->func(w->t->data, st, ed-st, w - w->t->w);
 	}
 	pthread_exit(0);
 }
 #endif
 
-void kt_for(void (*func)(void*, int, int, int), void *data, int n)
+void kt_for(void (*func)(void*, long, long, int), void *data, int n)
 {
 	int i;
 	kt_for_t t;

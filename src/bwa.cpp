@@ -545,7 +545,7 @@ void bwa_print_sam_hdr(const bntseq_t *bns, const char *hdr_line, FILE *fp)
 		err_fputs(hdr_line, fp);
 		err_fputs("\n", fp);
 	}
-	// if (bwa_pg) err_fputs(bwa_pg, fp);
+	if (bwa_pg) err_fputs(bwa_pg, fp);
 #endif
 }
 

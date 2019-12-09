@@ -218,7 +218,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
                 else if (strcmp(optarg, "bwtsw") == 0) algo_type = BWTALGO_BWTSW;
                 else if (strcmp(optarg, "is") == 0) algo_type = BWTALGO_IS;
                 else if (strcmp(optarg, "mem2") == 0) algo_type = BWTALGO_MEM2;
-                else if (strcmp(optarg, "mlts") == 0) algo_type = BWTALGO_MLTS;
+                else if (strcmp(optarg, "ert") == 0) algo_type = BWTALGO_MLTS;
                 else err_fatal(__func__, "unknown algorithm: '%s'.", optarg);
                 break;
             case 'p': prefix = strdup(optarg); break;
@@ -239,14 +239,15 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 	if (optind + 1 > argc) {
 		fprintf(stderr, "\n");
 		fprintf(stderr, "Usage:   bwa index [options] <in.fasta>\n\n");
-		fprintf(stderr, "Options: -a STR    BWT construction algorithm: bwtsw, is, rb2, mem2 or mlts\n");
+		fprintf(stderr, "Options: -a STR    BWT construction algorithm: bwtsw, is, rb2, mem2 or ert\n");
 		fprintf(stderr, "         -p STR    prefix of the index [same as fasta name]\n");
 		fprintf(stderr, "         -b INT    block size for the bwtsw algorithm (effective with -a bwtsw) [%d]\n", block_size);
-	    fprintf(stderr, "         -t INT    number of threads [%d]\n", num_threads);
+	    fprintf(stderr, "         -t INT    number of threads for ERT index building [%d]\n", num_threads);
 		fprintf(stderr, "         -6        index files named as <in.fasta>.64.* instead of <in.fasta>.* \n");
 		fprintf(stderr, "\n");
 		fprintf(stderr,	"Warning: `-a bwtsw' does not work for short genomes, while `-a is' and\n");
 		fprintf(stderr, "         `-a div' do not work not for long genomes.\n\n");
+		fprintf(stderr, "         `-a ert' to build ERT index.\n\n");
 
 		return 1;
 	}
@@ -256,16 +257,31 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 		if (is_64) strcat(prefix, ".64");
 	}
     if (algo_type == BWTALGO_MLTS) {
-        /// Load BWT index
-        bwaidx_t* bid = bwa_idx_load_from_disk(argv[optind], BWA_IDX_BNS | BWA_IDX_BWT | BWA_IDX_PAC);
         if (bwa_verbose >= 3) {
-            fprintf(stderr, "[M::%s] BWT size %lu Num threads %d ...\n", __func__, bid->bwt->seq_len, num_threads);
+            fprintf(stderr, "[M::%s] Building BWT index with prefix %s ...\n", __func__, prefix);
+        }
+        
+        // First build the BWT index with the prefix
+        algo_type = BWTALGO_BWTSW;
+        bwa_idx_build(argv[optind], prefix, algo_type, block_size);
+        
+        // Load BWT index
+        bwaidx_t* bid = bwa_idx_load_from_disk(prefix, BWA_IDX_BNS | BWA_IDX_BWT | BWA_IDX_PAC);
+        if (bwa_verbose >= 3) {
+            fprintf(stderr, "[M::%s] Building ERT.. BWT length: %lu threads: %d ...\n", __func__, bid->bwt->seq_len, num_threads);
         }
         char* kmer_tbl_file_name = (char*) malloc(strlen(prefix) + 14);
         strcpy(kmer_tbl_file_name, prefix);
         strcat(kmer_tbl_file_name, ".kmer_table");
+
+        // Build ERT
         buildKmerTrees(kmer_tbl_file_name, bid, prefix, num_threads, readLength);
         free(kmer_tbl_file_name);
+
+        // Build reference in .0123 format similar to BWA-MEM2
+        if (bwa_verbose >= 3) {
+            fprintf(stderr, "[M::%s] Building binary reference 0123 for BWA-MEM2 ...\n", __func__);
+        }
         build_binaryRef(prefix);
     }
     else if (algo_type == BWTALGO_MEM2) {

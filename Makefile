@@ -135,7 +135,7 @@ src/rle.o: src/rle.h
 src/rope.o: src/rle.h src/rope.h
 src/is.o: src/malloc_wrap.h
 src/QSufSort.o: src/QSufSort.h
-src/ertindex.o: src/ertindex.h src/bwt.h src/kvec.h
+src/ertindex.o: src/ertindex.h src/bwt.h src/kvec.h src/macro.h
 src/ertseeding.o: src/ertseeding.h src/bwamem.h src/bwt.h src/bntseq.h src/bwa.h src/macro.h 
 src/ertseeding.o: src/kthread.h src/bandedSWA.h src/kstring.h src/ksw.h
 src/ertseeding.o: src/kvec.h src/ksort.h src/utils.h src/profiling.h

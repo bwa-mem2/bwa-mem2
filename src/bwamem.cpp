@@ -1348,7 +1348,7 @@ int mem_kernel2_core(const mem_opt_t *opt,
 	return 1;
 }
 
-static void worker_aln(void *data, int seq_id, int batch_size, int tid)
+static void worker_aln(void *data, long seq_id, long batch_size, int tid)
 {
 	worker_t *w = (worker_t*) data;
 	
@@ -1370,7 +1370,7 @@ static void worker_aln(void *data, int seq_id, int batch_size, int tid)
 }
 
 /* Kernel, called by threads */
-static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
+static void worker_bwt(void *data, long seq_id, long batch_size, int tid)
 {
 	worker_t *w = (worker_t*) data;
 	printf_(VER, "4. Calling mem_kernel1_core..%d %d\n", seq_id, tid);
@@ -1450,7 +1450,7 @@ int64_t sort_classify(mem_cache *mmc, int offset1, int64_t pcnt, int tid)
 	return pos8;
 }
 
-static void worker_sam(void *data, int seqid, int batch_size, int tid)
+static void worker_sam(void *data, long seqid, long batch_size, int tid)
 {
 	worker_t *w = (worker_t*) data;
 	int64_t sizeA = (w->size) *tid;

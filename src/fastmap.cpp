@@ -195,11 +195,8 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int ntid, char* idx_prefix) {
     char* ml_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
     strcpy(ml_tbl_file_name, idx_prefix);
     strcat(ml_tbl_file_name, ".mlt_table");
-    char* leaf_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
-    strcpy(leaf_tbl_file_name, idx_prefix);
-    strcat(leaf_tbl_file_name, ".leaf_table");
 
-    FILE *kmer_tbl_fd, *ml_tbl_fd, *leaf_tbl_fd;
+    FILE *kmer_tbl_fd, *ml_tbl_fd;
 
     kmer_tbl_fd = fopen(kmer_tbl_file_name, "rb");
     if (kmer_tbl_fd == NULL) {
@@ -211,15 +208,9 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int ntid, char* idx_prefix) {
         fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
         exit(1);
     }
-    leaf_tbl_fd = fopen(leaf_tbl_file_name, "rb");
-    if (leaf_tbl_fd == NULL) {
-        fprintf(stderr, "[M::%s::ERT] Can't open separated leaf data file\n.", __func__);
-        exit(1);
-    }
         
 	free(kmer_tbl_file_name);
 	free(ml_tbl_file_name);
-	free(leaf_tbl_file_name);
 
     double ctime, rtime;
     ctime = cputime(); rtime = realtime();
@@ -244,28 +235,16 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int ntid, char* idx_prefix) {
         fprintf(stderr, "[M::%s::ERT] Reading multi-level tree index to memory\n", __func__);
     }
     fread(w.mlt_table, sizeof(uint8_t), size, ml_tbl_fd); 
-    // 
-    // Read leaf table
-    //
-    fseek(leaf_tbl_fd, 0L, SEEK_END);
-    size = ftell(leaf_tbl_fd);
-    allocMem += size;
-    w.leaf_table = (uint8_t*) malloc(size * sizeof(uint8_t));
-    fseek(leaf_tbl_fd, 0L, SEEK_SET);        
-    if (bwa_verbose >= 3) {
-        fprintf(stderr, "[M::%s::ERT] Reading leaf table to memory\n", __func__);
-    }
-    fread(w.leaf_table, sizeof(uint8_t), size, leaf_tbl_fd); 
     
     fclose(kmer_tbl_fd);
     fclose(ml_tbl_fd);
-    fclose(leaf_tbl_fd);
 
     if (bwa_verbose >= 3) {        
         fprintf(stderr, "[M::%s::ERT] Index tables loaded in %.3f CPU sec, %.3f real sec...\n", __func__, cputime() - ctime, realtime() - rtime);
     }
 
-    allocMem += ((nthreads * readLen * readLen * sizeof(mem_t)) + (nthreads * sizeof(u64v)));
+    allocMem += ((nthreads * MAX_LINE_LEN * sizeof(mem_v)) + (nthreads * MAX_LINE_LEN * sizeof(u64v)));
+    allocMem += ((nthreads * BATCH_MUL * READ_LEN * sizeof(mem_t)) + (nthreads * MAX_HITS_PER_READ * sizeof(uint64_t)));
     w.smemBufSize = MAX_LINE_LEN * sizeof(mem_v);
     w.smems = (mem_v*) malloc(nthreads * w.smemBufSize);
     w.hitBufSize = MAX_LINE_LEN * sizeof(u64v);
@@ -742,7 +721,6 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads, char
     if (ert_idx_prefix) {
         free(w.kmer_offsets);
         free(w.mlt_table);
-        free(w.leaf_table);
         for (int i = 0 ; i < nthreads; ++i) {
             kv_destroy(w.smems[i * MAX_LINE_LEN]);
             kv_destroy(w.hits_ar[i * MAX_LINE_LEN]);
@@ -824,7 +802,7 @@ static void usage(const mem_opt_t *opt)
 	fprintf(stderr, "                 specify the mean, standard deviation (10%% of the mean if absent), max\n");
 	fprintf(stderr, "                 (4 sigma from the mean if absent) and min of the insert size distribution.\n");
 	fprintf(stderr, "                 FR orientation only. [inferred]\n");
-	fprintf(stderr, "   -Z STR        ERT index prefix name. When using ERT specify path to BWT index prefix as <idxbase>\n");
+	fprintf(stderr, "   -Z            Use ERT index for seeding\n");
 	fprintf(stderr, "Note: Please read the man page for detailed description of the command line and options.\n");
 }
 
@@ -834,6 +812,7 @@ int main_mem(int argc, char *argv[])
 	int			 fixed_chunk_size		   = -1;
 	char		*p, *rg_line			   = 0, *hdr_line = 0;
 	const char	*mode					   = 0;
+    int useErt = 0;
     char  *idx_prefix                = 0;
 
 	mem_opt_t		*opt, opt0;
@@ -854,7 +833,7 @@ int main_mem(int argc, char *argv[])
 	memset(&opt0, 0, sizeof(mem_opt_t));
 	
 	/* Parse input arguments */
-	while ((c = getopt(argc, argv, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:q:Z:")) >= 0)
+	while ((c = getopt(argc, argv, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:q:Z")) >= 0)
 	{
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') no_mt_io = 1;
@@ -990,7 +969,7 @@ int main_mem(int argc, char *argv[])
 				pes[1].low  = (int)(strtod(p+1, &p) + .499);
 		}
 		else if (c == 'Z') {
-            idx_prefix = optarg;
+            useErt = 1;
         }
 		else {
 			free(opt);
@@ -1071,10 +1050,11 @@ int main_mem(int argc, char *argv[])
 
 		fprintf(stderr, "Ref file: %s\n", argv[optind]);			
 		
-        if (!idx_prefix) {
+        if (!useErt) {
             fmi = new FMI_search(argv[optind]);
         }
         else {
+            idx_prefix = argv[optind];
             fmi = new FMI_search(argv[optind], BWA_IDX_BNS | BWA_IDX_PAC);
         }
         tprof[FMI][0] += __rdtsc() - tim;
