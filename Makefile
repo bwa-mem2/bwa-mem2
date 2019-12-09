@@ -83,7 +83,7 @@ multi:
 	$(CXX) -Wall -O3 src/runsimd.cpp -o bwa-mem2
 
 $(EXE):$(BWA_LIB) src/main.o
-	$(CXX) $(CXXFLAGS) $(BWA_LIB) src/main.o -o $@ $(LIBS)
+	$(CXX) $(CXXFLAGS) src/main.o $(BWA_LIB) -o $@ $(LIBS)
 
 $(BWA_LIB):$(OBJS)
 	ar rcs $(BWA_LIB) $(OBJS)
