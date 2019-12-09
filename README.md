@@ -1,3 +1,39 @@
+### BWA-MEM-M
+
+## Getting Started
+```sh
+# Compile from source
+git clone https://github.com/arun-sub/bwa-mem2.git ert
+cd ert
+make
+
+# Build index (Takes ~2 hr for human genome with 56 threads)
+./bwa-mem2 index -a ert -t <num_threads> -p <index prefix> <input.fasta>
+
+# Perform alignment
+./bwa-mem2 mem -Y -t <num_threads> -Z <index prefix> <input_1.fastq> <input_2.fastq> -o <output_ert.sam>
+
+# Check output with BWA-MEM
+git clone https://github.com/lh3/bwa.git
+cd bwa
+make
+
+# Perform alignment
+./bwa mem -Y -t <num_threads> <input_1.fastq> <input_2.fastq> -o <output_mem.sam>
+
+# Compare output SAM files
+diff <output_mem.sam> <output_ert.sam>
+
+```
+
+## Notes
+
+* BWA-MEM-M has been tested for read lengths up to 151 bp. For larger read lengths, please update READ_LEN in src/macro.h
+* BWA-MEM-M requires atleast 64 GB RAM. For WGS runs on human genome, it is recommended to have 128-192 GB RAM.
+
+
+### BWA-MEM2 (old)
+
 ## Getting Started
 ```sh
 # Use precompiled binaries (recommended)
