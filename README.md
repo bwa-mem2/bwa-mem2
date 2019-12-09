@@ -13,13 +13,13 @@ make
 # Perform alignment
 ./bwa-mem2 mem -Y -t <num_threads> -Z <index prefix> <input_1.fastq> <input_2.fastq> -o <output_ert.sam>
 
-# Check output with BWA-MEM
+# Compile BWA-MEM code
 git clone https://github.com/lh3/bwa.git
 cd bwa
 make
 
 # Perform alignment
-./bwa mem -Y -t <num_threads> <input_1.fastq> <input_2.fastq> -o <output_mem.sam>
+./bwa mem -Y -t <num_threads> <index prefix> <input_1.fastq> <input_2.fastq> -o <output_mem.sam>
 
 # Compare output SAM files
 diff <output_mem.sam> <output_ert.sam>
