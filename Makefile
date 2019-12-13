@@ -61,7 +61,7 @@ else ifeq ($(arch),avx512)
 	endif
 else ifeq ($(arch),native)
 	ARCH_FLAGS=-march=native
-else
+else ifneq ($(arch),)
 # To provide a different architecture flag like -march=core-avx2.
 	ARCH_FLAGS=$(arch)
 endif
