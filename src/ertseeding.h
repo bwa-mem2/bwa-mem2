@@ -20,9 +20,10 @@
 #include "macro.h"
 #include "profiling.h"
 
+/**
+ * Node state to keep track of while traversing ERT.
+ */
 typedef struct {
-    uint8_t c;
-    int i;
     int num_hits;
     uint64_t byte_idx;
 } node_info_t;
@@ -33,27 +34,31 @@ typedef kvec_t(int) intv;
 
 typedef kvec_t(node_info_t) path_v;
 
+/**
+ * State to keep track of previous pivots for each new MEM search
+ */
 typedef struct {
-    int c_pivot;    //!< Pivot used to generate the SMEM
-    int p_pivot;    //!< Previous pivot
-    int pp_pivot;   //!< Pivot before the previous pivot. Useful in reseeding
+    int c_pivot;    // Pivot used to generate the SMEM
+    int p_pivot;    // Previous pivot
+    int pp_pivot;   // Pivot before the previous pivot. Useful in reseeding
 } pivot_t;
 
+/**
+ * State for each maximal-exact-match (MEM)
+ */
 typedef struct {
-    uint8_t forward; //!< RMEM or LMEM. We need this to normalize hit positions
-    int start; //!< MEM start position in read
-    int end; //!< MEM end position in read. [start, end)
-    int rc_start;
-    int rc_end;
-    int type;
-    int skip_ref_fetch; 
-    int fetch_leaves;
-    int hitbeg;
-    int hitcount;
-    int end_correction;
+    uint8_t forward;    // RMEM or LMEM. We need this to normalize hit positions
+    int start;          // MEM start position in read
+    int end;            // MEM end position in read. [start, end)
+    int rc_start;       // MEM start position in reverse complemented (RC) read (used for backward search)
+    int rc_end;         // MEM end position in reverse complemented (RC) read (used for backward search)
+    int skip_ref_fetch; // Skip reference fetch when leaf node need not be decompressed 
+    int fetch_leaves;   // Gather all leaves for MEM
+    int hitbeg;         // Index into hit array
+    int hitcount;       // Count of hits
+    int end_correction; // Amount by which MEM has extended beyond backward search start position in read
     int is_multi_hit;
     pivot_t pt;
-    // u64v hits; //!< Hits for MEM
 } mem_t;
 
 typedef kvec_t(mem_t) mem_v;
@@ -61,11 +66,9 @@ typedef kvec_t(mem_t) mem_v;
 /**
  * Index-related auxiliary data structures
  */
-
 typedef struct {
     uint64_t* kmer_offsets;     // K-mer table
     uint8_t* mlt_table;         // Multi-level ERT
-    uint8_t* leaf_table;         // Multi-level ERT
     const bwt_t* bwt;           // FM-index
     const bntseq_t* bns;        // Input reads sequences
     const uint8_t* pac;         // Reference genome (2-bit encoded)
@@ -74,7 +77,6 @@ typedef struct {
 /**
  * 'Read' auxiliary data structures
  */
-
 typedef struct {
     int min_seed_len;               // Minimum length of seed
     int l_seq;                      // Read length
@@ -86,17 +88,14 @@ typedef struct {
     uint64_t mlt_start_addr;        // Start address of multi-level ERT
     uint64_t mh_start_addr;         // Start address of multi-hits for each k-mer
     char* read_name;                // Read name
-    char* queue_buf;                // Read sequence
-    char* rc_queue_buf;             // Reverse complemented read sequence
     uint8_t* unpacked_queue_buf;    // Read sequence (2-bit encoded)
     uint8_t* unpacked_rc_queue_buf; // Reverse complemented read (2-bit encoded)
     uint8_t* read_buf;              // == queue_buf (forward) and == rc_queue_buf (backward)
 } read_aux_t;
 
 /**
- * SMEM auxiliary data structures
+ * SMEM helper data structure
  */
-
 typedef struct {
     int prevMemStart;               // Start position of previous MEM in the read
     int prevMemEnd;                 // End position of previous MEM in the read

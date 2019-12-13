@@ -5,13 +5,28 @@
 # Compile from source
 git clone https://github.com/arun-sub/bwa-mem2.git ert
 cd ert
-make
+make -j<num_threads> multi
 
+# SSE4.1
 # Build index (Takes ~2 hr for human genome with 56 threads)
-./bwa-mem2 index -a ert -t <num_threads> -p <index prefix> <input.fasta>
+./bwa-mem2.sse4.1 index -a ert -t <num_threads> -p <index prefix> <input.fasta>
 
 # Perform alignment
-./bwa-mem2 mem -Y -t <num_threads> -Z <index prefix> <input_1.fastq> <input_2.fastq> -o <output_ert.sam>
+./bwa-mem2.sse4.1 mem -Y -t <num_threads> -Z <index prefix> <input_1.fastq> <input_2.fastq> -o <output_ert.sam>
+
+# AVX2
+# Build index (Takes ~2 hr for human genome with 56 threads)
+./bwa-mem2.avx2 index -a ert -t <num_threads> -p <index prefix> <input.fasta>
+
+# Perform alignment
+./bwa-mem2.avx2 mem -Y -t <num_threads> -Z <index prefix> <input_1.fastq> <input_2.fastq> -o <output_ert.sam>
+
+# AVX512BW
+# Build index (Takes ~2 hr for human genome with 56 threads)
+./bwa-mem2.avx512bw index -a ert -t <num_threads> -p <index prefix> <input.fasta>
+
+# Perform alignment
+./bwa-mem2.avx512bw mem -Y -t <num_threads> -Z <index prefix> <input_1.fastq> <input_2.fastq> -o <output_ert.sam>
 
 # Compile BWA-MEM code
 git clone https://github.com/lh3/bwa.git

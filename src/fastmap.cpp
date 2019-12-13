@@ -1048,7 +1048,7 @@ int main_mem(int argc, char *argv[])
 	{
 		uint64_t tim = __rdtsc();
 
-		fprintf(stderr, "Ref file: %s\n", argv[optind]);			
+		fprintf(stderr, "Reference index file: %s\n", argv[optind]);			
 		
         if (!useErt) {
             fmi = new FMI_search(argv[optind]);
@@ -1087,7 +1087,7 @@ int main_mem(int argc, char *argv[])
 		
 		fclose(fr);
 		fprintf(stderr, "Reference genome size: %ld bp\n", rlen);
-		fprintf(stderr, "Done readng reference genome !!\n\n");
+		fprintf(stderr, "Done reading reference genome !!\n\n");
 
     }
 

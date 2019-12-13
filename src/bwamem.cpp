@@ -1079,10 +1079,9 @@ int mem_kernel1_core_ert(const mem_opt_t *opt,
                          int64_t seedBufSize,
                          uint64_t* kmer_offsets,
                          uint8_t* mlt_table,
-                         uint8_t* leaf_table,
                          mem_v* smems,
                          u64v* hits,
-					     int tid)
+                         int tid)
 {	
 	int i;
  	mem_chain_v *chn;
@@ -1112,7 +1111,6 @@ int mem_kernel1_core_ert(const mem_opt_t *opt,
         index_aux_t iaux;
         iaux.kmer_offsets = kmer_offsets;
         iaux.mlt_table = mlt_table;
-        iaux.leaf_table = leaf_table;
         iaux.bns = bns;
         iaux.pac = pac;
 
@@ -1396,7 +1394,6 @@ static void worker_bwt(void *data, long seq_id, long batch_size, int tid)
                              seedBufSz,
                              w->kmer_offsets,
                              w->mlt_table,
-                             w->leaf_table,
                              w->smems + (tid * MAX_LINE_LEN),
                              w->hits_ar + (tid * MAX_LINE_LEN), 
                              tid);

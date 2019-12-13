@@ -218,7 +218,6 @@ typedef struct worker_t {
     int64_t auxSeedBufSize;
     uint64_t* kmer_offsets;
     uint8_t* mlt_table;
-    uint8_t* leaf_table;
     uint8_t* lep;
     mem_v* smems;
     u64v* hits_ar;
@@ -268,6 +267,20 @@ int mem_kernel1_core(const mem_opt_t *opt,
 					 uint8_t *enc_qdb,
 					 int32_t *rid,
 					 int tid);
+
+int mem_kernel1_core_ert(const mem_opt_t *opt,
+                         const bntseq_t *bns,
+                         const uint8_t *pac,
+                         bseq1_t *seq_,
+                         int nseq,
+                         mem_chain_v *chain_ar,
+                         mem_seed_t *seedBuf,
+                         int64_t seedBufSize,
+                         uint64_t* kmer_offsets,
+                         uint8_t* mlt_table,
+                         mem_v* smems,
+                         u64v* hits,
+                         int tid);
 
 void mem_chain2aln_across_reads(const mem_opt_t *opt, const bntseq_t *bns,
 								const uint8_t *pac, bseq1_t *seq_, int nseq,

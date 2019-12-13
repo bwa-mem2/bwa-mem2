@@ -7,9 +7,8 @@ KSORT_INIT(mem_smem_ert, mem_t, smem_lt)
 KSORT_INIT(mem_smem_sort_lt_ert, mem_t, smem_lt_2)
 
 /**
- * 256 x 3 (3B,3B,4B ptrs) x 4 (ACGT) table encoding offset to next address given a code byte for a leaf node (2B pointer width)
+ * 256 x 3 (2B,3B,4B ptrs) x 4 (ACGT) table encoding offset to next address given a code byte for a leaf node
  */
-
 unsigned char leaf_table[256 * 3][4] = {
         {0,0,0,0},
         {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},
@@ -211,7 +210,6 @@ unsigned char leaf_table[256 * 3][4] = {
 /**
  * 256 x 3 (2B,3B,4B ptrs) x 4 (ACGT) table encoding offset to next address given a code byte for an internal 'DIVERGE' node
  */
-
 unsigned char code_table[256 * 3][4] = {
         {0,0,0,0},
         {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},
@@ -411,7 +409,7 @@ unsigned char code_table[256 * 3][4] = {
 };
 
 /**
- * Return integer key from k-mer string. FIXME: Replace with lookup table (nst_nt4_table)
+ * Return integer key from k-mer string. 
  *
  * @param str           Query sequence
  * @param keysize       K-mer length
@@ -442,7 +440,7 @@ inline uint32_t getHashKey (const uint8_t *str, const int keysize, int index, in
     return key;
 }
 
-/*
+/**
  * Compute offset to child and return address of child node
  *
  * @param raux              read parameters
@@ -466,7 +464,7 @@ void getOffsetToChildNode(read_aux_t* raux, uint8_t* mlt_data, uint8_t code, uin
 }
 
 
-/*
+/**
  * Compute offset to start of leaf data
  *
  * @param raux              read parameters
@@ -478,28 +476,15 @@ inline int getOffsetToLeafData(read_aux_t* raux, uint8_t code, uint8_t c) {
     return leaf_table[((raux->ptr_width - 2) << 8) + code][c];
 }
 
-inline void prefetchChildNodes(read_aux_t* raux, uint8_t* mlt_data, uint64_t byte_idx) {
-    uint8_t code = mlt_data[byte_idx];
-    uint64_t childPtrOffsets[4];
-    childPtrOffsets[0] = code_table[((raux->ptr_width - 2) << 8) + code][0];
-    childPtrOffsets[1] = code_table[((raux->ptr_width - 2) << 8) + code][1];
-    childPtrOffsets[2] = code_table[((raux->ptr_width - 2) << 8) + code][2];
-    childPtrOffsets[3] = code_table[((raux->ptr_width - 2) << 8) + code][3];
-    _mm_prefetch((const char*) (&mlt_data[byte_idx + childPtrOffsets[0]]), _MM_HINT_T0);
-    _mm_prefetch((const char*) (&mlt_data[byte_idx + childPtrOffsets[1]]), _MM_HINT_T0);
-    _mm_prefetch((const char*) (&mlt_data[byte_idx + childPtrOffsets[2]]), _MM_HINT_T0);
-    _mm_prefetch((const char*) (&mlt_data[byte_idx + childPtrOffsets[3]]), _MM_HINT_T0);
-
-} 
-
 /**
  * This routine does depth-first tree traversal starting from an internal node to obtain all hits at leaf nodes
  * 
  * @param raux              read parameters
  * @param mlt_data          radix tree of k-mer
  * @param byteIdx           byte index into the mlt_data radix tree
- * @param mem               MEM including hits 
+ * @param mem               maximal-exact-match storage 
  * @param bc                next character in read (used to traverse tree)
+ * @param hits              list of hits for read
  */
 void getNextByteIdx_dfs(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, mem_t* mem, uint8_t bc, u64v* hits) {
 
@@ -507,16 +492,16 @@ void getNextByteIdx_dfs(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx,
     uint64_t ref_pos = 0;
     uint8_t c;
     c = 3 - bc;
-    mem->skip_ref_fetch = 1;
+    mem->skip_ref_fetch = 1; // MEM cannot be extended by leaf decompression
     uint8_t code = mlt_data[nextByteIdx++];
     uint8_t code_c = (code >> (c << 1)) & 3;
     assert(code != 0);
-    if (code_c == LEAF) { //!< Hit a leaf node
+    if (code_c == LEAF) { // Hit a leaf node
         int k;
         uint64_t leaf_data = 0;
         nextByteIdx += getOffsetToLeafData(raux, code, c);
         memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
-        if (leaf_data & 1) {
+        if (leaf_data & 1) { // Found a multi-hit leaf node
             nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
             memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
             nextByteIdx += 2;
@@ -528,13 +513,13 @@ void getNextByteIdx_dfs(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx,
                 ref_pos = 0;
             }
         }
-        else {
+        else { // Single-hit leaf node
             raux->num_hits = 1;
             mem->hitcount += raux->num_hits;
             kv_push(uint64_t, *hits, leaf_data >> 1);
         }
     }
-    else if (code_c == UNIFORM) {
+    else if (code_c == UNIFORM) { // Multi-character internal node
         int countBP = mlt_data[nextByteIdx++];
         int numBitsForBP = countBP << 1;
         int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
@@ -548,7 +533,7 @@ void getNextByteIdx_dfs(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx,
             startByteIdx = nextByteIdx; 
         }
     }
-    else if (code_c == DIVERGE) {
+    else if (code_c == DIVERGE) { // Single-character internal node
         getOffsetToChildNode(raux, mlt_data, code, c, &nextByteIdx);
         uint8_t k;
         uint64_t startByteIdx = nextByteIdx;
@@ -567,6 +552,7 @@ void getNextByteIdx_dfs(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx,
  * @param mlt_data          radix tree of k-mer
  * @param byteIdx           byte index into the mlt_data radix tree
  * @param mem               MEM including hits 
+ * @param hits              list of hits for read
  */
 void leaf_gather(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, mem_t* mem, u64v* hits) {
     uint8_t k;
@@ -584,8 +570,9 @@ void leaf_gather(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, mem_t*
  * @param raux              read parameters
  * @param mlt_data          radix tree of k-mer
  * @param byteIdx           byte index into the mlt_data radix tree
- * @param i                 Index into read buffer
- * @param mem               MEM including hits 
+ * @param i                 index into read buffer
+ * @param mem               maximal-exact-match storage  
+ * @param hits              list of hits for read
  */
 void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int* i, mem_t* mem, u64v* hits) {
     uint64_t nextByteIdx = *byte_idx;
@@ -597,21 +584,21 @@ void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte
         code_c = (code >> (c << 1)) & 3;
         assert(code != 0);
     }
-    else {
+    else { // Terminate MEM search when we hit an 'N'
         code_c = EMPTY;
     }
-    if (code_c == EMPTY) {
+    if (code_c == EMPTY) { // Gather leaves later during forward traversal
         mem->rc_end = *i;
-        mem->fetch_leaves = 1;
+        mem->fetch_leaves = 1; 
     }
-    else if (code_c == LEAF) { //!< Hit a leaf node
+    else if (code_c == LEAF) { // Hit a leaf node
         *i += 1;
         mem->rc_end = *i;
         int k;
         uint64_t leaf_data = 0;
         nextByteIdx += getOffsetToLeafData(raux, code, c);
         memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
-        if (leaf_data & 1) {
+        if (leaf_data & 1) { // Found a multi-hit leaf node
             nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
             memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
             nextByteIdx += 2;
@@ -622,14 +609,18 @@ void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte
                 kv_push(uint64_t, *hits, ref_pos >> 1);
                 ref_pos = 0;
             }
+            //
+            // We found a multi-hit. But to report hits in the same order as BWA-MEM,
+            // we will fetch the hits again in a forward tree traversal
+            //
             mem->fetch_leaves = 1;
         } 
-        else {
+        else { // Single-hit leaf node
             mem->hitcount += 1;
             kv_push(uint64_t, *hits, leaf_data >> 1);
         }
     }
-    else if (code_c == UNIFORM) {
+    else if (code_c == UNIFORM) { // Multi-character internal node
         uint32_t j;
         int countBP = mlt_data[nextByteIdx++];
         int numBitsForBP = countBP << 1;
@@ -637,12 +628,12 @@ void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
-        //!< Unpack base pairs
+        // Unpack base pairs
         uint8_t unpackedBP[countBP];
         for (j = 0; j < countBP; ++j) {
             unpackedBP[j] = ((packedBP[j >> 2] >> ((~(j) & 3) << 1)) & 3); 
         }
-        //!< Count number of matching base pairs with read
+        // Count number of matching base pairs with read
         for (j = 0; j < countBP; ++j) {
             if ((*i + j) >= raux->l_seq) {
                 break;
@@ -655,7 +646,7 @@ void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte
             }
         }  
         *i += j;
-        if (j == countBP) {
+        if (j == countBP) { // We match all bps
             if (*i < raux->l_seq) {
                 getNextByteIdx_backward(raux, mlt_data, &nextByteIdx, i, mem, hits);
             }
@@ -663,12 +654,12 @@ void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte
                 mem->rc_end = *i;
             }
         }
-        else {
+        else { // Did not match all bps. Gather leaves for MEM in a later forward traversal 
             mem->rc_end = *i;
             mem->fetch_leaves = 1;
         }
     }
-    else {
+    else { // Single-character internal node
         getOffsetToChildNode(raux, mlt_data, code, c, &nextByteIdx);
         *i += 1;
         if (*i < raux->l_seq) {
@@ -688,8 +679,9 @@ void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte
  * @param raux              read parameters
  * @param mlt_data          radix tree of k-mer
  * @param byteIdx           byte index into the mlt_data radix tree
- * @param i                 Index into read buffer
- * @param mem               MEM including hits 
+ * @param i                 index into read buffer
+ * @param mem               maximal-exact-match storage 
+ * @param hits              list of hits for each read 
  */
 void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int* i, mem_t* mem, u64v* hits) {
 
@@ -702,22 +694,23 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
         code_c = (code >> (c << 1)) & 3;
         assert(code != 0);
     }
-    else {
+    else { // Terminate MEM search when we hit an 'N'
         code_c = EMPTY;
     }
-    if (code_c == EMPTY) {
+    if (code_c == EMPTY) { // Gather leaves later during forward traversal
         mem->rc_end = *i;
         mem->fetch_leaves = 1;
     }
-    else if (code_c == LEAF) { //!< Hit a leaf node
+    else if (code_c == LEAF) { // Hit a leaf node
         int k;
         uint64_t leaf_data = 0;
         nextByteIdx += getOffsetToLeafData(raux, code, c);
         memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
-        if (leaf_data & 1) {
+        if (leaf_data & 1) { // Found a multi-hit leaf node
             nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
             memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
             nextByteIdx += 2;
+            // Hits exceed reseeding threshold
             if (raux->num_hits >= raux->limit) {
                 mem->hitcount += raux->num_hits;
                 for (k = 0; k < raux->num_hits; ++k) {
@@ -729,10 +722,14 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
                 *i += 1;
             } 
         }
-        mem->fetch_leaves = 1; // FIXME
+        //
+        // We found a multi-hit. But to report hits in the same order as BWA-MEM,
+        // we will fetch the hits again in a forward tree traversal
+        //
+        mem->fetch_leaves = 1;
         mem->rc_end = *i;
     }
-    else if (code_c == UNIFORM) {
+    else if (code_c == UNIFORM) { // Multi-character internal node
         uint32_t j;
         int countBP = mlt_data[nextByteIdx++];
         int numBitsForBP = countBP << 1;
@@ -740,12 +737,12 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
-        //!< Unpack base pairs
+        // Unpack base pairs
         uint8_t unpackedBP[countBP];
         for (j = 0; j < countBP; ++j) {
             unpackedBP[j] = ((packedBP[j >> 2] >> ((~(j) & 3) << 1)) & 3); 
         }
-        //!< Count number of matching base pairs with read
+        // Count number of matching base pairs with read
         for (j = 0; j < countBP; ++j) {
             if ((*i + j) >= raux->l_seq) {
                 break;
@@ -758,7 +755,7 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
             }
         }  
         *i += j;
-        if (j == countBP) {
+        if (j == countBP) { // We match all bps
             if (*i < raux->l_seq) {
                 getNextByteIdx_backward_wlimit(raux, mlt_data, &nextByteIdx, i, mem, hits);
             }
@@ -767,14 +764,15 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
                 mem->fetch_leaves = 1;
             }
         }
-        else {
+        else { // Did not match all bps. Gather leaves for MEM in a later forward traversal 
             mem->rc_end = *i;
             mem->fetch_leaves = 1;
         }
     }
-    else {
+    else { // Single-character internal node
         raux->num_hits = 0;
         getOffsetToChildNode(raux, mlt_data, code, c, &nextByteIdx);
+        // In the internal nodes, raux->num_hits = 0 is used to reprsent # hits > 20
         if ((raux->num_hits == 0) || (raux->num_hits >= raux->limit)) {
             *i += 1;
             if (*i < raux->l_seq) {
@@ -799,8 +797,9 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
  * @param raux              read parameters
  * @param mlt_data          radix tree of k-mer
  * @param byteIdx           byte index into the mlt_data radix tree
- * @param i                 Index into read buffer
- * @param mem               MEM including hits 
+ * @param i                 index into read buffer
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int* i, mem_t* mem, u64v* hits) {
 
@@ -814,30 +813,31 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
         code_c = (code >> (c << 1)) & 3;
         assert(code != 0);
     }
-    else {
+    else { // Terminate MEM search when we hit an 'N'
         code_c = EMPTY;
     }
     uint64_t lep_idx = 0;
     uint64_t lep_bit_idx = 0;
     if (code_c == EMPTY) {
-        if (mem->start == 0) {
+        if (mem->start == 0) { // FIXME: Gather leaves later during forward traversal even for MEMs starting at read_pos = 0
             int mem_len = *i;
-            if (mem_len >= raux->min_seed_len) {
+            if (mem_len >= raux->min_seed_len) { // Only gather leaves when MEM length exceeds threshold
                 uint64_t startByteIdx = parent_byte_idx;
                 leaf_gather(raux, mlt_data, &startByteIdx, mem, hits); 
             }
         }
+        // Update LEP for backward search
         lep_idx = raux->nextLEPBit >> 6;
         lep_bit_idx = raux->nextLEPBit & (0x3FULL);
         raux->lep[lep_idx] |= (1ULL << lep_bit_idx);
         raux->nextLEPBit += 1;
     }
-    else if (code_c == LEAF) { //!< Hit a leaf node
+    else if (code_c == LEAF) { // Hit a leaf node
         int k;
         uint64_t leaf_data = 0;
         nextByteIdx += getOffsetToLeafData(raux, code, c);
         memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
-        if (leaf_data & 1) {
+        if (leaf_data & 1) { // Found a multi-hit leaf node
             nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
             memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
             nextByteIdx += 2;
@@ -849,18 +849,19 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
                 ref_pos = 0;
             }
         }
-        else {
+        else { // Single-hit leaf node
             raux->num_hits = 1;
             mem->hitcount += raux->num_hits;
             kv_push(uint64_t, *hits, leaf_data >> 1);
         }
+        // Update LEP for backward search
         lep_idx = raux->nextLEPBit >> 6;
         lep_bit_idx = raux->nextLEPBit & (0x3FULL);
         raux->lep[lep_idx] |= (1ULL << lep_bit_idx);
         raux->nextLEPBit += 1;
         *i += 1;
     }
-    else if (code_c == UNIFORM) {
+    else if (code_c == UNIFORM) { // Multi-character internal node
         uint32_t j;
         int countBP = mlt_data[nextByteIdx++];
         int numBitsForBP = countBP << 1;
@@ -868,14 +869,14 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
-        /// Unpack base pairs
+        // Unpack base pairs
         uint8_t unpackedBP[countBP];
         for (j = 0; j < countBP; ++j) {
             unpackedBP[j] = ((packedBP[j >> 2] >> ((~(j) & 3) << 1)) & 3); 
         }
-        /// Count number of matching base pairs with read
+        // Count number of matching base pairs with read
         for (j = 0; j < countBP; ++j) {
-            if ((*i + j) >= raux->l_seq) { //!< Don't run past the end of the read
+            if ((*i + j) >= raux->l_seq) { // Don't run past the end of the read
                 break;
             }
             if (raux->read_buf[*i+j] == 4) {
@@ -886,11 +887,9 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
             }
         }  
         raux->nextLEPBit += j;
-        /// If we match all bases of uniform entry
         *i += j;
-        if (j == countBP) {
-            /// Check if we reached the end of the read
-            if (*i == raux->l_seq) {
+        if (j == countBP) { // If we match all bases of uniform entry
+            if (*i == raux->l_seq) { // Check if we reached the end of the read
                 if (mem->start == 0) {
                     leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits); 
                 }
@@ -905,9 +904,10 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
             }
         }
         else { 
-            /** We did not match all bases of uniform entry
-             *  Fetch all hits from leaf nodes for backward extension (dfs :( )
-             */
+            // 
+            // We did not match all bases of uniform entry
+            // Fetch all hits from leaf nodes for backward extension (dfs :( )
+            //
             assert(*i <= raux->l_seq);
             if (mem->start == 0) {
                 int mem_len = *i;
@@ -915,12 +915,13 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
                     leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits); 
                 } 
             }
+            // Update LEP to start backward search from last matching bp
             lep_idx = raux->nextLEPBit >> 6;
             lep_bit_idx = raux->nextLEPBit & (0x3FULL);
             raux->lep[lep_idx] |= (1ULL << lep_bit_idx);
         }
     }
-    else {
+    else { // Single-character internal node
         getOffsetToChildNode(raux, mlt_data, code, c, &nextByteIdx);
         lep_idx = raux->nextLEPBit >> 6;
         lep_bit_idx = raux->nextLEPBit & (0x3FULL);
@@ -948,9 +949,10 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
  * @param raux              read parameters
  * @param mlt_data          radix tree of k-mer
  * @param byteIdx           byte index into the mlt_data radix tree
- * @param i                 Index into read buffer
- * @param mem               MEM including hits 
- * @param visited           Stack to store list of visited nodes
+ * @param i                 index into read buffer
+ * @param mem               maximal-exact-match storage 
+ * @param visited           stack to store list of visited nodes
+ * @param hits              list of hits for read
  */
 void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int* i, mem_t* mem, path_v* visited, u64v* hits) {
 
@@ -964,7 +966,7 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
         code_c = (code >> (c << 1)) & 3;
         assert(code != 0);
     }
-    else {
+    else { // Terminate MEM search when we hit an 'N'
         code_c = EMPTY;
     }
     uint64_t lep_idx = 0;
@@ -976,24 +978,26 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
                 leaf_gather(raux, mlt_data, &parent_byte_idx, mem, hits); 
             }
         }
+        // Update LEP for backward search
         lep_idx = raux->nextLEPBit >> 6;
         lep_bit_idx = raux->nextLEPBit & (0x3FULL);
         raux->lep[lep_idx] |= (1ULL << lep_bit_idx);
         raux->nextLEPBit += 1;
     }
-    else if (code_c == LEAF) { //!< Hit a leaf node
+    else if (code_c == LEAF) { // Hit a leaf node
         int k;
         uint64_t leaf_data = 0;
         nextByteIdx += getOffsetToLeafData(raux, code, c);
         memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
-        if (leaf_data & 1) {
+        if (leaf_data & 1) { // Found a multi-hit leaf node
             nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
             memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
             nextByteIdx += 2;
         }
-        else {
+        else { // Single-hit leaf node
             raux->num_hits = 1;
         }
+        // Hits exceed reseeding threshold
         if (raux->num_hits >= raux->limit) {
             mem->hitcount += raux->num_hits;
             for (k = 0; k < raux->num_hits; ++k) {
@@ -1005,7 +1009,7 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
             *i += 1;
         }
         else {
-            /// Do dfs
+            // Do DFS traversal to gather leaves starting from parent node
             if (mem->start == 0) {
                 int mem_len = *i;
                 if (mem_len >= raux->min_seed_len) { 
@@ -1014,12 +1018,13 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
                 }
             }
         }
+        // Update LEP for backward search
         lep_idx = raux->nextLEPBit >> 6;
         lep_bit_idx = raux->nextLEPBit & (0x3FULL);
         raux->lep[lep_idx] |= (1ULL << lep_bit_idx);
         raux->nextLEPBit += 1;
     }
-    else if (code_c == UNIFORM) {
+    else if (code_c == UNIFORM) { // Multi-character internal node
         uint32_t j;
         int countBP = mlt_data[nextByteIdx++];
         int numBitsForBP = countBP << 1;
@@ -1027,14 +1032,14 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
-        /// Unpack base pairs
+        // Unpack base pairs
         uint8_t unpackedBP[countBP];
         for (j = 0; j < countBP; ++j) {
             unpackedBP[j] = ((packedBP[j >> 2] >> ((~(j) & 3) << 1)) & 3); 
         }
-        /// Count number of matching base pairs with read
+        // Count number of matching base pairs with read
         for (j = 0; j < countBP; ++j) {
-            if ((*i + j) >= raux->l_seq) { //!< Don't run past the end of the read
+            if ((*i + j) >= raux->l_seq) { // Don't run past the end of the read
                 break;
             }
             if (raux->read_buf[*i+j] == 4) {
@@ -1045,11 +1050,9 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
             }
         }  
         raux->nextLEPBit += j;
-        /// If we match all bases of uniform entry
         *i += j;
-        if (j == countBP) {
-            /// Check if we reached the end of the read
-            if (*i == raux->l_seq) {
+        if (j == countBP) { // If we match all bases of uniform entry
+            if (*i == raux->l_seq) { // Check if we reached the end of the read
                 if (mem->start == 0) {
                     leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits); 
                 }
@@ -1064,9 +1067,10 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
             }
         }
         else { 
-            /** We did not match all bases of uniform entry
-             *  Fetch all hits from leaf nodes for backward extension (dfs :( )
-             */
+            // 
+            // We did not match all bases of uniform entry
+            // Fetch all hits from leaf nodes for backward extension (dfs :( )
+            // 
             assert(*i <= raux->l_seq);
             if (mem->start == 0) {
                 int mem_len = *i;
@@ -1085,9 +1089,10 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
         lep_bit_idx = raux->nextLEPBit & (0x3FULL);
         raux->lep[lep_idx] |= (1ULL << lep_bit_idx);
         raux->nextLEPBit += 1;
+        // In the internal nodes, raux->num_hits = 0 is used to reprsent # hits > 20
         if ((raux->num_hits == 0) || (raux->num_hits >= raux->limit)) {
             node_info_t nif;
-            nif.byte_idx = nextByteIdx; // TODO: Fix bug earlier parent_byte_idx
+            nif.byte_idx = nextByteIdx; 
             nif.num_hits = raux->num_hits;
             kv_push(node_info_t, *visited, nif);
             *i += 1;
@@ -1103,7 +1108,7 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
             }
         }
         else {
-            /// Do dfs
+            // Do DFS traveral to gather leaves from parent node
             if (mem->start == 0) {
                 int mem_len = *i;
                 if (mem_len >= raux->min_seed_len) {
@@ -1123,9 +1128,10 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
  * @param raux              read parameters
  * @param mlt_data          radix tree of k-mer
  * @param byteIdx           byte index into the mlt_data radix tree
- * @param i                 Index into read buffer
- * @param mem               MEM including hits 
- * @param visited           Stack to store list of visited nodes
+ * @param i                 index into read buffer
+ * @param mem               maximal-exact match found 
+ * @param visited           stack to store list of visited nodes
+ * @param hits              list of hits for read
  */
 void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int* i, mem_t* mem, u64v* hits) {
 
@@ -1138,18 +1144,18 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
         code_c = (code >> (c << 1)) & 3;
         assert(code != 0);
     }
-    else {
+    else { // Terminate MEM search when we hit an 'N'
         code_c = EMPTY;
     }
     if (code_c == EMPTY) {
         *i += 1;
     }
-    else if (code_c == LEAF) { //!< Hit a leaf node
+    else if (code_c == LEAF) { // Hit a leaf node
         int k;
         uint64_t leaf_data = 0;
         nextByteIdx += getOffsetToLeafData(raux, code, c);
         memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
-        if (leaf_data & 1) {
+        if (leaf_data & 1) { // multi-hit leaf
             nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
             memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
             nextByteIdx += 2;
@@ -1161,14 +1167,14 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
                 ref_pos = 0;
             }
         }
-        else {
+        else { // single-hit leaf
             raux->num_hits = 1;
             mem->hitcount += raux->num_hits;
             kv_push(uint64_t, *hits, leaf_data >> 1);
         }
         *i += 1;
     }
-    else if (code_c == UNIFORM) {
+    else if (code_c == UNIFORM) { // Multi-character internal node
         uint32_t j;
         int countBP = mlt_data[nextByteIdx++];
         int numBitsForBP = countBP << 1;
@@ -1176,12 +1182,12 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
-        /// Unpack base pairs
+        // Unpack base pairs
         uint8_t unpackedBP[countBP];
         for (j = 0; j < countBP; ++j) {
             unpackedBP[j] = ((packedBP[j >> 2] >> ((~(j) & 3) << 1)) & 3); 
         }
-        /// Count number of matching base pairs with read
+        // Count number of matching base pairs with read
         for (j = 0; j < countBP; ++j) {
             if ((*i + j) >= raux->l_seq) { //!< Don't run past the end of the read
                 break;
@@ -1195,10 +1201,13 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
         }  
         *i += j;
         int len = *i - mem->start;
+        // 
+        // LAST stop criterion: MEM is sufficiently long and not too frequent
+        //
         int stop_extension = (raux->num_hits > 0 && 
                               raux->num_hits < raux->limit && 
-                              len >= (raux->min_seed_len+1)) ? 1 : 0;
-        if (stop_extension) {
+                              len >= (raux->min_seed_len + 1)) ? 1 : 0;
+        if (stop_extension) { 
             leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits);
             *i = mem->start + (raux->min_seed_len + 1);
         }
@@ -1217,9 +1226,12 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
         getOffsetToChildNode(raux, mlt_data, code, c, &nextByteIdx);
         *i += 1;
         int len = *i - mem->start;
+        // 
+        // LAST stop criterion: MEM is sufficiently long and not too frequent
+        //
         int stop_extension = (raux->num_hits > 0 && 
                               raux->num_hits < raux->limit && 
-                              len >= (raux->min_seed_len+1)) ? 1 : 0;
+                              len >= (raux->min_seed_len + 1)) ? 1 : 0;
         if (stop_extension) {
             leaf_gather(raux, mlt_data, &nextByteIdx, mem, hits);
         }
@@ -1237,8 +1249,9 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
  * 
  * @param iaux              index parameters
  * @param raux              read parameters
- * @param i                 Index into read buffer
- * @param mem               MEM including hits 
+ * @param i                 index into read buffer
+ * @param mem               maximal-exact match found
+ * @param hits              list of hits for read
  */
 void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* hits) {
     
@@ -1253,16 +1266,20 @@ void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* h
         mem->rc_end = *i;
         return;
     }
+    // index-table lookup
     kmer_entry = iaux->kmer_offsets[hashval];
+    // index-table entry type
     code = kmer_entry & METADATA_MASK;
+    // pointer to root of tree
     start_addr = kmer_entry >> KMER_DATA_BITWIDTH;
+    // width used for internal pointers in tree
     raux->ptr_width = (((kmer_entry >> 22) & 3) == 0) ? 4 : ((kmer_entry >> 22) & 3);
     byte_idx = 0;
-    if (code == INVALID) {
+    if (code == INVALID) { // k-mer absent
         *i += (kmerSize + xmerSize);
         mem->rc_end = *i;
     }
-    else if (code == SINGLE_HIT_LEAF) {
+    else if (code == SINGLE_HIT_LEAF) { // single-hit k-mer
         mlt_data = &iaux->mlt_table[start_addr];
         byte_idx++;
         memcpy(&ref_pos, &mlt_data[byte_idx], 5);                         
@@ -1272,10 +1289,13 @@ void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* h
         *i += kmerSize;
         mem->rc_end = *i;
     }
-    else if (code == INFREQUENT) {
+    else if (code == INFREQUENT) { // k-mer has fewer than 256 hits
         *i += kmerSize;
         mlt_data = &iaux->mlt_table[start_addr];
         if (*i < raux->l_seq) {
+            // 
+            // First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
+            //
             memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
             byte_idx += 4;
             getNextByteIdx_backward(raux, mlt_data, &byte_idx, i, mem, hits);
@@ -1284,7 +1304,7 @@ void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* h
             mem->rc_end = *i;
         }
     }
-    else {
+    else { // k-mer has large, dense tree, do an additional x-mer lookup
         uint64_t xmer_entry;
         uint64_t ptr = 0;
         *i += kmerSize;
@@ -1333,8 +1353,9 @@ void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* h
  * 
  * @param iaux              index parameters
  * @param raux              read parameters
- * @param i                 Index into read buffer
- * @param mem               MEM including hits 
+ * @param i                 index into read buffer
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void leftExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* hits) {
     
@@ -1349,31 +1370,39 @@ void leftExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, 
         mem->rc_end = *i;
         return;
     }
+    // index-table lookup
     kmer_entry = iaux->kmer_offsets[hashval];
+    // index-table entry type
     code = kmer_entry & METADATA_MASK;
+    // pointer to root of tree
     start_addr = kmer_entry >> KMER_DATA_BITWIDTH;
+    // width used for internal pointers in tree
     raux->ptr_width = (((kmer_entry >> 22) & 3) == 0) ? 4 : ((kmer_entry >> 22) & 3);
+    // # hits for k-mer (0 if > 20 hits)
     raux->num_hits = (kmer_entry >> 17) & 0x1F;
     byte_idx = 0;
-    if (code == INVALID) {
+    if (code == INVALID) { // k-mer absent
         *i += (kmerSize + xmerSize);
         mem->rc_end = *i;
     }
-    else if (code == SINGLE_HIT_LEAF) {
+    else if (code == SINGLE_HIT_LEAF) { // single-hit k-mer
         *i += (kmerSize + xmerSize);        
         mem->rc_end = *i;
     }
-    else if (code == INFREQUENT) {
+    else if (code == INFREQUENT) { // k-mer has fewer than 256 hits
         *i += kmerSize;
         mlt_data = &iaux->mlt_table[start_addr];
         if ((raux->num_hits == 0) || (raux->num_hits >= raux->limit)) {
             if (*i < raux->l_seq) {
+                // 
+                // First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
+                //
                 memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
                 byte_idx += 4;
                 getNextByteIdx_backward_wlimit(raux, mlt_data, &byte_idx, i, mem, hits);
             }
             else {
-                /// Leaf gathering
+                // Leaf gathering to be done later
                 mem->rc_end = *i;
                 mem->fetch_leaves = 1;
             }
@@ -1382,12 +1411,16 @@ void leftExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, 
             mem->rc_end = *i;
         }
     }
-    else {
+    else { // k-mer has large, dense tree, do an additional x-mer lookup
         uint64_t xmer_entry;
         uint64_t ptr = 0;
         *i += kmerSize;
         mlt_data = &iaux->mlt_table[start_addr];
         hashval = getHashKey(&raux->read_buf[*i], xmerSize, *i, raux->l_seq, 0, &idx_first_N);
+        // 
+        // First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
+        // This helps in decoding nodes and creates compact trees
+        //
         memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
         byte_idx += 4;
         memcpy(&xmer_entry, &mlt_data[byte_idx + (hashval << 3)], 8);
@@ -1415,7 +1448,7 @@ void leftExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, 
                     getNextByteIdx_backward_wlimit(raux, mlt_data, &byte_idx, i, mem, hits);
                 }   
                 else {
-                    /// Leaf gathering
+                    // Leaf gathering
                     mem->rc_end = *i;
                     mem->fetch_leaves = 1;
                 }
@@ -1428,13 +1461,14 @@ void leftExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, 
 }
 
 /**
- * Fetch hits for all MEMs identified after backward search.
+ * Fetch hits for all MEMs identified after backward search (termination conditions based on reseeding)
  * 
  * @param raux              read parameters
  * @param mlt_data          radix tree of k-mer
  * @param byteIdx           byte index into the mlt_data radix tree
- * @param idx               Index into read buffer
- * @param mem               MEM including hits 
+ * @param idx               index into read buffer
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int idx, mem_t* mem, path_v* visited, u64v* hits) {
 
@@ -1448,7 +1482,6 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
     uint8_t code = mlt_data[nextByteIdx++];
     uint8_t code_c = (code >> (c << 1)) & 3;
     assert(code != 0);
-    // assert(code_c != EMPTY);
     if (code_c == EMPTY) { // Do leaf gathering
         mem->end = i;
         int mem_len = mem->end - mem->start;
@@ -1479,7 +1512,7 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
             }
             i += 1;
             mem->end = i;
-	        mem->is_multi_hit = 1;
+	        mem->is_multi_hit = 1; // decompress leaf node for potentially longer match
         }
         else {
             mem->end = i;
@@ -1498,12 +1531,12 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
-        //!< Unpack base pairs
+        // Unpack base pairs
         uint8_t unpackedBP[countBP];
         for (j = 0; j < countBP; ++j) {
             unpackedBP[j] = ((packedBP[j >> 2] >> ((~(j) & 3) << 1)) & 3); 
         }
-        //!< Count number of matching base pairs with read
+        // Count number of matching base pairs with read
         for (j = 0; j < countBP; ++j) {
             if ((i + j) >= raux->l_seq) {
                 break;
@@ -1567,13 +1600,14 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
 }
 
 /**
- * Fetch hits for all MEMs identified after backward search.
+ * Fetch hits for all MEMs identified after backward search (extend beyond mem->end)
  * 
  * @param raux              read parameters
  * @param mlt_data          radix tree of k-mer
  * @param byteIdx           byte index into the mlt_data radix tree
- * @param idx               Index into read buffer
- * @param mem               MEM including hits 
+ * @param idx               index into read buffer
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void getNextByteIdx_fetch_leaves_prefix(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int idx, mem_t* mem, u64v* hits) {
 
@@ -1586,7 +1620,6 @@ void getNextByteIdx_fetch_leaves_prefix(read_aux_t* raux, uint8_t* mlt_data, uin
     uint8_t code = mlt_data[nextByteIdx++];
     uint8_t code_c = (code >> (c << 1)) & 3;
     assert(code != 0);
-    // assert(code_c != EMPTY);
     if (code_c == EMPTY) { // Do leaf gathering
         mem->end = i;
         int mem_len = mem->end - mem->start;
@@ -1628,12 +1661,12 @@ void getNextByteIdx_fetch_leaves_prefix(read_aux_t* raux, uint8_t* mlt_data, uin
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
-        //!< Unpack base pairs
+        // Unpack base pairs
         uint8_t unpackedBP[countBP];
         for (j = 0; j < countBP; ++j) {
             unpackedBP[j] = ((packedBP[j >> 2] >> ((~(j) & 3) << 1)) & 3); 
         }
-        //!< Count number of matching base pairs with read
+        // Count number of matching base pairs with read
         for (j = 0; j < countBP; ++j) {
             if ((i + j) >= raux->l_seq) {
                 break;
@@ -1682,13 +1715,14 @@ void getNextByteIdx_fetch_leaves_prefix(read_aux_t* raux, uint8_t* mlt_data, uin
 }
 
 /**
- * Fetch hits for all MEMs identified after backward search.
+ * Forward traversal to fetch hits for all MEMs identified after backward search.
  * 
  * @param raux              read parameters
  * @param mlt_data          radix tree of k-mer
  * @param byteIdx           byte index into the mlt_data radix tree
- * @param idx               Index into read buffer
- * @param mem               MEM including hits 
+ * @param idx               index into read buffer
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void getNextByteIdx_fetch_leaves(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int idx, mem_t* mem, u64v* hits) {
 
@@ -1734,12 +1768,12 @@ void getNextByteIdx_fetch_leaves(read_aux_t* raux, uint8_t* mlt_data, uint64_t* 
         uint8_t packedBP[numBytesForBP];
         memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
         nextByteIdx += numBytesForBP;
-        //!< Unpack base pairs
+        // Unpack base pairs
         uint8_t unpackedBP[countBP];
         for (j = 0; j < countBP; ++j) {
             unpackedBP[j] = ((packedBP[j >> 2] >> ((~(j) & 3) << 1)) & 3); 
         }
-        //!< Count number of matching base pairs with read
+        // Count number of matching base pairs with read
         for (j = 0; j < countBP; ++j) {
             if ((i + j) >= raux->l_seq) {
                 break;
@@ -1750,7 +1784,7 @@ void getNextByteIdx_fetch_leaves(read_aux_t* raux, uint8_t* mlt_data, uint64_t* 
         }  
         i += j;
         if (j == countBP) {
-            if (i < mem->end) {
+            if (i < mem->end) { // only extend till end of MEM found during previous backward search
                 getNextByteIdx_fetch_leaves(raux, mlt_data, &nextByteIdx, i, mem, hits);
             }
             else {
@@ -1765,7 +1799,7 @@ void getNextByteIdx_fetch_leaves(read_aux_t* raux, uint8_t* mlt_data, uint64_t* 
         raux->num_hits = 0;
         getOffsetToChildNode(raux, mlt_data, code, c, &nextByteIdx);
         i += 1;
-        if (i < mem->end) {
+        if (i < mem->end) { // only extend till end of MEM found during previous backward search
             getNextByteIdx_fetch_leaves(raux, mlt_data, &nextByteIdx, i, mem, hits);
         }
         else {
@@ -1776,17 +1810,14 @@ void getNextByteIdx_fetch_leaves(read_aux_t* raux, uint8_t* mlt_data, uint64_t* 
 }
 
 /**
- * Fetch hits for all MEMs identified after backward search.
- * 
- * Note that backward search functions above only perform tree traversal without gathering hits as they will be fetched in
- * a different order than required by BWA-MEM (i.e., all hits for MEM need to be sorted by right-context). We re-traverse and
- * the tree and fetch the hits in the correct order below (this has a minor performance penalty)
+ * Extend as much as possible to the right based on reseeding criteria.
  * 
  * Return early if root node has fewer than 'raux->limit' hits 
  * 
- * @param raux              index parameters
+ * @param iaux              index parameters
  * @param raux              read parameters
- * @param mem               MEM including hits 
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void rightExtend_fetch_leaves_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, u64v* hits) {
 
@@ -1799,22 +1830,29 @@ void rightExtend_fetch_leaves_prefix_reseed(index_aux_t* iaux, read_aux_t* raux,
     int end = mem->end;
     int idx_first_N = -1;
     hashval = getHashKey(&raux->read_buf[i], kmerSize, i, raux->l_seq, &flag, &idx_first_N);
+    // index-table lookup
     kmer_entry = iaux->kmer_offsets[hashval];
+    // index-table entry type
     code = kmer_entry & METADATA_MASK;
+    // pointer to root of tree
     start_addr = kmer_entry >> KMER_DATA_BITWIDTH;
     raux->mh_start_addr = 0;
+    // width used for internal pointers in tree
     raux->ptr_width = (((kmer_entry >> 22) & 3) == 0) ? 4 : ((kmer_entry >> 22) & 3);
+    // # hits for k-mer (0 if > 20 hits)
     raux->num_hits = (kmer_entry >> 17) & 0x1F;
     byte_idx = 0;
     assert(code != INVALID);
     if (code == SINGLE_HIT_LEAF) {
         mem->end = i;
-        // i += (kmerSize + xmerSize);
     }
-    else if (code == INFREQUENT) {
+    else if (code == INFREQUENT) { // k-mer has fewer than 256 hits
         if ((raux->num_hits == 0) || (raux->num_hits >= raux->limit)) {
             i += kmerSize;
             mlt_data = &iaux->mlt_table[start_addr];
+            // 
+            // First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
+            //
             memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
             byte_idx += 4;
             if (i < raux->l_seq) {
@@ -1839,7 +1877,7 @@ void rightExtend_fetch_leaves_prefix_reseed(index_aux_t* iaux, read_aux_t* raux,
             mem->end = i;
         }
     }
-    else if (code == FREQUENT) {
+    else if (code == FREQUENT) { // k-mer has large, dense tree, do an additional x-mer lookup
         uint64_t xmer_entry;
         uint64_t ptr = 0;
         mlt_data = &iaux->mlt_table[start_addr];
@@ -1849,16 +1887,16 @@ void rightExtend_fetch_leaves_prefix_reseed(index_aux_t* iaux, read_aux_t* raux,
         memcpy(&xmer_entry, &mlt_data[byte_idx + (hashval << 3)], 8);
         code = xmer_entry & METADATA_MASK;
         ptr = xmer_entry >> KMER_DATA_BITWIDTH;
+        // 5 bits to encode number of hits at each node
         raux->num_hits = (xmer_entry >> 17) & 0x1F;
         if (code == INVALID) {
-            // i += xmerSize;
             mem->end = i;
         }
         else if (code == SINGLE_HIT_LEAF) {
-            // i += xmerSize;
             mem->end = i;
         }
         else {
+            // When a node has greater than 20 (opt->max_mem->intv) hits, we store a 0 in the hits field 
             if ((raux->num_hits == 0) || (raux->num_hits >= raux->limit)) {
                 byte_idx = ptr;
                 i += (kmerSize + xmerSize); 
@@ -1888,17 +1926,12 @@ void rightExtend_fetch_leaves_prefix_reseed(index_aux_t* iaux, read_aux_t* raux,
 }
 
 /**
- * Fetch hits for all MEMs identified after backward search.
+ * Extend as much as possible to the right and gather leaves if MEM length >= opt->min_seed_len.
  * 
- * Note that backward search functions above only perform tree traversal without gathering hits as they will be fetched in
- * a different order than required by BWA-MEM (i.e., all hits for MEM need to be sorted by right-context). We re-traverse and
- * the tree and fetch the hits in the correct order below (this has a minor performance penalty)
- * 
- * Return early if root node has fewer than 'raux->limit' hits 
- * 
- * @param raux              index parameters
+ * @param iaux              index parameters
  * @param raux              read parameters
- * @param mem               MEM including hits 
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, u64v* hits) {
 
@@ -1911,10 +1944,14 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
     int end = mem->end;
     int idx_first_N = -1;
     hashval = getHashKey(&raux->read_buf[i], kmerSize, i, raux->l_seq, &flag, &idx_first_N);
+    // index-table lookup
     kmer_entry = iaux->kmer_offsets[hashval];
+    // index-table entry type
     code = kmer_entry & METADATA_MASK;
+    // pointer to root of tree
     start_addr = kmer_entry >> KMER_DATA_BITWIDTH;
     raux->mh_start_addr = 0;
+    // width used for internal pointers in tree, 2 bits, ptr_width = 4 is encoded as 0
     raux->ptr_width = (((kmer_entry >> 22) & 3) == 0) ? 4 : ((kmer_entry >> 22) & 3);
     byte_idx = 0;
     assert(code != INVALID);
@@ -1928,9 +1965,12 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
         i += kmerSize;
         mem->end = i;
     }
-    else if (code == INFREQUENT) {
+    else if (code == INFREQUENT) { // k-mer has fewer than 256 hits
         i += kmerSize;
         mlt_data = &iaux->mlt_table[start_addr];
+        // 
+        // First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
+        //
         memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
         byte_idx += 4;
         if (i < raux->l_seq) {
@@ -1944,7 +1984,7 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
             }
         }
     }
-    else if (code == FREQUENT) {
+    else if (code == FREQUENT) { // k-mer has large, dense tree, do an additional x-mer lookup
         uint64_t xmer_entry;
         uint64_t ptr = 0;
         mlt_data = &iaux->mlt_table[start_addr];
@@ -1955,7 +1995,6 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
         code = xmer_entry & METADATA_MASK;
         ptr = xmer_entry >> KMER_DATA_BITWIDTH;
         if (code == INVALID) {
-            // i += xmerSize;
             mem->end = i;
         }
         else if (code == SINGLE_HIT_LEAF) {
@@ -1994,9 +2033,10 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
  * 
  * Return early if root node has fewer than 'raux->limit' hits 
  * 
- * @param raux              index parameters
+ * @param iaux              index parameters
  * @param raux              read parameters
- * @param mem               MEM including hits 
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void rightExtend_fetch_leaves(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, u64v* hits) {
 
@@ -2009,17 +2049,24 @@ void rightExtend_fetch_leaves(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, u
     int end = mem->end;
     int idx_first_N = -1;
     hashval = getHashKey(&raux->read_buf[i], kmerSize, i, raux->l_seq, &flag, &idx_first_N);
+    // index-table lookup
     kmer_entry = iaux->kmer_offsets[hashval];
+    // index-table entry type
     code = kmer_entry & METADATA_MASK;
+    // pointer to root of tree
     start_addr = kmer_entry >> KMER_DATA_BITWIDTH;
     raux->mh_start_addr = 0;
+    // width used for internal pointers in tree
     raux->ptr_width = (((kmer_entry >> 22) & 3) == 0) ? 4 : ((kmer_entry >> 22) & 3);
     byte_idx = 0;
     assert(code != INVALID);
     assert(code != SINGLE_HIT_LEAF);
-    if (code == INFREQUENT) {
+    if (code == INFREQUENT) { // k-mer has fewer than 256 hits
         i += kmerSize;
         mlt_data = &iaux->mlt_table[start_addr];
+        // 
+        // First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
+        //
         memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
         byte_idx += 4;
         if (i < end) {
@@ -2029,7 +2076,7 @@ void rightExtend_fetch_leaves(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, u
             leaf_gather(raux, mlt_data, &byte_idx, mem, hits);
         }
     }
-    else if (code == FREQUENT) {
+    else if (code == FREQUENT) { // k-mer has large, dense tree, do an additional x-mer lookup
         uint64_t xmer_entry;
         uint64_t ptr = 0;
         i += kmerSize;
@@ -2059,7 +2106,8 @@ void rightExtend_fetch_leaves(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, u
  * @param iaux              index parameters
  * @param raux              read parameters
  * @param i                 Index into read buffer
- * @param mem               MEM including hits 
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* hits) {
     
@@ -2071,12 +2119,16 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
     int flag = 0;
     int idx_first_N = -1;
     hashval = getHashKey(&raux->read_buf[*i], kmerSize, *i, raux->l_seq, &flag, &idx_first_N);
+    // index-table lookup
     kmer_entry = iaux->kmer_offsets[hashval];
+    // index-table entry type
     code = kmer_entry & METADATA_MASK;
     lep_data = (kmer_entry >> METADATA_BITWIDTH) & LEP_MASK;
+    // pointer to root of tree
     start_addr = kmer_entry >> KMER_DATA_BITWIDTH;
     uint64_t mlt_start_addr = raux->mlt_start_addr = start_addr;
     raux->mh_start_addr = 0;
+    // width used for internal pointers in tree
     raux->ptr_width = (((kmer_entry >> 22) & 3) == 0) ? 4 : ((kmer_entry >> 22) & 3);
     // LEP takes up kmerSize-1 bits. Last LEP bit is at position = kmerSize-2.
     if (*i <= 64-kmerSize) {
@@ -2112,7 +2164,7 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
     }
     raux->nextLEPBit = *i + kmerSize - 1;
     byte_idx = 0;
-    /// We found an ambiguous base in the kmer. Stop extension at ambiguous base and record LEP
+    // We found an ambiguous base in the kmer. Stop extension at ambiguous base and record LEP
     if (idx_first_N != -1) {
         if (*i != 0) {
             raux->nextLEPBit = *i + idx_first_N - 1;
@@ -2128,7 +2180,7 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
         return;
     }
     if (code == INVALID) {
-        /// Do backward extension using LEP
+        // Do backward extension using LEP
         *i += (kmerSize + xmerSize);
     }
     else if (code == SINGLE_HIT_LEAF) {
@@ -2140,10 +2192,13 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
         byte_idx += 5;                                                    
         *i += kmerSize;
     }
-    else if (code == INFREQUENT) {
+    else if (code == INFREQUENT) { // k-mer has fewer than 256 hits
         *i += kmerSize;
         mlt_data = &iaux->mlt_table[start_addr];
         if (*i < raux->l_seq) {
+            // 
+            // First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
+            //
             memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
             byte_idx += 4;
             getNextByteIdx(raux, mlt_data, &byte_idx, i, mem, hits);
@@ -2153,7 +2208,7 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
             raux->nextLEPBit += 1;
         }
     }
-    else if (code == FREQUENT) {
+    else if (code == FREQUENT) { // k-mer has large, dense tree, do an additional x-mer lookup
         uint64_t xmer_entry;
         uint64_t ptr = 0;
         *i += kmerSize;
@@ -2180,7 +2235,7 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
             raux->lep[raux->nextLEPBit >> 6] |= (lepBit << (raux->nextLEPBit & (0x3FULL)));
             raux->nextLEPBit++;
         }
-        /// We found an ambiguous base in the kmer. Stop extension at ambiguous base and record LEP
+        // We found an ambiguous base in the kmer. Stop extension at ambiguous base and record LEP
         if (idx_first_N != -1) {
             raux->nextLEPBit = *i + idx_first_N - 1;
             raux->lep[raux->nextLEPBit >> 6] |= (1ULL << (raux->nextLEPBit & (0x3FULL)));
@@ -2226,7 +2281,8 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
  * @param iaux              index parameters
  * @param raux              read parameters
  * @param i                 Index into read buffer
- * @param mem               MEM including hits 
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* hits) {
     
@@ -2238,12 +2294,16 @@ void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem,
     int flag = 0;
     int idx_first_N = -1;
     hashval = getHashKey(&raux->read_buf[*i], kmerSize, *i, raux->l_seq, &flag, &idx_first_N);
+    // index-table lookup
     kmer_entry = iaux->kmer_offsets[hashval];
+    // index-table entry type
     code = kmer_entry & METADATA_MASK;
     lep_data = (kmer_entry >> METADATA_BITWIDTH) & LEP_MASK;
+    // pointer to root of tree
     start_addr = kmer_entry >> KMER_DATA_BITWIDTH;
     uint64_t mlt_start_addr = raux->mlt_start_addr = start_addr;
     raux->mh_start_addr = 0;
+    // width used for internal pointers in tree, 2 bits, ptr_width = 4 is encoded as 0
     raux->ptr_width = (((kmer_entry >> 22) & 3) == 0) ? 4 : ((kmer_entry >> 22) & 3);
     raux->num_hits = (kmer_entry >> 17) & 0x1F;
     // LEP takes up kmerSize-1 bits. Last LEP bit is at position = kmerSize-2.
@@ -2280,7 +2340,7 @@ void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem,
     }
     raux->nextLEPBit = *i + kmerSize - 1;
     byte_idx = 0;
-    /// We found an ambiguous base in the kmer. Stop extension at ambiguous base and record LEP
+    // We found an ambiguous base in the kmer. Stop extension at ambiguous base and record LEP
     if (idx_first_N != -1) {
         if (*i != 0) {
             raux->nextLEPBit = *i + idx_first_N - 1;
@@ -2296,13 +2356,13 @@ void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem,
         return;
     }
     if (code == INVALID) {
-        /// Do backward extension using LEP
+        // Do backward extension using LEP
         *i += (kmerSize + xmerSize);
     }
     else if (code == SINGLE_HIT_LEAF) {
         *i += (kmerSize + xmerSize);
     }
-    else if (code == INFREQUENT) {
+    else if (code == INFREQUENT) { // k-mer has fewer than 256 hits
         *i += kmerSize;
         mlt_data = &iaux->mlt_table[mlt_start_addr];
         if ((raux->num_hits == 0) || (raux->num_hits >= raux->limit)) {
@@ -2313,6 +2373,9 @@ void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem,
                 nif.byte_idx = byte_idx;
                 nif.num_hits = raux->num_hits;
                 kv_push(node_info_t, visited, nif);
+                // 
+                // First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
+                //
                 memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
                 byte_idx += 4;
                 getNextByteIdx_wlimit(raux, mlt_data, &byte_idx, i, mem, &visited, hits);
@@ -2324,7 +2387,7 @@ void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem,
             }
         }
     }
-    else if (code == FREQUENT) {
+    else if (code == FREQUENT) { // k-mer has large, dense tree, do an additional x-mer lookup
         uint64_t xmer_entry;
         uint64_t ptr = 0;
         *i += kmerSize;
@@ -2339,6 +2402,7 @@ void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem,
         code = xmer_entry & METADATA_MASK;
         lep_data = (xmer_entry >> METADATA_BITWIDTH) & 0xF;
         ptr = xmer_entry >> KMER_DATA_BITWIDTH;
+        // 5 bits to encode hits for each node
         raux->num_hits = (xmer_entry >> 17) & 0x1F;
         int xmerLen = 0;
         if (raux->l_seq - *i > xmerSize) {
@@ -2352,7 +2416,7 @@ void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem,
             raux->lep[raux->nextLEPBit >> 6] |= (lepBit << (raux->nextLEPBit & (0x3FULL)));
             raux->nextLEPBit++;
         }
-        /// We found an ambiguous base in the kmer. Stop extension at ambiguous base and record LEP
+        // We found an ambiguous base in the kmer. Stop extension at ambiguous base and record LEP
         if (idx_first_N != -1) {
             raux->nextLEPBit = *i + idx_first_N - 1;
             raux->lep[raux->nextLEPBit >> 6] |= (1ULL << (raux->nextLEPBit & (0x3FULL)));
@@ -2400,7 +2464,8 @@ void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem,
  * @param iaux              index parameters
  * @param raux              read parameters
  * @param i                 Index into read buffer
- * @param mem               MEM including hits 
+ * @param mem               maximal-exact-match storage
+ * @param hits              list of hits for read 
  */
 void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* hits) {
     
@@ -2411,7 +2476,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
     uint32_t hashval = 0;
     int idx_first_N = -1;
     hashval = getHashKey(&raux->read_buf[*i], kmerSize, *i, raux->l_seq, &flag, &idx_first_N);
-    /// We found an ambiguous base in the kmer. Stop extension
+    // We found an ambiguous base in the kmer. Stop extension
     if (idx_first_N != -1) {
         *i += (idx_first_N + 1);
         return;
@@ -2420,6 +2485,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
         *i = raux->l_seq;
         return;
     }
+    // index-table lookup
     kmer_entry = iaux->kmer_offsets[hashval];
     code = kmer_entry & METADATA_MASK;
     start_addr = kmer_entry >> KMER_DATA_BITWIDTH;
@@ -2429,7 +2495,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
     raux->num_hits = (kmer_entry >> 17) & 0x1F;
     byte_idx = 0;
     if (code == INVALID) {
-        /// Do backward extension using LEP
+        // Do backward extension using LEP
         *i += kmerSize;
     }
     else if (code == SINGLE_HIT_LEAF) {
@@ -2444,7 +2510,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
     else if (code == INFREQUENT) {
         *i += kmerSize;
         mlt_data = &iaux->mlt_table[mlt_start_addr];
-        if (*i < raux->l_seq) { //!< Length <= (kmer + xmer). Need not check num_hits here.
+        if (*i < raux->l_seq) { // Length <= (kmer + xmer). Need not check num_hits here.
             memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
             byte_idx += 4;
             getNextByteIdx_last(raux, mlt_data, &byte_idx, i, mem, hits);
@@ -2457,7 +2523,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
         flag = 0;
         mlt_data = &iaux->mlt_table[mlt_start_addr];
         hashval = getHashKey(&raux->read_buf[*i], xmerSize, *i, raux->l_seq, &flag, &idx_first_N);
-        /// We found an ambiguous base in the kmer. Stop extension
+        // We found an ambiguous base in the kmer. Stop extension
         if (idx_first_N != -1) {
             *i += (idx_first_N + 1);
             return;
@@ -2492,7 +2558,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
                     getNextByteIdx_last(raux, mlt_data, &byte_idx, i, mem, hits);
                 }
             }
-            else { //!< number of hits is less than the limit and seed length >= 19
+            else { // number of hits is less than the limit and seed length >= opt->min_seed_len
                 leaf_gather(raux, mlt_data, &byte_idx, mem, hits);
             }
         }
@@ -2503,7 +2569,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
  * Initialize MEM parameters for backward extension
  *
  * @param lep               LEP bit vector
- * @param mem               MEM including hits
+ * @param mem               maximal-exact-match
  * @param j                 Index into LEP
  * @param seq_len           Read length
  * @param min_seed_len      Minimum seed length
@@ -2514,7 +2580,7 @@ inline int init_mem(uint64_t* lep, mem_t* mem, int j, int seq_len, int min_seed_
     int lep_bit_set = (lep[j >> 6] >> (j & 63)) & 1; 
     int in_valid_range = (j >= (min_seed_len-1)) ? 1 : 0;
     int mem_valid = (lep_bit_set && in_valid_range); 
-    mem->end = j + 1; 
+    mem->end = j + 1; // [start, end) indexing 
     mem->rc_start = seq_len - j - 1;
     mem->rc_end = mem->rc_start;
     mem->skip_ref_fetch = 0;
@@ -2534,7 +2600,7 @@ inline int init_mem(uint64_t* lep, mem_t* mem, int j, int seq_len, int min_seed_
  *
  * @param iaux          index related parameters
  * @param raux          read related parameters
- * @param mem           MEM including hits
+ * @param mem           maximal-exact-match storage
  * @param sh            helper data structure to keep track of start and end positions of previously identified MEMs
  * @param smems         List of SMEMs
  *
@@ -2542,13 +2608,13 @@ inline int init_mem(uint64_t* lep, mem_t* mem, int j, int seq_len, int min_seed_
  */
 int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_helper_t* sh, mem_v* smems, u64v* hits) {
 
-    mem->start = raux->l_seq - mem->rc_end; //!< Adjust start position of LMEM
+    mem->start = raux->l_seq - mem->rc_end; // Adjust start position of LMEM
     int lmemLen = mem->end - mem->start, rmemLen = -1, next_be_point;
-    /// Fetch reference to check for extra matching bps
     if (mem->hitcount > 0 && !mem->skip_ref_fetch) {
         int64_t len;
         int64_t start_ref_pos = hits->a[mem->hitbeg] - mem->rc_start;
         int64_t end_ref_pos = hits->a[mem->hitbeg];
+        // Fetch reference to check for extra matching bps on the right
         uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
         int m, numMatchingBP = 0;
         for (m = 1; m <= len; ++m) {
@@ -2564,6 +2630,8 @@ int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t*
     
         start_ref_pos = hits->a[mem->hitbeg] + lmemLen;
         end_ref_pos = start_ref_pos + mem->start;
+        
+        // Fetch reference to check for extra matching bps on the left
         rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
         numMatchingBP = 0;
         for (m = 0; m < len; ++m) {
@@ -2574,10 +2642,9 @@ int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t*
                 break;
             }
         }
-        // free(rseq);
         mem->start -= numMatchingBP;
     }
-    /// Adjust start position of MEM by extra matching bps
+    // Adjust start position of MEM by extra matching bps
     lmemLen = mem->end - mem->start;
     next_be_point = mem->end;
     if (mem->hitcount == 1) {
@@ -2594,7 +2661,6 @@ int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t*
         mem->hitbeg = hits->n;
         mem->hitcount = 0;
         raux->read_buf = raux->unpacked_queue_buf;
-        // TODO: Do leaf gathering only if rmemLen >= minSeedLen
         rightExtend_fetch_leaves_prefix_reseed(iaux, raux, mem, hits);
         raux->read_buf = raux->unpacked_rc_queue_buf;
         rmemLen = mem->end - mem->start;
@@ -2650,21 +2716,22 @@ int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t*
  *
  * @param iaux          index related parameters
  * @param raux          read related parameters
- * @param mem           MEM including hits
+ * @param mem           maximal-exact-match storage
  * @param sh            helper data structure to keep track of start and end positions of previously identified MEMs
- * @param smems         List of SMEMs
+ * @param smems         list of SMEMs
+ * @param hits          list of hits for read
  *
  * @return n            number of backward extensions to skip
  */
 int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_helper_t* sh, mem_v* smems, u64v* hits) {
 
-    mem->start = raux->l_seq - mem->rc_end; //!< Adjust start position of LMEM
+    mem->start = raux->l_seq - mem->rc_end; // Adjust start position of LMEM
     int lmemLen = mem->end - mem->start, rmemLen = -1, next_be_point;
-    /// Fetch reference to check for extra matching bps
     if (mem->hitcount > 0 && !mem->skip_ref_fetch) {
         int64_t len;
         int64_t start_ref_pos = hits->a[mem->hitbeg] - mem->rc_start;
         int64_t end_ref_pos = hits->a[mem->hitbeg];
+        // Fetch reference to check for extra matching bps
         uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
         int m, numMatchingBP = 0;
         for (m = 1; m <= len; ++m) {
@@ -2680,6 +2747,7 @@ int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, s
     
         start_ref_pos = hits->a[mem->hitbeg] + lmemLen;
         end_ref_pos = start_ref_pos + mem->start;
+        // Fetch reference to check for extra matching bps
         rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
         numMatchingBP = 0;
         for (m = 0; m < len; ++m) {
@@ -2693,9 +2761,9 @@ int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, s
         // free(rseq);
         mem->start -= numMatchingBP;
     }
-    /// Adjust start position of MEM by extra matching bps
     lmemLen = mem->end - mem->start;
     next_be_point = mem->end;
+    // skip forward re-traversal for single-git MEMs
     if (mem->hitcount == 1) {
         if (lmemLen >= raux->min_seed_len) {
             kv_push(mem_t, *smems, *mem);
@@ -2704,7 +2772,6 @@ int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, s
             next_be_point += (raux->min_seed_len - lmemLen);
         }   
     }
-    // perform forward extension only for non-empty MEMs from backward extension
     else if (mem->fetch_leaves && (mem->start <= (raux->l_seq - raux->min_seed_len))) {
         hits->n -= mem->hitcount;
         mem->hitbeg = hits->n;
@@ -2762,19 +2829,20 @@ int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, s
  *
  * @param iaux          index related parameters
  * @param raux          read related parameters
- * @param mem           MEM including hits
+ * @param mem           maximal-exact-match storage
  * @param sh            helper data structure to keep track of start and end positions of previously identified MEMs
- * @param smems         List of SMEMs
+ * @param smems         list of SMEMs
+ * @param hits          list of hits for read
  */
 void check_and_add_smem(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_helper_t* sh, mem_v* smems, u64v* hits) {
 
-    mem->start = raux->l_seq - mem->rc_end; //!< Adjust start position of LMEM
+    mem->start = raux->l_seq - mem->rc_end; // Adjust start position of LMEM
     int lmemLen = mem->end - mem->start;
-    /// Fetch reference to check for extra matching bps
     if (mem->hitcount > 0 && !mem->skip_ref_fetch) {
         int64_t len;
         int64_t start_ref_pos = hits->a[mem->hitbeg] + lmemLen;
         int64_t end_ref_pos = start_ref_pos + mem->start;
+        // Fetch reference to check for extra matching bps
         uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
         int m, numMatchingBP = 0;
         for (m = 0; m < len; ++m) {
@@ -2785,15 +2853,14 @@ void check_and_add_smem(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_he
                 break;
             }
         }
-        // free(rseq);
+        // Adjust start position of MEM by extra matching bps
         mem->start -= numMatchingBP;
     }
-    /// Adjust start position of MEM by extra matching bps
     lmemLen = mem->end - mem->start;
     if (lmemLen >= raux->min_seed_len) {
-        /// Check if MEM lies completely within previously discovered MEM
+        // Check if MEM lies completely within previously discovered MEM
         if (mem->start < sh->prevMemStart || mem->end > sh->prevMemEnd) {
-            /// Extra work for equivalency with BWA-MEM. 
+            // Extra work for equivalency with BWA-MEM. 
             if (mem->fetch_leaves) {
                 hits->n -= mem->hitcount;
                 mem->hitbeg = hits->n;
@@ -2822,7 +2889,8 @@ void check_and_add_smem(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_he
  *
  * @param iaux          index related parameters
  * @param raux          read related parameters
- * @param smems         list of SMEMs and their hits
+ * @param smems         list of SMEMs
+ * @param hits          list of hits for read
  */
 void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
 
@@ -2834,7 +2902,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
     sh.prev_pivot = -1;
     sh.prev_prev_pivot = -1;
     memset(raux->lep, 0, 5 * sizeof(uint64_t));
-    while (i < raux->l_seq) { //!< Begin identifying RMEMs
+    while (i < raux->l_seq) { // Begin identifying RMEMs
         mem_t rm;
         memset(&rm, 0, sizeof(mem_t));
         rm.start = i; 
@@ -2843,16 +2911,16 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
         sh.curr_pivot = rm.start;
         raux->read_buf = raux->unpacked_queue_buf;
         rightExtend(iaux, raux, &i, &rm, hits); //!< Compute LEP.  
-        /// Lazy expansion of leaf nodes. 
+        // Lazy expansion of leaf nodes. 
         if (rm.hitcount > 0 && !rm.skip_ref_fetch) {
             int64_t len;
             int64_t start_ref_pos = hits->a[rm.hitbeg] + i - rm.start;
             int64_t end_ref_pos = hits->a[rm.hitbeg] + raux->l_seq - rm.start;
-            /// Fetch reference
+            // Fetch reference
             uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
             int m;
             int numMatchingBP = 0;
-            /// Check for matching bases
+            // Check for matching bases
             for (m = 0; m < len; ++m) {
                 if (rseq[m] == raux->unpacked_queue_buf[i+m]) {
                     numMatchingBP++;
@@ -2862,7 +2930,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
                     break;
                 }
             }
-            /// Last base of RMEM must have LEP bit set
+            // Last base of RMEM must have LEP bit set
             if (m == len) {
                 raux->lep[(i+m-1) >> 6] |= (1ULL << ((i+m-1) & (0x3FULL)));
             }
@@ -2870,7 +2938,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
         }
         rm.end = i;
         int rmemLen = rm.end - rm.start;
-        /// No left-extension for position 0 in read
+        // No left-extension for position 0 in read
         // rm.start is the current pivot
         if (rm.start == 0) {
             if (rmemLen >= raux->min_seed_len) {
@@ -2883,7 +2951,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
             }
             memset(raux->lep, 0, 5 * sizeof(uint64_t));
         }
-        else {
+        else { // perform all backward extensions
             hits->n -= rm.hitcount;
             uint64_t* lep = raux->lep;
             int seq_len = raux->l_seq;
@@ -2906,7 +2974,6 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
                         raux->read_buf = raux->unpacked_rc_queue_buf;
                         leftExtend(iaux, raux, &rc_i, &m, hits);
                         next_j = check_and_add_smem_prefix(iaux, raux, &m, &sh, smems, hits);
-                        // if (sh.stop_be) break;
                     }
                 }
                 j = next_j;
@@ -2916,7 +2983,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
             }
         }
         raux->read_buf = raux->unpacked_queue_buf;
-        /// Skip all ambiguous bases
+        // Skip all ambiguous bases
         while (i < raux->l_seq) {
             if (raux->read_buf[i] == 4) {
                 ++i;
@@ -2925,7 +2992,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
                 break;
             }
         }
-        /// Check if there other ambiguous bases within min_seed_len bases of the start of the MEM
+        // Check if there other ambiguous bases within min_seed_len bases of the start of the MEM
         while ((i < raux->l_seq) && (i - rm.start) < raux->min_seed_len) {
             if (raux->read_buf[i] == 4) {
                 ++i;
@@ -2938,7 +3005,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
         memset(raux->lep, 0, 5 * sizeof(uint64_t));
     }
     #ifdef PRINT_SMEM
-        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); //!< Sort SMEMs based on start pos in read. For DEBUG. 
+        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); // Sort SMEMs based on start pos in read. For DEBUG. 
         for (i = 0; i < smems->n; ++i) {
             // printf("[SMEM]:%d,%d\n", smems->a[i].start, smems->a[i].end);
             int idx;
@@ -2959,7 +3026,8 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
  *
  * @param iaux          index related parameters
  * @param raux          read related parameters
- * @param smems         list of SMEMs and their hits
+ * @param smems         list of SMEMs
+ * @param hits          list of hits for read
  */
 void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
 
@@ -2971,7 +3039,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
     sh.prev_pivot = -1;
     sh.prev_prev_pivot = -1;
     memset(raux->lep, 0, 5 * sizeof(uint64_t));
-    while (i < raux->l_seq) { //!< Begin identifying RMEMs
+    while (i < raux->l_seq) { // Begin identifying RMEMs
         mem_t rm;
         memset(&rm, 0, sizeof(mem_t));
         rm.start = i; 
@@ -2979,17 +3047,17 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
         rm.hitbeg = hits->n;
         sh.curr_pivot = rm.start;
         raux->read_buf = raux->unpacked_queue_buf;
-        rightExtend(iaux, raux, &i, &rm, hits); //!< Compute LEP.  
-        /// Lazy expansion of leaf nodes. 
+        rightExtend(iaux, raux, &i, &rm, hits); // Compute LEP.  
+        // Lazy expansion of leaf nodes. 
         if (rm.hitcount > 0 && !rm.skip_ref_fetch) {
             int64_t len;
             int64_t start_ref_pos = hits->a[rm.hitbeg] + i - rm.start;
             int64_t end_ref_pos = hits->a[rm.hitbeg] + raux->l_seq - rm.start;
-            /// Fetch reference
+            // Fetch reference
             uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
             int m;
             int numMatchingBP = 0;
-            /// Check for matching bases
+            // Check for matching bases
             for (m = 0; m < len; ++m) {
                 if (rseq[m] == raux->unpacked_queue_buf[i+m]) {
                     numMatchingBP++;
@@ -2999,7 +3067,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
                     break;
                 }
             }
-            /// Last base of RMEM must have LEP bit set
+            // Last base of RMEM must have LEP bit set
             if (m == len) {
                 raux->lep[(i+m-1) >> 6] |= (1ULL << ((i+m-1) & (0x3FULL)));
             }
@@ -3007,7 +3075,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
         }
         rm.end = i;
         int rmemLen = rm.end - rm.start;
-        /// No left-extension for position 0 in read
+        // No left-extension for position 0 in read
         // rm.start is the current pivot
         if (rm.start == 0) {
             if (rmemLen >= raux->min_seed_len) {
@@ -3050,7 +3118,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
             }
         }
         raux->read_buf = raux->unpacked_queue_buf;
-        /// Skip all ambiguous bases
+        // Skip all ambiguous bases
         while (i < raux->l_seq) {
             if (raux->read_buf[i] == 4) {
                 ++i;
@@ -3059,7 +3127,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
                 break;
             }
         }
-        /// Check if there other ambiguous bases within min_seed_len bases of the start of the MEM
+        // Check if there other ambiguous bases within min_seed_len bases of the start of the MEM
         while ((i < raux->l_seq) && (i - rm.start) < raux->min_seed_len) {
             if (raux->read_buf[i] == 4) {
                 ++i;
@@ -3072,7 +3140,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
         memset(raux->lep, 0, 5 * sizeof(uint64_t));
     }
     #ifdef PRINT_SMEM
-        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); //!< Sort SMEMs based on start pos in read. For DEBUG. 
+        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); // Sort SMEMs based on start pos in read. For DEBUG. 
         for (i = 0; i < smems->n; ++i) {
             // printf("[SMEM]:%d,%d\n", smems->a[i].start, smems->a[i].end);
             int idx;
@@ -3093,10 +3161,11 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
  *
  * @param iaux          index related parameters
  * @param raux          read related parameters
- * @param smems         list of SMEMs and their hits
+ * @param smems         list of SMEMs
  * @param start         pivot position in read
  * @param limit         hit threshold below which tree traversal must stop
  * @param pt            track pivot information to reduce work done during reseeding
+ * @param hits          list of hits for every read
  */
 void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int limit, pivot_t* pt, u64v* hits) {
 
@@ -3105,6 +3174,7 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start,
     sh.prevMemStart = raux->l_seq;
     sh.prevMemEnd = 0;
     int i = start, j = 0;
+    int old_n = smems->n;
     memset(raux->lep, 0, 5 * sizeof(uint64_t));
     mem_t rm;
     memset(&rm, 0, sizeof(mem_t));
@@ -3114,17 +3184,17 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start,
     sh.prev_pivot = (rm.start >= pt->c_pivot) ? pt->p_pivot : pt->pp_pivot;
     raux->read_buf = raux->unpacked_queue_buf;
     raux->limit = limit;
-    rightExtend_wlimit(iaux, raux, &i, &rm, hits); //!< Compute LEP.  
-    /// Lazy expansion of leaf nodes. 
+    rightExtend_wlimit(iaux, raux, &i, &rm, hits); // Compute LEP.  
+    // Lazy expansion of leaf nodes. 
     if (rm.hitcount > 0 && !rm.skip_ref_fetch) {
         int64_t len;
         int64_t start_ref_pos = hits->a[rm.hitbeg] + i - rm.start;
         int64_t end_ref_pos = hits->a[rm.hitbeg] + raux->l_seq - rm.start;
-        /// Fetch reference
+        // Fetch reference
         uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0);
         int m;
         int numMatchingBP = 0;
-        /// Check for matching bases
+        // Check for matching bases
         for (m = 0; m < len; ++m) {
             if (rseq[m] == raux->unpacked_queue_buf[i+m]) {
                 numMatchingBP++;
@@ -3134,11 +3204,10 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start,
                 break;
             }
         }
-        /// Last base of RMEM must have LEP bit set
+        // Last base of RMEM must have LEP bit set
         if (m == len) {
             raux->lep[(i+m-1) >> 6] |= (1ULL << ((i+m-1) & (0x3FULL)));
         }
-        // free(rseq);
         i += numMatchingBP;
     }
     rm.end = i;
@@ -3154,7 +3223,7 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start,
         }
         memset(raux->lep, 0, 5 * sizeof(uint64_t));
     }
-    /// Begin left-extension, i.e., right extension on reverse complemented read
+    // Begin left-extension, i.e., right extension on reverse complemented read
     else {
         hits->n -= rm.hitcount;
         uint64_t* lep = raux->lep;
@@ -3179,16 +3248,14 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start,
                     raux->read_buf = raux->unpacked_rc_queue_buf;
                     leftExtend_wlimit(iaux, raux, &rc_i, &m, hits);
                     next_j = check_and_add_smem_prefix_reseed(iaux, raux, &m, &sh, smems, hits);
-                    // if (sh.stop_be) break;
                 }
             }
-            // assert(m.end <= rm.end);
             j = next_j;
         }
     }
     #ifdef PRINT_SMEM
-        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); //!< Debug: Sort SMEMs based on start pos in read. 
-        for (i = 0; i < smems->n; ++i) {
+        ks_introsort(mem_smem_sort_lt_ert, smems->n - old_n, &smems->a[old_n]); // Debug: Sort SMEMs based on start pos in read. 
+        for (i = old_n; i < smems->n; ++i) {
             int idx;
             for (idx = 0; idx < smems->a[i].hitcount; ++idx) {
                 if (smems->a[i].forward || smems->a[i].fetch_leaves) {
@@ -3211,6 +3278,7 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start,
  * @param start         pivot position in read
  * @param limit         hit threshold below which tree traversal must stop
  * @param pt            track pivot information to reduce work done during reseeding
+ * @param hits          list of hits for read
  */
 void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int limit, pivot_t* pt, u64v* hits) {
 
@@ -3219,6 +3287,7 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int li
     sh.prevMemStart = raux->l_seq;
     sh.prevMemEnd = 0;
     int i = start, j = 0;
+    int old_n = smems->n;
     memset(raux->lep, 0, 5 * sizeof(uint64_t));
     mem_t rm;
     memset(&rm, 0, sizeof(mem_t));
@@ -3229,16 +3298,16 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int li
     raux->read_buf = raux->unpacked_queue_buf;
     raux->limit = limit;
     rightExtend_wlimit(iaux, raux, &i, &rm, hits); //!< Compute LEP.  
-    /// Lazy expansion of leaf nodes. 
+    // Lazy expansion of leaf nodes. 
     if (rm.hitcount > 0 && !rm.skip_ref_fetch) {
         int64_t len;
         int64_t start_ref_pos = hits->a[rm.hitbeg] + i - rm.start;
         int64_t end_ref_pos = hits->a[rm.hitbeg] + raux->l_seq - rm.start;
-        /// Fetch reference
+        // Fetch reference
         uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0);
         int m;
         int numMatchingBP = 0;
-        /// Check for matching bases
+        // Check for matching bases
         for (m = 0; m < len; ++m) {
             if (rseq[m] == raux->unpacked_queue_buf[i+m]) {
                 numMatchingBP++;
@@ -3248,11 +3317,10 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int li
                 break;
             }
         }
-        /// Last base of RMEM must have LEP bit set
+        // Last base of RMEM must have LEP bit set
         if (m == len) {
             raux->lep[(i+m-1) >> 6] |= (1ULL << ((i+m-1) & (0x3FULL)));
         }
-        // free(rseq);
         i += numMatchingBP;
     }
     rm.end = i;
@@ -3268,7 +3336,7 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int li
         }
         memset(raux->lep, 0, 5 * sizeof(uint64_t));
     }
-    /// Begin left-extension, i.e., right extension on reverse complemented read
+    // Begin left-extension, i.e., right extension on reverse complemented read
     else {
         hits->n -= rm.hitcount;
         uint64_t* lep = raux->lep;
@@ -3296,8 +3364,8 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int li
         }
     }
     #ifdef PRINT_SMEM
-        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); //!< Debug: Sort SMEMs based on start pos in read. 
-        for (i = 0; i < smems->n; ++i) {
+        ks_introsort(mem_smem_sort_lt_ert, smems->n - old_n, &smems->a[old_n]); // Debug: Sort SMEMs based on start pos in read. 
+        for (i = old_n; i < smems->n; ++i) {
             int idx;
             for (idx = 0; idx < smems->a[i].hitcount; ++idx) {
                 if (smems->a[i].forward || smems->a[i].fetch_leaves) {
@@ -3316,15 +3384,17 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int li
  *
  * @param iaux          index related parameters
  * @param raux          read related parameters
- * @param smems         list of SMEMs and their hits
+ * @param smems         list of SMEMs
  * @param limit         hit threshold above which tree traversal must stop
+ * @param hits          list of hits for read
  */
 void last(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int limit, u64v* hits) {
 
     int i = 0;
+    int old_n = smems->n;
     const uint8_t minSeedLen = raux->min_seed_len + 1; // LAST exits seeding only when seed length >= 20
     raux->limit = limit;
-    while (i < raux->l_seq) { //!< Begin identifying RMEMs
+    while (i < raux->l_seq) { // Begin identifying RMEMs
         mem_t rm;
         rm.start = i; rm.end = 0;
         rm.forward = 1;
@@ -3333,15 +3403,15 @@ void last(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int limit, u64v* hi
         rm.hitcount = 0;
         raux->read_buf = raux->unpacked_queue_buf;
         rightExtend_last(iaux, raux, &i, &rm, hits);  
-        /// Lazy expansion of leaf nodes. 
+        // Lazy expansion of leaf nodes. 
         if (rm.hitcount > 0 && !rm.skip_ref_fetch) {
             int64_t len;
             int64_t start_ref_pos = hits->a[rm.hitbeg] + i - rm.start;
             int64_t end_ref_pos = hits->a[rm.hitbeg] + raux->l_seq - rm.start;
-            /// Fetch reference
+            // Fetch reference
             uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
             int m, numMatchingBP = 0;
-            /// Check for matching bases
+            // Check for matching bases
             for (m = 0; m < len; ++m) {
                 int seedLen = (i + m) - rm.start;
                 int match_next_bp = ((seedLen < minSeedLen) || (rm.hitcount >= raux->limit)) ? 1 : 0;
@@ -3376,13 +3446,13 @@ void last(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int limit, u64v* hi
             hits->n -= rm.hitcount;
         }
         int foundN = 0;
-        /// Skip all ambiguous bases
+        // Skip all ambiguous bases
         assert(i > 0);
         if (raux->read_buf[i-1] == 4) { // Found an 'N' during lookup
             foundN = 1;
         }
         if (!foundN) {
-            /// Check if there other ambiguous bases within min_seed_len bases of the start of the MEM
+            // Check if there other ambiguous bases within min_seed_len bases of the start of the MEM
             while ((i < raux->l_seq) && (i - rm.start) < minSeedLen) {
                 if (raux->read_buf[i] == 4) {
                     ++i;
@@ -3393,8 +3463,8 @@ void last(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int limit, u64v* hi
         }
     }
     #ifdef PRINT_SMEM
-        ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); //!< Debug: Sort SMEMs based on start pos in read. 
-        for (i = 0; i < smems->n; ++i) {
+        ks_introsort(mem_smem_sort_lt_ert, smems->n - old_n, &smems->a[old_n]); // Debug: Sort SMEMs based on start pos in read. 
+        for (i = old_n; i < smems->n; ++i) {
             int idx;
             for (idx = 0; idx < smems->a[i].hitcount; ++idx) {
                 printf("[LAST]:%d,%d,%lu\n", smems->a[i].start, smems->a[i].end, hits->a[smems->a[i].hitbeg + idx]);
