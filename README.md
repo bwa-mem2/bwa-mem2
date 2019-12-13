@@ -23,8 +23,7 @@ make -j<num_threads> arch=avx512bw
 # Perform alignment
 ./bwa-mem2 mem -Y -t <num_threads> -Z <index prefix> <input_1.fastq> <input_2.fastq> -o <output_ert.sam>
 
-
-# Compile BWA-MEM code
+# To verify output with BWA-MEM
 git clone https://github.com/lh3/bwa.git
 cd bwa
 make
