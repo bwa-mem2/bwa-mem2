@@ -6,22 +6,25 @@
 git clone https://github.com/arun-sub/bwa-mem2.git ert
 cd ert
 
-# SSE4.1 (default)
-make -j<num_threads>
+# To find out vectorization features supported in your machine
+cat /proc/cpuinfo
 
-# AVX2
+# If AVX512BW (512-bit SIMD) is supported
+make clean
+make -j<num_threads> arch=avx512bw
+
+# If AVX2 (256-bit SIMD) is supported
 make clean
 make -j<num_threads> arch=avx2
 
-# AVX512BW
-make clean
-make -j<num_threads> arch=avx512bw
+# If SSE4.1 (128-bit SIMD) is supported (default)
+make -j<num_threads>
 
 # Build index (Takes ~2 hr for human genome with 56 threads. 1 hr for BWT, 1 hr for ERT)
 ./bwa-mem2 index -a ert -t <num_threads> -p <index prefix> <input.fasta>
 
 # Perform alignment
-./bwa-mem2 mem -Y -t <num_threads> -Z <index prefix> <input_1.fastq> <input_2.fastq> -o <output_ert.sam>
+./bwa-mem2 mem -Y -K 100000000 -t <num_threads> -Z <index prefix> <input_1.fastq> <input_2.fastq> -o <output_ert.sam>
 
 # To verify output with BWA-MEM
 git clone https://github.com/lh3/bwa.git
@@ -29,7 +32,7 @@ cd bwa
 make
 
 # Perform alignment
-./bwa mem -Y -t <num_threads> <index prefix> <input_1.fastq> <input_2.fastq> -o <output_mem.sam>
+./bwa mem -Y -K 100000000 -t <num_threads> <index prefix> <input_1.fastq> <input_2.fastq> -o <output_mem.sam>
 
 # Compare output SAM files
 diff <output_mem.sam> <output_ert.sam>
