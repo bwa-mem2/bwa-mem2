@@ -46,18 +46,18 @@ ifneq ($(portable),)
 endif
 
 ifeq ($(arch),sse)
-		ARCH_FLAGS=-msse4.1
+		ARCH_FLAGS=-msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2
 else ifeq ($(arch),avx2)
 	ifeq ($(CXX), icpc)
 		ARCH_FLAGS=-xCORE-AVX2
 	else	
-		ARCH_FLAGS=-mavx2
+		ARCH_FLAGS=-mavx -mavx2
 	endif
 else ifeq ($(arch),avx512)
 	ifeq ($(CXX), icpc)
 		ARCH_FLAGS=-xCORE-AVX512
 	else	
-		ARCH_FLAGS=-mavx512bw
+		ARCH_FLAGS=-mavx -mavx2 -mavx512bw
 	endif
 else ifeq ($(arch),native)
 	ARCH_FLAGS=-march=native
