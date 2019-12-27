@@ -49,8 +49,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 using namespace seqan;
 #endif
 
-using namespace std;
-
 #define DUMMY_CHAR 6
 
 // #if ((!__AVX2__))
@@ -168,7 +166,7 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
 #else
     sprintf(outname, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE);
 #endif
-    std::fstream outstream (outname, ios::out | ios::binary);
+    std::fstream outstream (outname, std::ios::out | std::ios::binary);
     outstream.seekg(0);	
 
     printf("count = %ld, %ld, %ld, %ld, %ld\n", count[0], count[1], count[2], count[3], count[4]);
@@ -183,6 +181,7 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
     int64_t i;
     int64_t ref_seq_len_aligned = ((ref_seq_len + CP_BLOCK_SIZE - 1) / CP_BLOCK_SIZE) * CP_BLOCK_SIZE;
     bwt = (uint8_t *)_mm_malloc(ref_seq_len_aligned * sizeof(uint8_t), 64);
+    if (bwt == NULL) { perror("Allocation of bwt failed"); exit(EXIT_FAILURE); }
 
 // #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
@@ -223,6 +222,7 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
     CP_OCC *cp_occ = NULL;
 
     cp_occ = (CP_OCC *)_mm_malloc(cp_occ_size * sizeof(CP_OCC), 64);
+    if (cp_occ == NULL) { perror("Allocation of cp_occ failed"); exit(EXIT_FAILURE); }
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC));
     uint32_t cp_count[16];
 
@@ -280,7 +280,10 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
 
 
     uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(ref_seq_len * sizeof(uint32_t), 64);
+    if (sa_ls_word == NULL) { perror("Allocation of sa_ls_word failed"); exit(EXIT_FAILURE); }
     int8_t *sa_ms_byte = (int8_t *)_mm_malloc(ref_seq_len * sizeof(int8_t), 64);
+    if (sa_ms_byte == NULL) { perror("Allocation of sa_ms_byte failed"); exit(EXIT_FAILURE); }
+
     for(i = 0; i < ref_seq_len; i++)
     {
         sa_ls_word[i] = sa_bwt[i] & 0xffffffff;
@@ -307,7 +310,7 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
     char outname[200];
     sprintf(outname, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE_AVX);
 
-    std::fstream outstream (outname, ios::out | ios::binary);
+    std::fstream outstream (outname, std::ios::out | std::ios::binary);
     outstream.seekg(0);	
 
     printf("count = %ld, %ld, %ld, %ld, %ld\n", count[0], count[1], count[2], count[3], count[4]);
@@ -322,6 +325,7 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
     int64_t i;
     int64_t ref_seq_len_aligned = ((ref_seq_len + CP_BLOCK_SIZE_AVX - 1) / CP_BLOCK_SIZE_AVX) * CP_BLOCK_SIZE_AVX;
     bwt = (uint8_t *)_mm_malloc(ref_seq_len_aligned * sizeof(uint8_t), 64);
+    if (bwt == NULL) { perror("Allocation of bwt failed"); exit(EXIT_FAILURE); }
 
 // #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
@@ -362,6 +366,7 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
     CP_OCC_AVX *cp_occ = NULL;
 
     cp_occ = (CP_OCC_AVX *)_mm_malloc(cp_occ_size * sizeof(CP_OCC_AVX), 64);
+    if (cp_occ == NULL) { perror("Allocation of cp_occ failed"); exit(EXIT_FAILURE); }
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC_AVX));
     uint32_t cp_count[16];
 
@@ -386,7 +391,9 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
 
 
     uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(ref_seq_len * sizeof(uint32_t), 64);
+    if (sa_ls_word == NULL) { perror("Allocation of sa_ls_word failed"); exit(EXIT_FAILURE); }
     int8_t *sa_ms_byte = (int8_t *)_mm_malloc(ref_seq_len * sizeof(int8_t), 64);
+    if (sa_ms_byte == NULL) { perror("Allocation of sa_ms_byte failed"); exit(EXIT_FAILURE); }
     for(i = 0; i < ref_seq_len; i++)
     {
         sa_ls_word[i] = sa_bwt[i] & 0xffffffff;
@@ -413,7 +420,7 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
 
     sprintf(outname, "%s.bwt.2bit.%d", ref_file_name, CP_BLOCK_SIZE_SSE);
 
-    std::fstream outstream (outname, ios::out | ios::binary);
+    std::fstream outstream (outname, std::ios::out | std::ios::binary);
     outstream.seekg(0);	
 
     printf("count = %ld, %ld, %ld, %ld, %ld\n", count[0], count[1], count[2], count[3], count[4]);
@@ -428,6 +435,7 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
     int64_t i;
     int64_t ref_seq_len_aligned = ((ref_seq_len + CP_BLOCK_SIZE_SSE - 1) / CP_BLOCK_SIZE_SSE) * CP_BLOCK_SIZE_SSE;
     bwt = (uint8_t *)_mm_malloc(ref_seq_len_aligned * sizeof(uint8_t), 64);
+    if (bwt == NULL) { perror("Allocation of bwt failed"); exit(EXIT_FAILURE); }
 
 // #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
@@ -468,6 +476,7 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
     CP_OCC_SSE *cp_occ = NULL;
 
     cp_occ = (CP_OCC_SSE *)_mm_malloc(cp_occ_size * sizeof(CP_OCC_SSE), 64);
+    if (cp_occ == NULL) { perror("Allocation of cp_occ failed"); exit(EXIT_FAILURE); }
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC_SSE));
     uint32_t cp_count[16];
 
@@ -523,7 +532,9 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
 
 
     uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(ref_seq_len * sizeof(uint32_t), 64);
+    if (sa_ls_word == NULL) { perror("Allocation of sa_ls_word failed"); exit(EXIT_FAILURE); }
     int8_t *sa_ms_byte = (int8_t *)_mm_malloc(ref_seq_len * sizeof(int8_t), 64);
+    if (sa_ms_byte == NULL) { perror("Allocation of sa_ms_byte failed"); exit(EXIT_FAILURE); }
     for(i = 0; i < ref_seq_len; i++)
     {
         sa_ls_word[i] = sa_bwt[i] & 0xffffffff;
@@ -607,9 +618,10 @@ int build_index(const char *prefix) {
     pac2nt(pac_file_name, reference_seq);
     int status;
     char *binary_ref_seq = (char *)_mm_malloc((reference_seq.length())*sizeof(char), 64);
+    if (binary_ref_seq == NULL) { perror("Allocation of binary_ref_seq failed"); exit(EXIT_FAILURE); }
     char binary_ref_name[200];
     sprintf(binary_ref_name, "%s.0123", prefix);
-    std::fstream binary_ref_stream (binary_ref_name, ios::out | ios::binary);
+    std::fstream binary_ref_stream (binary_ref_name, std::ios::out | std::ios::binary);
     binary_ref_stream.seekg(0);	
     printf("init ticks = %ld\n", __rdtsc() - startTick);
     startTick = __rdtsc();
@@ -646,6 +658,7 @@ int build_index(const char *prefix) {
     String<char> bwt;
 
     int64_t *suffix_array=(int64_t *)_mm_malloc(length(reference_seq) * sizeof(int64_t), 64);
+    if (suffix_array == NULL) { perror("Allocation of suffix_array failed"); exit(EXIT_FAILURE); }
     startTick = __rdtsc();
     status=build_sa(reference_seq, sa, count, suffix_array);
     printf("build index ticks = %ld\n", __rdtsc() - startTick);
@@ -672,9 +685,10 @@ int build_index(const char *prefix) {
 	int64_t pac_len = reference_seq.length();
     int status;
     char *binary_ref_seq = (char *)_mm_malloc(pac_len * sizeof(char), 64);
+    if (binary_ref_seq == NULL) { perror("Allocation of binary_ref_seq failed"); exit(EXIT_FAILURE); }
     char binary_ref_name[200];
     sprintf(binary_ref_name, "%s.0123", prefix);
-    std::fstream binary_ref_stream (binary_ref_name, ios::out | ios::binary);
+    std::fstream binary_ref_stream (binary_ref_name, std::ios::out | std::ios::binary);
     binary_ref_stream.seekg(0);
     fprintf(stderr, "init ticks = %ld\n", __rdtsc() - startTick);
     startTick = __rdtsc();
@@ -712,6 +726,7 @@ int build_index(const char *prefix) {
     startTick = __rdtsc();
 
     int64_t *suffix_array=(int64_t *)_mm_malloc((pac_len + 2) * sizeof(int64_t), 64);
+    if (suffix_array == NULL) { perror("Allocation of suffix_array failed"); exit(EXIT_FAILURE); }
     startTick = __rdtsc();
 	status = saisxx(reference_seq.c_str(), suffix_array + 1, pac_len);
 	suffix_array[0] = pac_len;
