@@ -47,13 +47,13 @@ The usage is exactly same as the original BWA MEM tool. Here is a brief synopsys
 # Indexing the reference sequence (Requires 24N GB memory where N is the size of the reference sequence).
 ./bwa-mem2 index [-p prefix] <in.fasta>
 Where 
-in.fasta is the path to reference sequence fasta file and 
-prefix is the prefix of the names of the files that store the resultant index. Default is in.fasta.
+<in.fasta> is the path to reference sequence fasta file and 
+<prefix> is the prefix of the names of the files that store the resultant index. Default is in.fasta.
 
 # Mapping 
 # Run "./bwa-mem2 mem" to get all options
 ./bwa-mem2 mem -t <num_threads> <prefix> <reads.fq/fa> > out.sam
-Where prefix is the prefix specified when creating the index or the path to the reference fasta file in case no prefix was provided.
+Where <prefix> is the prefix specified when creating the index or the path to the reference fasta file in case no prefix was provided.
 ```
 
 ## Citation
