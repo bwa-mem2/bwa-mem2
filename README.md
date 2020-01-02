@@ -43,6 +43,7 @@ make CXX=icpc multi
 
 The usage is exactly same as the original BWA MEM tool. Here is a brief synopsys. Run ./bwa-mem2 for available commands.
 
+```sh
 # Indexing the reference sequence (Requires 24N GB memory where N is the size of the reference sequence).
 ./bwa-mem2 index <path to reference sequence fasta file>
 ./bwa-mem2 index [-p prefix] <in.fasta>
@@ -52,6 +53,7 @@ Where in.fasta is the path to reference sequence fasta file and prefix is the pr
 # Run "./bwa-mem2 mem" to get all options
 ./bwa-mem2 mem -t <num_threads> <prefix> <reads.fq/fa> > out.sam
 Where prefix is the prefix specified while creating the index or the path to the reference fasta file if no prefix was provided.
+```
 
 ## Citation
 
