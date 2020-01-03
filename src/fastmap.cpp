@@ -993,6 +993,7 @@ int main_mem(int argc, char *argv[])
 	uint64_t tim = __rdtsc();
 	/* Relay process function */
 	process(&aux, fp, fp2, no_mt_io? 1:2);
+	// process(&aux, fp, fp2, 1);
 	
 	tprof[PROCESS][0] += __rdtsc() - tim;
 

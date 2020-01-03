@@ -322,21 +322,21 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 	kstring_t str;
 	mem_aln_t h[2], g[2], aa[2][2];
 	// int tid = omp_get_thread_num();
-	
+
 	// uint64_t tim = __rdtsc();
 	str.l = str.m = 0; str.s = 0;
 	memset(h, 0, sizeof(mem_aln_t) * 2);
 	memset(g, 0, sizeof(mem_aln_t) * 2);
+
 	n_aa[0] = n_aa[1] = 0;
 	if (!(opt->flag & MEM_F_NO_RESCUE)) { // then perform SW for the best alignment
-		
+
 		mem_alnreg_v b[2];
 		kv_init(b[0]); kv_init(b[1]);
 		for (i = 0; i < 2; ++i)
 			for (j = 0; j < a[i].n; ++j)
 				if (a[i].a[j].score >= a[i].a[0].score  - opt->pen_unpaired)
 					kv_push(mem_alnreg_t, b[i], a[i].a[j]);
-
 
 		// static int ncnt = 0;
 		uint64_t tim = __rdtsc();
@@ -351,8 +351,8 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 			}
 		
 		// tprof[SAM1][tid] += __rdtsc() - tim;
-		free(b[0].a); free(b[1].a);
-	}	
+		free(b[0].a); free(b[1].a);		
+	}
 	//tprof[SAM1][tid] += __rdtsc() - tim;
 
 	uint64_t tim1 = __rdtsc();
@@ -533,6 +533,8 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 												   seqBufQer, pcnt, gcnt, gar, *wsize);
 				pcnt = val;
 				gcnt += 4;
+				// fprintf(stderr, "In pre, gcnt :%d, [%d %d %d %d] - %d\n",
+				//		gcnt, gar[gcnt-4], gar[gcnt-3], gar[gcnt-2], gar[gcnt-1], *wsize);
 			}
 		}		
 		free(b[0].a); free(b[1].a);
@@ -591,7 +593,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 	uint64_t tim = __rdtsc();
 
 	kswv *pwsw = new kswv(opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, opt->a, -1*opt->b, nthreads);
-	
+
 #if __AVX512BW__
 	pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pcnt8, nthreads, 0);
 	pwsw->getScores16(seqPairArray + pcnt8, seqBufRef, seqBufQer, aln + pcnt8, pcnt-pcnt8, nthreads, 0);
@@ -1030,7 +1032,7 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 
 			//aln = **myaln;
 			//(*myaln)++;
-			int index = gar[gcnt + r];
+			int index = gar[gcnt + r];			
 			if (index == -1) {
 				// fprintf(stderr, "Re-routing: Encountered -ve index for "
 				// "gcnt: %d, look into pre.\n", gcnt + r);
@@ -1042,7 +1044,7 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			}
 			else
 				aln = *(*myaln + index);
-			
+
 			// tprof[SAM2][tid] += __rdtsc() - tim;
 
 			memset(&b, 0, sizeof(mem_alnreg_t));
