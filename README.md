@@ -63,10 +63,10 @@ Datasets:
 
  Alias	    |  Dataset source				|  No. of reads	| Read length 
  --------- | --------- | --------- | --------- 
- New_D1	|  Broad Institute				|  2 x 2.5M	bp	|	151bp
- New_D2	|  SRA: SRR7733443				|  2 x 2.5M	bp	|	151bp  
- New_D3	|  SRA: SRR9932168				|  2 x 2.5M	bp	|	151bp  
- New_D4	|  SRA: SRX6999918				|  2 x 2.5M	bp	|	151bp  
+ D1	|  Broad Institute				|  2 x 2.5M	bp	|	151bp
+ D2	|  SRA: SRR7733443				|  2 x 2.5M	bp	|	151bp  
+ D3	|  SRA: SRR9932168				|  2 x 2.5M	bp	|	151bp  
+ D4	|  SRA: SRX6999918				|  2 x 2.5M	bp	|	151bp  
 
 
 
@@ -77,10 +77,10 @@ Memory: 100GB
 
 
 <p align="center">
-<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-1.png" height="250"/a></br>
-<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-2.png" height="250"/a></br>
-<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-3.png" height="250"/a></br>
-<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-4.png" height="250"/a></br>
+<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-1.png" height="400"/a></br>
+<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-2.png" height="400"/a></br>
+<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-3.png" height="400"/a></br>
+<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-4.png" height="400"/a></br>
 </p>
 
 
