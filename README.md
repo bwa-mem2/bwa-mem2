@@ -58,6 +58,7 @@ Where <prefix> is the prefix specified when creating the index or the path to th
 
 ## Performance
 
+Datasets:  
  Alias	    |  Dataset source				|  No. of reads	| Read length 
  --------- | --------- | --------- | --------- 
  New_D1	|  Broad Institute				|  2 x 2.5M	bp	|	151bp
