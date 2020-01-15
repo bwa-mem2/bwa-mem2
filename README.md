@@ -74,10 +74,10 @@ Memory: 100GB
 
 
 <p align="center">
-<img src="https://github.com/yuk12/test_exp_repo/blob/master/images/bwa-mem2-1.png" height="250"/a></br>
-<img src="https://github.com/yuk12/test_exp_repo/blob/master/images/bwa-mem2-2.png" height="250"/a></br>
-<img src="https://github.com/yuk12/test_exp_repo/blob/master/images/bwa-mem2-3.png" height="250"/a></br>
-<img src="https://github.com/yuk12/test_exp_repo/blob/master/images/bwa-mem2-4.png" height="250"/a></br>
+<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-1.png" height="250"/a></br>
+<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-2.png" height="250"/a></br>
+<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-3.png" height="250"/a></br>
+<img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-4.png" height="250"/a></br>
 </p>
 
 
