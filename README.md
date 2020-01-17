@@ -11,7 +11,7 @@ cat /proc/cpuinfo
 
 # If AVX512BW (512-bit SIMD) is supported
 make clean
-make -j<num_threads> arch=avx512bw
+make -j<num_threads> arch=avx512
 
 # If AVX2 (256-bit SIMD) is supported
 make clean
