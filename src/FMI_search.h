@@ -33,9 +33,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include<stdlib.h>
 #include<stdint.h>
 #include <string.h>
-//#include <xmmintrin.h>
 #include <immintrin.h>
-// #include <omp.h>
 #include "bntseq.h"
 #include "read_index_ele.h"
 #include "bwa.h"
@@ -46,7 +44,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #define CP_MASK 63
 #define CP_SHIFT 6
 #define BIT_DATA_TYPE uint64_t
-#define PADDING 24
+#define PADDING 8
 
 #if defined(__clang__) || defined(__GNUC__)
 static inline int _mm_countbits_64(unsigned long x) {
@@ -75,7 +73,7 @@ typedef struct checkpoint_occ
     BIT_DATA_TYPE bwt_str_bit0;
     BIT_DATA_TYPE bwt_str_bit1;
     BIT_DATA_TYPE dollar_mask;
-    uint32_t cp_count[4];
+    int64_t cp_count[4];
     uint8_t  pad[PADDING];
 }CP_OCC;
 
@@ -106,8 +104,7 @@ GET_OCC(pp, c, c256, occ_id_pp, y_pp, occ_pp, bwt_str_pp, bwt_pp_vec, mask_pp_ve
 typedef struct checkpoint_occ
 {
     uint8_t  bwt_str[CP_BLOCK_SIZE];
-    uint32_t cp_count[4];
-    uint8_t  pad[16];
+    int64_t cp_count[4];
 }CP_OCC;
 
 #endif
@@ -184,7 +181,7 @@ public:
 	void get_sa_entries(SMEM *smemArray, int64_t *coordArray, int32_t *coordCountArray, uint32_t count, int32_t max_occ);
 
 	int64_t reference_seq_len;
-	uint32_t sentinel_index;
+	int64_t sentinel_index;
 private:
         int64_t count[5];
         uint32_t *sa_ls_word;

@@ -52,21 +52,21 @@ using namespace seqan;
 #define DUMMY_CHAR 6
 
 #define assert_not_null(x, size) \
-        if (x == NULL) { fprintf(stderr, "Allocation of %0.2lf GB for " #x " failed\n", size * 1.0 /(1024*1024*1024)); exit(EXIT_FAILURE); }
+        if (x == NULL) { fprintf(stderr, "Allocation of %0.2lf GB for " #x " failed.\nCurrent Allocation = %0.2lf GB\n", size * 1.0 /(1024*1024*1024), cur_alloc * 1.0 /(1024*1024*1024)); exit(EXIT_FAILURE); }
 // #if ((!__AVX2__))
 // SSE stuff
 #define CP_BLOCK_SIZE_SSE 64
 #define CP_MASK_SSE 63
 #define CP_SHIFT_SSE 6
 #define BIT_DATA_TYPE uint64_t
-#define PADDING_SSE 24
+#define PADDING_SSE 8
 
 typedef struct checkpoint_occ_sse
 {
     BIT_DATA_TYPE bwt_str_bit0;
     BIT_DATA_TYPE bwt_str_bit1;
     BIT_DATA_TYPE dollar_mask;
-    uint32_t cp_count[4];
+    int64_t cp_count[4];
     uint8_t  pad[PADDING_SSE];
 }CP_OCC_SSE;
 
@@ -75,15 +75,14 @@ typedef struct checkpoint_occ_sse
 #define CP_BLOCK_SIZE_AVX 32
 #define CP_MASK_AVX 31
 #define CP_SHIFT_AVX 5
-#define PADDING_AVX 16
 
 typedef struct checkpoint_occ_avx
 {
     uint8_t  bwt_str[CP_BLOCK_SIZE_AVX];
-    uint32_t cp_count[4];
-    uint8_t  pad[PADDING_AVX];
+    int64_t cp_count[4];
 }CP_OCC_AVX;
 
+int64_t cur_alloc = 0;
 // #endif
 
 int64_t pac_seq_len(const char *fn_pac)
@@ -185,9 +184,7 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
     int64_t size = ref_seq_len_aligned * sizeof(uint8_t);
     bwt = (uint8_t *)_mm_malloc(size, 64);
     assert_not_null(bwt, size);
-    //if (bwt == NULL) { perror("Allocation of %lf bwt failed"); exit(EXIT_FAILURE); }
 
-// #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
     {
         if(sa_bwt[i] == 0)
@@ -228,11 +225,10 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
     size = cp_occ_size * sizeof(CP_OCC);
     cp_occ = (CP_OCC *)_mm_malloc(size, 64);
     assert_not_null(cp_occ, size);
-    //if (cp_occ == NULL) { perror("Allocation of cp_occ failed"); exit(EXIT_FAILURE); }
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC));
-    uint32_t cp_count[16];
+    int64_t cp_count[16];
 
-    memset(cp_count, 0, 16 * sizeof(uint32_t));
+    memset(cp_count, 0, 16 * sizeof(int64_t));
     for(i = 0; i < ref_seq_len; i++)
     {
         if((i & CP_MASK) == 0)
@@ -289,11 +285,9 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
     size = ref_seq_len * sizeof(uint32_t);
     uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
     assert_not_null(sa_ls_word, size);
-    //if (sa_ls_word == NULL) { perror("Allocation of sa_ls_word failed"); exit(EXIT_FAILURE); }
     size = ref_seq_len * sizeof(int8_t);
     int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
     assert_not_null(sa_ms_byte, size);
-    //if (sa_ms_byte == NULL) { perror("Allocation of sa_ms_byte failed"); exit(EXIT_FAILURE); }
 
     for(i = 0; i < ref_seq_len; i++)
     {
@@ -335,10 +329,9 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
     int64_t ref_seq_len_aligned = ((ref_seq_len + CP_BLOCK_SIZE_AVX - 1) / CP_BLOCK_SIZE_AVX) * CP_BLOCK_SIZE_AVX;
     int64_t size = ref_seq_len_aligned * sizeof(uint8_t);
     bwt = (uint8_t *)_mm_malloc(size, 64);
+    cur_alloc += size;
     assert_not_null(bwt, size);
-    //if (bwt == NULL) { perror("Allocation of bwt failed"); exit(EXIT_FAILURE); }
 
-// #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
     {
         if(sa_bwt[i] == 0)
@@ -378,12 +371,12 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
 
     size = cp_occ_size * sizeof(CP_OCC_AVX);
     cp_occ = (CP_OCC_AVX *)_mm_malloc(size, 64);
+    cur_alloc += size;
     assert_not_null(cp_occ, size);
-    //if (cp_occ == NULL) { perror("Allocation of cp_occ failed"); exit(EXIT_FAILURE); }
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC_AVX));
-    uint32_t cp_count[16];
+    int64_t cp_count[16];
 
-    memset(cp_count, 0, 16 * sizeof(uint32_t));
+    memset(cp_count, 0, 16 * sizeof(int64_t));
     for(i = 0; i < ref_seq_len; i++)
     {
         if((i & CP_MASK_AVX) == 0)
@@ -395,7 +388,6 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
             cpo.cp_count[3] = cp_count[3];
 			memcpy(cpo.bwt_str, bwt + i, CP_BLOCK_SIZE_AVX * sizeof(uint8_t));
 
-            memset(cpo.pad, 0, PADDING_AVX);
             cp_occ[i >> CP_SHIFT_AVX] = cpo;
         }
         cp_count[bwt[i]]++;
@@ -403,15 +395,16 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
     outstream.write((char*)cp_occ, cp_occ_size * sizeof(CP_OCC_AVX));
     _mm_free(cp_occ);
     _mm_free(bwt);
+    cur_alloc -= (ref_seq_len_aligned * sizeof(uint8_t) + cp_occ_size * sizeof(CP_OCC_AVX));
 
     size = ref_seq_len * sizeof(uint32_t);
     uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
+    cur_alloc += size;
     assert_not_null(sa_ls_word, size);
-    //if (sa_ls_word == NULL) { perror("Allocation of sa_ls_word failed"); exit(EXIT_FAILURE); }
     size = ref_seq_len * sizeof(int8_t);
     int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
+    cur_alloc += size;
     assert_not_null(sa_ms_byte, size);
-    //if (sa_ms_byte == NULL) { perror("Allocation of sa_ms_byte failed"); exit(EXIT_FAILURE); }
     for(i = 0; i < ref_seq_len; i++)
     {
         sa_ls_word[i] = sa_bwt[i] & 0xffffffff;
@@ -453,9 +446,7 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
     int64_t size = ref_seq_len_aligned * sizeof(uint8_t);
     bwt = (uint8_t *)_mm_malloc(size, 64);
     assert_not_null(bwt, size);
-    //if (bwt == NULL) { perror("Allocation of bwt failed"); exit(EXIT_FAILURE); }
 
-// #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
     {
         if(sa_bwt[i] == 0)
@@ -496,11 +487,10 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
     size = cp_occ_size * sizeof(CP_OCC_SSE);
     cp_occ = (CP_OCC_SSE *)_mm_malloc(size, 64);
     assert_not_null(cp_occ, size);
-    //if (cp_occ == NULL) { perror("Allocation of cp_occ failed"); exit(EXIT_FAILURE); }
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC_SSE));
-    uint32_t cp_count[16];
+    int64_t cp_count[16];
 
-    memset(cp_count, 0, 16 * sizeof(uint32_t));
+    memset(cp_count, 0, 16 * sizeof(int64_t));
     for(i = 0; i < ref_seq_len; i++)
     {
         if((i & CP_MASK_SSE) == 0)
@@ -555,11 +545,9 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
     size = ref_seq_len * sizeof(uint32_t);
     uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
     assert_not_null(sa_ls_word, size);
-    //if (sa_ls_word == NULL) { perror("Allocation of sa_ls_word failed"); exit(EXIT_FAILURE); }
     size = ref_seq_len * sizeof(int8_t);
     int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
     assert_not_null(sa_ms_byte, size);
-    //if (sa_ms_byte == NULL) { perror("Allocation of sa_ms_byte failed"); exit(EXIT_FAILURE); }
     for(i = 0; i < ref_seq_len; i++)
     {
         sa_ls_word[i] = sa_bwt[i] & 0xffffffff;
@@ -643,7 +631,6 @@ int build_index(const char *prefix) {
     int64_t size = reference_seq.length() * sizeof(char);
     char *binary_ref_seq = (char *)_mm_malloc(size, 64);
     assert_not_null(binary_ref_seq, size);
-    //if (binary_ref_seq == NULL) { perror("Allocation of binary_ref_seq failed"); exit(EXIT_FAILURE); }
     char binary_ref_name[200];
     sprintf(binary_ref_name, "%s.0123", prefix);
     std::fstream binary_ref_stream (binary_ref_name, std::ios::out | std::ios::binary);
@@ -685,7 +672,6 @@ int build_index(const char *prefix) {
     int64_t size = length(reference_seq) * sizeof(int64_t);
     int64_t *suffix_array=(int64_t *)_mm_malloc(size, 64);
     assert_not_null(suffix_array, size);
-    //if (suffix_array == NULL) { perror("Allocation of suffix_array failed"); exit(EXIT_FAILURE); }
     startTick = __rdtsc();
     status=build_sa(reference_seq, sa, count, suffix_array);
     printf("build index ticks = %ld\n", __rdtsc() - startTick);
@@ -704,6 +690,7 @@ int build_index(const char *prefix) {
 
     int64_t startTick;
     startTick = __rdtsc();
+    cur_alloc = 0;
 
     std::string reference_seq;
     char pac_file_name[200];
@@ -713,6 +700,7 @@ int build_index(const char *prefix) {
     int status;
     int64_t size = pac_len * sizeof(char);
     char *binary_ref_seq = (char *)_mm_malloc(size, 64);
+    cur_alloc += size;
     assert_not_null(binary_ref_seq, size);
     char binary_ref_name[200];
     sprintf(binary_ref_name, "%s.0123", prefix);
@@ -755,8 +743,8 @@ int build_index(const char *prefix) {
 
     size = (pac_len + 2) * sizeof(int64_t);
     int64_t *suffix_array=(int64_t *)_mm_malloc(size, 64);
+    cur_alloc += size;
     assert_not_null(suffix_array, size);
-    //if (suffix_array == NULL) { perror("Allocation of suffix_array failed"); exit(EXIT_FAILURE); }
     startTick = __rdtsc();
 	status = saisxx(reference_seq.c_str(), suffix_array + 1, pac_len);
 	suffix_array[0] = pac_len;

@@ -44,7 +44,7 @@ make CXX=icpc multi
 The usage is exactly same as the original BWA MEM tool. Here is a brief synopsys. Run ./bwa-mem2 for available commands.
 
 ```sh
-# Indexing the reference sequence (Requires 24N GB memory where N is the size of the reference sequence).
+# Indexing the reference sequence (Requires 28N GB memory where N is the size of the reference sequence).
 ./bwa-mem2 index [-p prefix] <in.fasta>
 Where 
 <in.fasta> is the path to reference sequence fasta file and 

@@ -59,7 +59,7 @@ FMI_search::FMI_search(char *ref_file_name)
 		fprintf(stderr, "reference seq len = %ld\n", reference_seq_len);
 
     // create checkpointed occ
-    uint32_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
+    int64_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
     cp_occ = NULL;
 
     fread(&count[0], sizeof(int64_t), 5, cpstream);
