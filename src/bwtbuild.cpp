@@ -49,24 +49,24 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 using namespace seqan;
 #endif
 
-using namespace std;
-
 #define DUMMY_CHAR 6
 
+#define assert_not_null(x, size) \
+        if (x == NULL) { fprintf(stderr, "Allocation of %0.2lf GB for " #x " failed.\nCurrent Allocation = %0.2lf GB\n", size * 1.0 /(1024*1024*1024), cur_alloc * 1.0 /(1024*1024*1024)); exit(EXIT_FAILURE); }
 // #if ((!__AVX2__))
 // SSE stuff
 #define CP_BLOCK_SIZE_SSE 64
 #define CP_MASK_SSE 63
 #define CP_SHIFT_SSE 6
 #define BIT_DATA_TYPE uint64_t
-#define PADDING_SSE 24
+#define PADDING_SSE 8
 
 typedef struct checkpoint_occ_sse
 {
     BIT_DATA_TYPE bwt_str_bit0;
     BIT_DATA_TYPE bwt_str_bit1;
     BIT_DATA_TYPE dollar_mask;
-    uint32_t cp_count[4];
+    int64_t cp_count[4];
     uint8_t  pad[PADDING_SSE];
 }CP_OCC_SSE;
 
@@ -75,15 +75,14 @@ typedef struct checkpoint_occ_sse
 #define CP_BLOCK_SIZE_AVX 32
 #define CP_MASK_AVX 31
 #define CP_SHIFT_AVX 5
-#define PADDING_AVX 16
 
 typedef struct checkpoint_occ_avx
 {
     uint8_t  bwt_str[CP_BLOCK_SIZE_AVX];
-    uint32_t cp_count[4];
-    uint8_t  pad[PADDING_AVX];
+    int64_t cp_count[4];
 }CP_OCC_AVX;
 
+int64_t cur_alloc = 0;
 // #endif
 
 int64_t pac_seq_len(const char *fn_pac)
@@ -131,8 +130,8 @@ void pac2nt(const char *fn_pac, std::string &reference_seq)
                 reference_seq += "T";
             break;
             default:
-                printf("ERROR! Value of nt is not in 0,1,2,3!");
-                exit(0);
+                fprintf(stderr, "ERROR! Value of nt is not in 0,1,2,3!");
+                exit(EXIT_FAILURE);
         }
 	}
     for(i = seq_len - 1; i >= 0; i--)
@@ -168,7 +167,7 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
 #else
     sprintf(outname, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE);
 #endif
-    std::fstream outstream (outname, ios::out | ios::binary);
+    std::fstream outstream (outname, std::ios::out | std::ios::binary);
     outstream.seekg(0);	
 
     printf("count = %ld, %ld, %ld, %ld, %ld\n", count[0], count[1], count[2], count[3], count[4]);
@@ -182,9 +181,10 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
 
     int64_t i;
     int64_t ref_seq_len_aligned = ((ref_seq_len + CP_BLOCK_SIZE - 1) / CP_BLOCK_SIZE) * CP_BLOCK_SIZE;
-    bwt = (uint8_t *)_mm_malloc(ref_seq_len_aligned * sizeof(uint8_t), 64);
+    int64_t size = ref_seq_len_aligned * sizeof(uint8_t);
+    bwt = (uint8_t *)_mm_malloc(size, 64);
+    assert_not_null(bwt, size);
 
-// #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
     {
         if(sa_bwt[i] == 0)
@@ -206,8 +206,8 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
                 case 3: bwt[i] = 3;
                           break;
                 default:
-                        printf("ERROR! i = %ld, c = %c\n", i, c);
-                        exit(1);
+                        fprintf(stderr, "ERROR! i = %ld, c = %c\n", i, c);
+                        exit(EXIT_FAILURE);
             }
         }
     }
@@ -222,11 +222,13 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
     int64_t cp_occ_size = (ref_seq_len >> CP_SHIFT) + 1;
     CP_OCC *cp_occ = NULL;
 
-    cp_occ = (CP_OCC *)_mm_malloc(cp_occ_size * sizeof(CP_OCC), 64);
+    size = cp_occ_size * sizeof(CP_OCC);
+    cp_occ = (CP_OCC *)_mm_malloc(size, 64);
+    assert_not_null(cp_occ, size);
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC));
-    uint32_t cp_count[16];
+    int64_t cp_count[16];
 
-    memset(cp_count, 0, 16 * sizeof(uint32_t));
+    memset(cp_count, 0, 16 * sizeof(int64_t));
     for(i = 0; i < ref_seq_len; i++)
     {
         if((i & CP_MASK) == 0)
@@ -252,8 +254,8 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
 				}
 				else if(c > 3)
 				{
-					printf("ERROR! [%ld, %d] c = %u\n", (long)i, j, c);
-					exit(0);
+					fprintf(stderr, "ERROR! [%ld, %d] c = %u\n", (long)i, j, c);
+					exit(EXIT_FAILURE);
 				}
 				else
 				{
@@ -277,10 +279,16 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
         cp_count[bwt[i]]++;
     }
     outstream.write((char*)cp_occ, cp_occ_size * sizeof(CP_OCC));
+    _mm_free(cp_occ);
+    _mm_free(bwt);
 
+    size = ref_seq_len * sizeof(uint32_t);
+    uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
+    assert_not_null(sa_ls_word, size);
+    size = ref_seq_len * sizeof(int8_t);
+    int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
+    assert_not_null(sa_ms_byte, size);
 
-    uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(ref_seq_len * sizeof(uint32_t), 64);
-    int8_t *sa_ms_byte = (int8_t *)_mm_malloc(ref_seq_len * sizeof(int8_t), 64);
     for(i = 0; i < ref_seq_len; i++)
     {
         sa_ls_word[i] = sa_bwt[i] & 0xffffffff;
@@ -292,8 +300,6 @@ int build_fm_index_generic(const char *ref_file_name, char *binary_seq, int64_t 
     printf("max_occ_ind = %ld\n", i >> CP_SHIFT);    
     fflush(stdout);
 
-    _mm_free(cp_occ);
-    _mm_free(bwt);
     _mm_free(sa_ms_byte);
     _mm_free(sa_ls_word);
     return 0;
@@ -307,7 +313,7 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
     char outname[200];
     sprintf(outname, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE_AVX);
 
-    std::fstream outstream (outname, ios::out | ios::binary);
+    std::fstream outstream (outname, std::ios::out | std::ios::binary);
     outstream.seekg(0);	
 
     printf("count = %ld, %ld, %ld, %ld, %ld\n", count[0], count[1], count[2], count[3], count[4]);
@@ -321,9 +327,11 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
 
     int64_t i;
     int64_t ref_seq_len_aligned = ((ref_seq_len + CP_BLOCK_SIZE_AVX - 1) / CP_BLOCK_SIZE_AVX) * CP_BLOCK_SIZE_AVX;
-    bwt = (uint8_t *)_mm_malloc(ref_seq_len_aligned * sizeof(uint8_t), 64);
+    int64_t size = ref_seq_len_aligned * sizeof(uint8_t);
+    bwt = (uint8_t *)_mm_malloc(size, 64);
+    cur_alloc += size;
+    assert_not_null(bwt, size);
 
-// #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
     {
         if(sa_bwt[i] == 0)
@@ -345,8 +353,8 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
                 case 3: bwt[i] = 3;
                           break;
                 default:
-                        printf("ERROR! i = %ld, c = %c\n", i, c);
-                        exit(1);
+                        fprintf(stderr, "ERROR! i = %ld, c = %c\n", i, c);
+                        exit(EXIT_FAILURE);
             }
         }
     }
@@ -361,11 +369,14 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
     int64_t cp_occ_size = (ref_seq_len >> CP_SHIFT_AVX) + 1;
     CP_OCC_AVX *cp_occ = NULL;
 
-    cp_occ = (CP_OCC_AVX *)_mm_malloc(cp_occ_size * sizeof(CP_OCC_AVX), 64);
+    size = cp_occ_size * sizeof(CP_OCC_AVX);
+    cp_occ = (CP_OCC_AVX *)_mm_malloc(size, 64);
+    cur_alloc += size;
+    assert_not_null(cp_occ, size);
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC_AVX));
-    uint32_t cp_count[16];
+    int64_t cp_count[16];
 
-    memset(cp_count, 0, 16 * sizeof(uint32_t));
+    memset(cp_count, 0, 16 * sizeof(int64_t));
     for(i = 0; i < ref_seq_len; i++)
     {
         if((i & CP_MASK_AVX) == 0)
@@ -377,16 +388,23 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
             cpo.cp_count[3] = cp_count[3];
 			memcpy(cpo.bwt_str, bwt + i, CP_BLOCK_SIZE_AVX * sizeof(uint8_t));
 
-            memset(cpo.pad, 0, PADDING_AVX);
             cp_occ[i >> CP_SHIFT_AVX] = cpo;
         }
         cp_count[bwt[i]]++;
     }
     outstream.write((char*)cp_occ, cp_occ_size * sizeof(CP_OCC_AVX));
+    _mm_free(cp_occ);
+    _mm_free(bwt);
+    cur_alloc -= (ref_seq_len_aligned * sizeof(uint8_t) + cp_occ_size * sizeof(CP_OCC_AVX));
 
-
-    uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(ref_seq_len * sizeof(uint32_t), 64);
-    int8_t *sa_ms_byte = (int8_t *)_mm_malloc(ref_seq_len * sizeof(int8_t), 64);
+    size = ref_seq_len * sizeof(uint32_t);
+    uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
+    cur_alloc += size;
+    assert_not_null(sa_ls_word, size);
+    size = ref_seq_len * sizeof(int8_t);
+    int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
+    cur_alloc += size;
+    assert_not_null(sa_ms_byte, size);
     for(i = 0; i < ref_seq_len; i++)
     {
         sa_ls_word[i] = sa_bwt[i] & 0xffffffff;
@@ -398,8 +416,6 @@ int build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_
     printf("max_occ_ind = %ld\n", i >> CP_SHIFT_AVX);    
     fflush(stdout);
 
-    _mm_free(cp_occ);
-    _mm_free(bwt);
     _mm_free(sa_ms_byte);
     _mm_free(sa_ls_word);
     return 0;
@@ -413,7 +429,7 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
 
     sprintf(outname, "%s.bwt.2bit.%d", ref_file_name, CP_BLOCK_SIZE_SSE);
 
-    std::fstream outstream (outname, ios::out | ios::binary);
+    std::fstream outstream (outname, std::ios::out | std::ios::binary);
     outstream.seekg(0);	
 
     printf("count = %ld, %ld, %ld, %ld, %ld\n", count[0], count[1], count[2], count[3], count[4]);
@@ -427,9 +443,10 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
 
     int64_t i;
     int64_t ref_seq_len_aligned = ((ref_seq_len + CP_BLOCK_SIZE_SSE - 1) / CP_BLOCK_SIZE_SSE) * CP_BLOCK_SIZE_SSE;
-    bwt = (uint8_t *)_mm_malloc(ref_seq_len_aligned * sizeof(uint8_t), 64);
+    int64_t size = ref_seq_len_aligned * sizeof(uint8_t);
+    bwt = (uint8_t *)_mm_malloc(size, 64);
+    assert_not_null(bwt, size);
 
-// #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
     {
         if(sa_bwt[i] == 0)
@@ -451,8 +468,8 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
                 case 3: bwt[i] = 3;
                           break;
                 default:
-                        printf("ERROR! i = %ld, c = %c\n", i, c);
-                        exit(1);
+                        fprintf(stderr, "ERROR! i = %ld, c = %c\n", i, c);
+                        exit(EXIT_FAILURE);
             }
         }
     }
@@ -467,11 +484,13 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
     int64_t cp_occ_size = (ref_seq_len >> CP_SHIFT_SSE) + 1;
     CP_OCC_SSE *cp_occ = NULL;
 
-    cp_occ = (CP_OCC_SSE *)_mm_malloc(cp_occ_size * sizeof(CP_OCC_SSE), 64);
+    size = cp_occ_size * sizeof(CP_OCC_SSE);
+    cp_occ = (CP_OCC_SSE *)_mm_malloc(size, 64);
+    assert_not_null(cp_occ, size);
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC_SSE));
-    uint32_t cp_count[16];
+    int64_t cp_count[16];
 
-    memset(cp_count, 0, 16 * sizeof(uint32_t));
+    memset(cp_count, 0, 16 * sizeof(int64_t));
     for(i = 0; i < ref_seq_len; i++)
     {
         if((i & CP_MASK_SSE) == 0)
@@ -497,8 +516,8 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
 				}
 				else if(c > 3)
 				{
-					printf("ERROR! [%ld, %d] c = %u\n", (long)i, j, c);
-					exit(0);
+					fprintf(stderr, "ERROR! [%ld, %d] c = %u\n", (long)i, j, c);
+					exit(EXIT_FAILURE);
 				}
 				else
 				{
@@ -520,10 +539,15 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
         cp_count[bwt[i]]++;
     }
     outstream.write((char*)cp_occ, cp_occ_size * sizeof(CP_OCC_SSE));
+    _mm_free(cp_occ);
+    _mm_free(bwt);
 
-
-    uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(ref_seq_len * sizeof(uint32_t), 64);
-    int8_t *sa_ms_byte = (int8_t *)_mm_malloc(ref_seq_len * sizeof(int8_t), 64);
+    size = ref_seq_len * sizeof(uint32_t);
+    uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
+    assert_not_null(sa_ls_word, size);
+    size = ref_seq_len * sizeof(int8_t);
+    int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
+    assert_not_null(sa_ms_byte, size);
     for(i = 0; i < ref_seq_len; i++)
     {
         sa_ls_word[i] = sa_bwt[i] & 0xffffffff;
@@ -535,8 +559,6 @@ int build_fm_index_sse(const char *ref_file_name, char *binary_seq, int64_t ref_
     printf("max_occ_ind = %ld\n", i >> CP_SHIFT_SSE);    
     fflush(stdout);
 
-    _mm_free(cp_occ);
-    _mm_free(bwt);
     _mm_free(sa_ms_byte);
     _mm_free(sa_ls_word);
     return 0;
@@ -604,11 +626,13 @@ void build_binaryRef(const char* prefix) {
     char pac_file_name[200];
     sprintf(pac_file_name, "%s.pac", prefix);
     pac2nt(pac_file_name, reference_seq);
-    char *binary_ref_seq = (char *)_mm_malloc((reference_seq.length())*sizeof(char), 64);
+    int64_t size = reference_seq.length() * sizeof(char);
+    char *binary_ref_seq = (char *)_mm_malloc(size, 64);
+    assert_not_null(binary_ref_seq, size);
     char binary_ref_name[200];
     sprintf(binary_ref_name, "%s.0123", prefix);
-    std::fstream binary_ref_stream (binary_ref_name, ios::out | ios::binary);
-    binary_ref_stream.seekg(0); 
+    std::fstream binary_ref_stream (binary_ref_name, std::ios::out | std::ios::binary);
+    binary_ref_stream.seekg(0);	
     int64_t i;
     for(i = 0; i < reference_seq.length(); i++)
     {
@@ -640,6 +664,7 @@ int build_index(const char *prefix) {
 
     int64_t startTick;
     startTick = __rdtsc();
+    cur_alloc = 0;
 
     std::string reference_seq;
     char pac_file_name[200];
@@ -647,10 +672,13 @@ int build_index(const char *prefix) {
     pac2nt(pac_file_name, reference_seq);
 	int64_t pac_len = reference_seq.length();
     int status;
-    char *binary_ref_seq = (char *)_mm_malloc(pac_len * sizeof(char), 64);
+    int64_t size = pac_len * sizeof(char);
+    char *binary_ref_seq = (char *)_mm_malloc(size, 64);
+    cur_alloc += size;
+    assert_not_null(binary_ref_seq, size);
     char binary_ref_name[200];
     sprintf(binary_ref_name, "%s.0123", prefix);
-    std::fstream binary_ref_stream (binary_ref_name, ios::out | ios::binary);
+    std::fstream binary_ref_stream (binary_ref_name, std::ios::out | std::ios::binary);
     binary_ref_stream.seekg(0);
     fprintf(stderr, "init ticks = %ld\n", __rdtsc() - startTick);
     startTick = __rdtsc();
@@ -687,7 +715,10 @@ int build_index(const char *prefix) {
     fprintf(stderr, "binary seq ticks = %ld\n", __rdtsc() - startTick);
     startTick = __rdtsc();
 
-    int64_t *suffix_array=(int64_t *)_mm_malloc((pac_len + 2) * sizeof(int64_t), 64);
+    size = (pac_len + 2) * sizeof(int64_t);
+    int64_t *suffix_array=(int64_t *)_mm_malloc(size, 64);
+    cur_alloc += size;
+    assert_not_null(suffix_array, size);
     startTick = __rdtsc();
 	status = saisxx(reference_seq.c_str(), suffix_array + 1, pac_len);
 	suffix_array[0] = pac_len;

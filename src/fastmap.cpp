@@ -1157,7 +1157,6 @@ int main_mem(int argc, char *argv[])
 
     /* Relay process function */
     process(&aux, fp, fp2, no_mt_io? 1:2, idx_prefix);
-
 	tprof[PROCESS][0] += __rdtsc() - tim;
 
 	// free memory

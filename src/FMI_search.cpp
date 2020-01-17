@@ -59,7 +59,7 @@ FMI_search::FMI_search(char *ref_file_name)
 		fprintf(stderr, "reference seq len = %ld\n", reference_seq_len);
 
     // create checkpointed occ
-    uint32_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
+    int64_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
     cp_occ = NULL;
 
     fread(&count[0], sizeof(int64_t), 5, cpstream);
@@ -108,6 +108,7 @@ FMI_search::FMI_search(char *ref_file_name)
     base_mask[3][0] = 0xffffffffffffffffL;
     base_mask[3][1] = 0xffffffffffffffffL;
 #else
+    c_bcast_array = (uint8_t *)_mm_malloc(256 * sizeof(uint8_t), 64);
     for(ii = 0; ii < 4; ii++)
     {
         int32_t j;
@@ -132,6 +133,9 @@ FMI_search::~FMI_search()
     _mm_free(sa_ms_byte);
     _mm_free(sa_ls_word);
     _mm_free(cp_occ);
+#if ((__AVX2__))
+    _mm_free(c_bcast_array);
+#endif
 }
 
 

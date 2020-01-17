@@ -1420,10 +1420,11 @@ int64_t sort_classify(mem_cache *mmc, int offset1, int64_t pcnt, int tid)
 
 #if 0
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
-	SeqPair *seqPairArrayAux = mmc->seqPairArrayAux + offset1;
+	// SeqPair *seqPairArrayAux = mmc->seqPairArrayAux + offset1;
 #else
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
-	SeqPair *seqPairArrayAux = mmc->seqPairArrayAux[tid];
+	// SeqPair *seqPairArrayAux = mmc->seqPairArrayAux[tid];
+	SeqPair *seqPairArrayAux = mmc->seqPairArrayRight128[tid];
 #endif
 
 	int64_t pos8 = 0, pos16 = 0;
@@ -1489,15 +1490,17 @@ static void worker_sam(void *data, long seqid, long batch_size, int tid)
 								 &w->mmc, sizeA, sizeB, sizeC,
 								 pcnt, gcnt, tid);
 		}
-		// tprof[SAM1][tid] += __rdtsc() - tim;
-
-		int64_t pcnt8 = sort_classify(&w->mmc, sizeA, pcnt, tid);
 		
+		// tprof[SAM1][tid] += __rdtsc() - tim;
+		int64_t pcnt8 = sort_classify(&w->mmc, sizeA, pcnt, tid);
+
 		kswr_t *aln = (kswr_t *) _mm_malloc ((pcnt + SIMD_WIDTH8) * sizeof(kswr_t), 64);
+		assert(aln != NULL);
+		
 		// processing
 		mem_sam_pe_batch(w->opt, &w->mmc, sizeA, sizeB, sizeC,
 						 pcnt, pcnt8, aln, tid);		
-		
+
 		// post-processing
 		// tim = __rdtsc();
 		gcnt = 0;
@@ -3134,7 +3137,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 			}
 		}
 	}
-	
 	free(srtgg);
 	free(srt);
 	free(lim);

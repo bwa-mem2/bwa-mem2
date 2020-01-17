@@ -2057,6 +2057,7 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
 #else
 				seq1 = seqBufRef + sp.idr;
 #endif
+				assert(sp.len1 < MAX_SEQ_LEN_REF_SAM);
                 for(k = 0; k < sp.len1; k++)
                 {
                     // mySeq1SoA[k * SIMD_WIDTH16 + j] = (seq1[k] == AMBIG?0xFFFF:seq1[k]);
@@ -2083,19 +2084,23 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
 #else
 				seq2 = seqBufQer + sp.idq;
 #endif
-				assert(sp.len2 < MAX_SEQ_LEN_QER_SAM);
+				assert(sp.len2 <= MAX_SEQ_LEN_QER_SAM);
 
 #if 1
 				int quanta = 8 - sp.len2 % 8;  // based on SSE2-16 bit lane
 #else
 				int quanta = 16 - sp.len2 % 16;  // based on SSE2-8 bit lane
 #endif
-				// printf("quanta: %d %d %d\n", quanta, sp.len2, sp.len2%8);
+				
+				assert(sp.len2 < MAX_SEQ_LEN_QER_SAM);
                 for(k = 0; k < sp.len2; k++)
                 {
 					// mySeq2SoA[k * SIMD_WIDTH16 + j] = (seq2[k]==AMBIG?0xFFFF:seq2[k]);
 					mySeq2SoA[k * SIMD_WIDTH16 + j] = (seq2[k]==AMBIG_? AMBQ16:seq2[k]);
                 }
+				
+				assert(sp.len2 + quanta < MAX_SEQ_LEN_QER_SAM);	
+				
 				for(k = sp.len2; k < sp.len2 + quanta; k++) {
 					mySeq2SoA[k * SIMD_WIDTH16 + j] = DUMMY3;
 				}
@@ -2159,7 +2164,7 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
 	// free mem
 	_mm_free(seq1SoA);
 	_mm_free(seq2SoA);
-    return;
+    return; 
 }
 /********************** Inter-Task Execution ****************************/
 int kswv::kswv512_16_exp(int16_t seq1SoA[],
@@ -2276,7 +2281,7 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 	_mm512_store_si512((__m512i *)(H1), zero512);
 	__m512i i512 = zero512;
 	
-
+	
 #ifdef VTUNE_ANALYSIS
     __itt_resume();
 #endif
@@ -2291,7 +2296,7 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 		h10 = zero512;
 		imax512 = zero512;
 		__m512i iqe512 = _mm512_set1_epi16(-1);
-		
+
 		__m512i l512 = zero512;
 		for (j=0; j<ncol; j++)
  		{
@@ -2308,7 +2313,6 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 			// prof[DP2][0] += 22;
 			
 		}   /* Inner DP loop */
-		
 		// Block I
 		if (i > 0) {
 			__mmask32 msk32 = _mm512_cmpgt_epi16_mask(imax512, pimax512);
@@ -2355,7 +2359,7 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 	pimax512 = _mm512_mask_blend_epi16(exit0, minus1, pimax512);
 	_mm512_store_si512((__m512i *) (rowMax + (i-1) * SIMD_WIDTH16), pimax512);
 	// __m512i max512_ = max512;
-	
+
 	/******************* DP loop over *****************************/
     /*************** Partial output setting ***************/
 	int16_t score[SIMD_WIDTH16] __attribute((aligned(64)));
@@ -2396,7 +2400,6 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 	if (phase) return 1;
 #endif
 
-
 	/*************** Score2 and te2 *******************/
 	int qmax = this->g_qmax;	
 	// int qmax = 1;
@@ -2414,6 +2417,7 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 	__m512i low512 = _mm512_load_si512((__m512i*) low);
 	__m512i high512 = _mm512_load_si512((__m512i*) high);
 
+
 	__m512i rmax512;
 	for (int i=0; i< maxl; i++)
 	{
@@ -2430,7 +2434,8 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 	int16_t rlen[SIMD_WIDTH16] __attribute((aligned(64)));
 	for (int i=0; i<SIMD_WIDTH16; i++) rlen[i] = p[i].len1;
 	__m512i rlen512 = _mm512_load_si512(rlen);
-	
+
+
 	for (int i=minh+1; i<limit; i++)
 	{
 		__m512i i512 = _mm512_set1_epi16(i);
@@ -2447,7 +2452,8 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 
 	// _mm512_store_si512((__m512i *) temp, max512_);
 	_mm512_store_si512((__m512i *) temp1, max512);
-	_mm512_store_si512((__m512i *) temp2, te512);		
+	_mm512_store_si512((__m512i *) temp2, te512);
+	
 	for (int i=0; i<SIMD_WIDTH16; i++) {
 		int ind = po_ind + i;
 #if !MAINY
@@ -2456,11 +2462,6 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 #endif		
 		aln[ind].score2 = temp1[i];
 		aln[ind].te2 = temp2[i];
-		//if (ind == 4385) {
-		//	printf("4385, %d %d %d\n", temp1[i], temp2[i], n_b);
-		//	for (int l=0; l<lim; l++)
-		//		printf("%d %d (%d %d)\n", l, rowMax[l*SIMD_WIDTH16 + i], po_ind, i);
-		//}
 #if OUT
 		fprintf(stderr, "score: %d, te: %d, qe: %d, score2: %d, te2: %d\n",
 				aln[ind].score, aln[ind].te, aln[ind].qe, temp1[i], temp2[i]);
