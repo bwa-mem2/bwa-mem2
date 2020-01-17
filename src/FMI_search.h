@@ -191,7 +191,7 @@ private:
 #if ((!__AVX2__))
         BIT_DATA_TYPE base_mask[4][2];
 #else
-        uint8_t c_bcast_array[256] __attribute__((aligned(64)));
+        uint8_t *c_bcast_array;
 #endif
 
         SMEM backwardExt(SMEM smem, uint8_t a);

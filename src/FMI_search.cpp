@@ -108,6 +108,7 @@ FMI_search::FMI_search(char *ref_file_name)
     base_mask[3][0] = 0xffffffffffffffffL;
     base_mask[3][1] = 0xffffffffffffffffL;
 #else
+    c_bcast_array = (uint8_t *)_mm_malloc(256 * sizeof(uint8_t), 64);
     for(ii = 0; ii < 4; ii++)
     {
         int32_t j;
@@ -125,6 +126,7 @@ FMI_search::~FMI_search()
     _mm_free(sa_ms_byte);
     _mm_free(sa_ls_word);
     _mm_free(cp_occ);
+    _mm_free(c_bcast_array);
 }
 
 
