@@ -1,6 +1,6 @@
 ## Important Information
 
-*** Index structure has changed since commit 6743183. Rebuild the Index if you are using a later commit. ***
+***Index structure has changed since commit 6743183. Rebuild the Index if you are using a later commit.***
 
 ## Getting Started
 ```sh
