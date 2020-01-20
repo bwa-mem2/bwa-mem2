@@ -445,6 +445,7 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 	extern void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m);
 	extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_alnreg_v *a, int l_query, const char *query);
     extern void sort_alnreg_re(int n, mem_alnreg_t* a);
+    extern void sort_alnreg_score(int n, mem_alnreg_t* a);
 	extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 									const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a); 
 
@@ -474,11 +475,11 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
             if (useErt) {
                 sort_alnreg_re(a[!i].n, a[!i].a);
             }
+            int val;
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
 				//if (strcmp(s[!i].name, "HK35MCCXX160204:1:1102:5761:21104") == 0) {
 				//	ncnt=-1;
 				//}					
-				int val;
                 if (useErt) {
                     val = mem_matesw(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
                 }
@@ -489,8 +490,13 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 				ncnt++;
 			}
             if (useErt) {
-                mem_alnreg_v* ma = &a[!i];
-                ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
+                if (val) {
+                    mem_alnreg_v* ma = &a[!i];
+                    ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
+                }
+                else {
+                    sort_alnreg_score(a[!i].n, a[!i].a);
+                }
             }
         }
 		// tprof[SAM1][tid] += __rdtsc() - tim;
@@ -811,6 +817,7 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 	extern void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m);
 	extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_alnreg_v *a, int l_query, const char *query);
     extern void sort_alnreg_re(int n, mem_alnreg_t* a);
+    extern void sort_alnreg_score(int n, mem_alnreg_t* a);
 	extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 									const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
 
@@ -848,8 +855,8 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
             if (useErt) {
                 sort_alnreg_re(a[!i].n, a[!i].a);
             }
+            int val;
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
-				int val;
                 if (useErt) {
                     val = mem_matesw_batch_post(opt, bns, pac, pes, &b[i].a[j],
 										        s[!i].l_seq, (uint8_t*)s[!i].seq,
@@ -867,8 +874,13 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 				gcnt += 4;
 			}
             if (useErt) {
-                mem_alnreg_v* ma = &a[!i];
-                ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
+                if (val) {
+                    mem_alnreg_v* ma = &a[!i];
+                    ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
+                }
+                else {
+                    sort_alnreg_score(a[!i].n, a[!i].a);
+                }
             }
 		}
 
