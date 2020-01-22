@@ -126,7 +126,9 @@ FMI_search::~FMI_search()
     _mm_free(sa_ms_byte);
     _mm_free(sa_ls_word);
     _mm_free(cp_occ);
+#if ((__AVX2__))
     _mm_free(c_bcast_array);
+#endif
 }
 
 
