@@ -44,8 +44,8 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define __mmask16 uint16_t
 #endif
 
-#define MAX_SEQ_LEN_REF 256
-#define MAX_SEQ_LEN_QER 128
+#define MAX_SEQ_LEN_REF 512
+#define MAX_SEQ_LEN_QER 256
 #define MAX_SEQ_LEN_EXT 256
 #define MAX_NUM_PAIRS 10000000
 #define MAX_NUM_PAIRS_ALLOC 20000

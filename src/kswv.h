@@ -52,7 +52,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #endif
 
 
-#define MAX_SEQ_LEN_REF_SAM 2048
+#define MAX_SEQ_LEN_REF_SAM 4096
 // #define MAX_SEQ_LEN_QER_SAM 256
 #define MAX_SEQ_LEN_QER_SAM 512
 
