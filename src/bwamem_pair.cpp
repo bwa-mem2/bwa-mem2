@@ -640,7 +640,8 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
 						 mem_cache *mmc, int64_t offset1, int64_t offset2,
-						 int64_t offset3, int64_t &pcnt, int32_t &gcnt, int tid)
+						 int64_t offset3, int64_t &pcnt, int32_t &gcnt, int tid,
+                         int& maxRefLen, int& maxQerLen)
 {
 	uint8_t *seqBufRef = mmc->seqBufLeftRef + offset2;
 	uint8_t *seqBufQer = mmc->seqBufLeftQer + offset3;
@@ -664,7 +665,7 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 	memset(h, 0, sizeof(mem_aln_t) * 2);
 	memset(g, 0, sizeof(mem_aln_t) * 2);
 	n_aa[0] = n_aa[1] = 0;
-	
+
 	if (!(opt->flag & MEM_F_NO_RESCUE)) { // then perform SW for the best alignment
 		mem_alnreg_v b[2];
 		kv_init(b[0]); kv_init(b[1]);
@@ -679,7 +680,8 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 				int64_t val = mem_matesw_batch_pre(opt, bns, pac, pes, &b[i].a[j],
 												   s[!i].l_seq, (uint8_t*)s[!i].seq,
 												   &a[!i], seqPairArray, seqBufRef,
-												   seqBufQer, pcnt, gcnt, gar, *wsize);
+												   seqBufQer, pcnt, gcnt, gar, *wsize,
+                                                   maxRefLen, maxQerLen);
 				pcnt = val;
 				gcnt += 4;
 				// fprintf(stderr, "In pre, gcnt :%d, [%d %d %d %d] - %d\n",
@@ -701,7 +703,8 @@ static inline void revseq(int l, uint8_t *s)
 
 // This function is equivalent to align2() for axv512 i.e #else part
 int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int64_t offset2,
-					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln, int tid)
+					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln, int tid,
+                     int maxRefLen, int maxQerLen)
 {
 	uint8_t *seqBufRef = mmc->seqBufLeftRef + offset2;
 	uint8_t *seqBufQer = mmc->seqBufLeftQer + offset3;
@@ -741,7 +744,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 
 	uint64_t tim = __rdtsc();
 
-	kswv *pwsw = new kswv(opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, opt->a, -1*opt->b, nthreads);
+	kswv *pwsw = new kswv(opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, opt->a, -1*opt->b, nthreads, maxRefLen, maxQerLen);
 
 #if __AVX512BW__
 	pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pcnt8, nthreads, 0);
@@ -1029,14 +1032,14 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
 						 mem_alnreg_v *ma, SeqPair *seqPairArray, uint8_t* seqBufRef,
 						 uint8_t* seqBufQer, int pcnt, int32_t gcnt, int32_t *gar,
-						 int wsize)
+						 int wsize, int& maxRefLen, int& maxQerLen)
 {
 	extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 									const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
 	
 	int64_t l_pac = bns->l_pac;
 	int i, r, skip[4], rid = -1;
-	for (r = 0; r < 4; ++r)
+    for (r = 0; r < 4; ++r)
 		skip[r] = pes[r].failed? 1 : 0;
 
 	for (i = 0; i < ma->n; ++i) { // check which orinentation has been found		
@@ -1116,7 +1119,13 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 			sp.id = sp.score = sp.seqid = sp.gtle = sp.tle = sp.qle = sp.max_off = sp.gscore = -1; // not needed, remove while code cleaning
 			
 			assert(sp.len1 >= 0 && sp.len2 >= 0);
-			assert(refOffset + sp.len1 < MAX_SEQ_LEN_REF * BATCH_SIZE * SEEDS_PER_READ);
+			if (sp.len1 > maxRefLen) {
+                maxRefLen = sp.len1;    
+            }
+            if (sp.len2 > maxQerLen) {
+                maxQerLen = sp.len2;
+            } 
+            assert(refOffset + sp.len1 < MAX_SEQ_LEN_REF * BATCH_SIZE * SEEDS_PER_READ);
 			assert(qerOffset + sp.len2 < MAX_SEQ_LEN_QER * BATCH_SIZE * SEEDS_PER_READ);
 			// assert(pcnt < BATCH_SIZE * SEEDS_PER_READ);
 			// assert(gcnt + r < BATCH_SIZE * SEEDS_PER_READ);

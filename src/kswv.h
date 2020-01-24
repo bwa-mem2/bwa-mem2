@@ -52,7 +52,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #endif
 
 
-#define MAX_SEQ_LEN_REF_SAM 4096
+#define MAX_SEQ_LEN_REF_SAM 2048
 // #define MAX_SEQ_LEN_QER_SAM 256
 #define MAX_SEQ_LEN_QER_SAM 512
 
@@ -150,7 +150,11 @@ public:
 	kswv(const int o_del, const int e_del, const int o_ins,
 		 const int e_ins, int8_t w_match, int8_t w_mismatch,
 		 int numThreads);
-	
+
+	kswv(const int o_del, const int e_del, const int o_ins,
+		 const int e_ins, int8_t w_match, int8_t w_mismatch,
+		 int numThreads, int _maxRefLen, int _maxQerLen);
+
 	~kswv();
 
 	void getScores8(SeqPair *pairArray,
@@ -286,6 +290,9 @@ private:
 	int64_t setupTicks;
 	int64_t swTicks;
 	int64_t sort2Ticks;
+
+    int maxRefLen;
+    int maxQerLen;
 };
 
 #endif
