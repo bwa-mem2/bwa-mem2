@@ -46,6 +46,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <vector>
 #include "kstring.h"
 #include "ksw.h"
+#include "kswv.h"
 #include "kvec.h"
 #include "ksort.h"
 #include "utils.h"
@@ -298,7 +299,8 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
 						 mem_cache *mmc, int64_t offset1, int64_t offset2,
-						 int64_t offset3, int64_t &pcnt, int32_t &gcnt, int tid);
+						 int64_t offset3, int64_t &pcnt, int32_t &gcnt, int tid,
+                         int& maxRefLen, int& maxQerLen);
 
 int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
@@ -312,7 +314,7 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
 						 mem_alnreg_v *ma, SeqPair *seqPairArray, uint8_t* seqBufRef,
 						 uint8_t* seqBufQer, int pcnt, int32_t gcnt, int32_t *gar,
-						 int wsize);
+						 int wsize, int& maxRefLen, int& maxQerLen);
 
 int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
@@ -322,7 +324,8 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 uint8_t* seqBufQer, int pcnt);
 
 int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int64_t offset2,
-					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln, int tid);
+					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln, int tid,
+                     int maxRefLen, int maxQerLen);
 
 int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],

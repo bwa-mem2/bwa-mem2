@@ -1480,6 +1480,7 @@ static void worker_sam(void *data, long seqid, long batch_size, int tid)
 		// pre-processing
 		// uint64_t tim = __rdtsc();
 		int32_t gcnt = 0;
+        int maxRefLen = MAX_SEQ_LEN_REF_SAM, maxQerLen = MAX_SEQ_LEN_QER_SAM;
 		for (int i=start; i< end; i+=2)
 		{
 			mem_sam_pe_batch_pre(w->opt, w->bns,
@@ -1488,7 +1489,8 @@ static void worker_sam(void *data, long seqid, long batch_size, int tid)
 								 &w->seqs[i],
 								 &w->regs[i],
 								 &w->mmc, sizeA, sizeB, sizeC,
-								 pcnt, gcnt, tid);
+								 pcnt, gcnt, tid,
+                                 maxRefLen, maxQerLen);
 		}
 		
 		// tprof[SAM1][tid] += __rdtsc() - tim;
@@ -1499,7 +1501,8 @@ static void worker_sam(void *data, long seqid, long batch_size, int tid)
 		
 		// processing
 		mem_sam_pe_batch(w->opt, &w->mmc, sizeA, sizeB, sizeC,
-						 pcnt, pcnt8, aln, tid);		
+						 pcnt, pcnt8, aln, tid,
+                         maxRefLen, maxQerLen);		
 
 		// post-processing
 		// tim = __rdtsc();
