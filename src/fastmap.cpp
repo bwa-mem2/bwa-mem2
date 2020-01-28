@@ -421,8 +421,8 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	mem_opt_t	*opt			  = aux->opt;
 
 	nthreads = opt->n_threads; // global variable for profiling!
-	int  deno = 1;
 #if NUMA_ENABLED
+	int  deno = 1;
 	int tc = numa_num_task_cpus();
 	int tn = numa_num_task_nodes();
 	int tcc = numa_num_configured_cpus();
