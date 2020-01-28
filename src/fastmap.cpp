@@ -106,24 +106,24 @@ int64_t get_limit_fsize(FILE *fpp, int64_t nread_lim,
 						char buf[], char buf1[]) {
 	
 	int64_t val = 0, len = 10000;
-	fseek(fpp, 0, SEEK_END);
-	val = ftell(fpp);
+	err_fseek(fpp, 0, SEEK_END);
+	val = err_ftell(fpp);
 	if (nread_lim >= val)
 		return val;
 
-	fseek(fpp, nread_lim, SEEK_SET);
+	err_fseek(fpp, nread_lim, SEEK_SET);
 	int64_t position = nread_lim;
 	while(true) {
 		if (fgets((char*) buf, len, fpp) != NULL) {
 			if (buf[0] == '@') {
 				int64_t pos = ftell(fpp);
-				fgets((char*) buf1, len, fpp);
-				fgets((char*) buf1, len, fpp);
+				err_fgets((char*) buf1, len, fpp);
+				err_fgets((char*) buf1, len, fpp);
 				if (buf1[0] == '+')
 					break;
-				fseek(fpp, pos, SEEK_SET);
+				err_fseek(fpp, pos, SEEK_SET);
 			}
-			position = ftell(fpp);
+			position = err_ftell(fpp);
 		}
 		else break;
 	}
@@ -918,7 +918,7 @@ int main_mem(int argc, char *argv[])
 		rewind(fr);
 
 		/* Reading ref. sequence */
-		fread(ref_string, 1, rlen, fr);
+		err_fread_noeof(ref_string, 1, rlen, fr);
 
 		uint64_t timer  = __rdtsc();
 		tprof[REF_IO][0] += timer - tim;
