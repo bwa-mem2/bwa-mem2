@@ -32,7 +32,7 @@ Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@
 #include "main.h"
 
 #ifndef PACKAGE_VERSION
-#define PACKAGE_VERSION "2.0pre1"
+#define PACKAGE_VERSION "2.0pre2"
 #endif
 
 
