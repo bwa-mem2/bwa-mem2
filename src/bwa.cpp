@@ -545,13 +545,13 @@ void bwa_print_sam_hdr(const bntseq_t *bns, const char *hdr_line, FILE *fp)
 	
 #if ORIG
 	if (hdr_line) err_printf("%s\n", hdr_line);
-	// if (bwa_pg) err_printf("%s\n", bwa_pg);
+	if (bwa_pg) err_printf("%s\n", bwa_pg);
 #else
 	if (hdr_line) {
 		err_fputs(hdr_line, fp);
 		err_fputs("\n", fp);
 	}
-	// if (bwa_pg) err_fputs(bwa_pg, fp);
+	if (bwa_pg) err_fputs(bwa_pg, fp);
 #endif
 }
 
