@@ -1,4 +1,4 @@
-### BWA-MEM-M
+### BWA-Mich
 
 ## Getting Started
 ```sh
@@ -43,8 +43,8 @@ diff <output_mem.sam> <output_ert.sam>
 
 ## Notes
 
-* BWA-MEM-M has been tested for read lengths up to 151 bp. For larger read lengths, please update READ_LEN in src/macro.h
-* BWA-MEM-M requires atleast 64 GB RAM. For WGS runs on human genome, it is recommended to have 128-192 GB RAM.
+* BWA-Mich has been tested for read lengths up to 151 bp. For larger read lengths, please update READ_LEN in src/macro.h
+* BWA-Mich requires atleast 70 GB RAM. For WGS runs on human genome, it is recommended to have 128-192 GB RAM.
 
 
 ### BWA-MEM2 (old)
