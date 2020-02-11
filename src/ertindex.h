@@ -60,7 +60,7 @@ void handleLeaf(const bwt_t* bwt, const bntseq_t* bns, const uint8_t* pac, bwtin
 
 void ert_build_table(const bwt_t* bwt, const bntseq_t* bns, const uint8_t* pac, bwtintv_t ik, bwtintv_t ok[4], uint8_t* mlt_data, uint8_t* mh_data, uint64_t* size, uint64_t* mh_size, uint8_t* aq, uint64_t* numHits, uint64_t* max_next_ptr, uint64_t next_ptr_width, int step, int max_depth);
 
-void ert_traverse_kmertree(node_t* n, uint8_t* mlt_data, uint8_t* mh_data, uint64_t* byte_idx, uint64_t* mh_byte_idx, uint8_t depth, uint64_t* numHits, uint64_t* max_ptr, uint64_t next_ptr_width, int step);
+void ert_traverse_kmertree(node_t* n, uint8_t* mlt_data, uint8_t* mh_data, uint64_t* byte_idx, uint64_t* mh_byte_idx, int depth, uint64_t* numHits, uint64_t* max_ptr, uint64_t next_ptr_width, int step);
 
 void ert_destroy_kmertree(node_t* n);
 

@@ -18,7 +18,7 @@
 #define _set_pac(pac, l, c) ((pac)[(l)>>2] |= (c)<<(((l)&3)<<1))
 #define _set_pac_orig(pac, l, c) ((pac)[(l)>>2] |= (c)<<((~(l)&3)<<1))
 
-inline void getNumBranchesForKmer(bwtintv_t ok[4], uint8_t* numBranches, uint8_t* uniform_bp) {
+inline void getNumBranchesForKmer(bwtintv_t ok[4], int* numBranches, uint8_t* uniform_bp) {
     uint8_t i;
     for (i = 0; i < 4; ++i) {
         if (ok[i].x[2] > 0) { *numBranches += 1; *uniform_bp = i; }
@@ -132,7 +132,7 @@ void ert_build_kmertree(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pa
                         bwtintv_t ik, bwtintv_t ok[4], int curDepth, node_t* parent_node, int step, int max_depth) {
 
     uint8_t uniform_bp = 0;
-    uint8_t numBranches = 0, depth = curDepth;
+    int numBranches = 0, depth = curDepth;
     bwt_extend(bwt, &ik, ok, 0); //!< Extend right by 1bp
     /// Check if we need to make a uniform entry
     getNumBranchesForKmer(ok, &numBranches, &uniform_bp);
@@ -285,7 +285,8 @@ void addCode(uint8_t* mlt_data, uint64_t* byte_idx, uint8_t code, int step) {
 }
 
 void addUniformNode(uint8_t* mlt_data, uint64_t* byte_idx, uint8_t count, uint8_t* uniformBases, uint64_t hitCount, int step) {
-    uint8_t numBytesForBP = addBytesForEntry(UNIFORM_BP, count, 0);
+    int numBytesForBP = addBytesForEntry(UNIFORM_BP, count, 0);
+    assert(numBytesForBP < 256);
     if (step == 1) {
         memcpy(&mlt_data[*byte_idx], &count, sizeof(uint8_t));
     }
@@ -336,9 +337,9 @@ void addMultiHitLeafPtr(uint8_t* mlt_data, uint64_t* byte_idx, uint64_t mh_byte_
     *byte_idx += 5;
 } 
 
-void ert_traverse_kmertree(node_t* n, uint8_t* mlt_data, uint8_t* mh_data, uint64_t* size, uint64_t* mh_size, uint8_t depth, uint64_t* numHits, uint64_t* max_ptr, uint64_t next_ptr_width, int step) {
+void ert_traverse_kmertree(node_t* n, uint8_t* mlt_data, uint8_t* mh_data, uint64_t* size, uint64_t* mh_size, int depth, uint64_t* numHits, uint64_t* max_ptr, uint64_t next_ptr_width, int step) {
     int j = 0;
-    uint8_t cur_depth = depth;
+    int cur_depth = depth;
     uint64_t byte_idx = *size;
     uint64_t mh_byte_idx = *mh_size;
     uint8_t code = 0;
@@ -630,7 +631,7 @@ void* buildIndex(void *arg) {
             }
             ert_destroy_kmertree(n);
             assert(numBytesPerKmer < (1 << 26));
-            assert(numBytesForMh < (1 << 24));
+            // assert(numBytesForMh < (1 << 24));
             if (data->step == 1) {
                 if (idx != numKmers-1) assert((numBytesPerKmer+numBytesForMh) == size);
                 memcpy(mlt_data, &numBytesPerKmer, 4*sizeof(uint8_t));
@@ -691,7 +692,7 @@ void* buildIndex(void *arg) {
             // Traverse tree and place data in memory
             //
             assert(numBytesPerKmer < (1 << 26));
-            assert(numBytesForMh < (1 << 24));
+            // assert(numBytesForMh < (1 << 24));
             if (data->step == 1) {
                 if (idx != numKmers-1) assert((numBytesPerKmer+numBytesForMh) == size);
                 memcpy(mlt_data, &numBytesPerKmer, 4*sizeof(uint8_t));
