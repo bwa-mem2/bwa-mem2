@@ -47,7 +47,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 	}
 
 	if (optind + 1 > argc) {
-		fprintf(stderr, "Usage: bwa index [-p prefix] <in.fasta>\n");
+		fprintf(stderr, "Usage: bwa-mem2 index [-p prefix] <in.fasta>\n");
 		return 1;
 	}
 	if (prefix == 0) prefix = argv[optind];
