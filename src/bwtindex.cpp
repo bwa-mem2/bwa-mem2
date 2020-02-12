@@ -238,7 +238,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 
 	if (optind + 1 > argc) {
 		fprintf(stderr, "\n");
-		fprintf(stderr, "Usage:   bwa index [options] <in.fasta>\n\n");
+		fprintf(stderr, "Usage:   bwa-mem2 index [options] <in.fasta>\n\n");
 		fprintf(stderr, "Options: -a STR    BWT construction algorithm: bwtsw, is, rb2, mem2 or ert\n");
 		fprintf(stderr, "         -p STR    prefix of the index [same as fasta name]\n");
 		fprintf(stderr, "         -b INT    block size for the bwtsw algorithm (effective with -a bwtsw) [%d]\n", block_size);

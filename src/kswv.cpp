@@ -1706,7 +1706,7 @@ void parseCmdLine(int argc, char *argv[])
     if(pairFlag == 0)
     {
         printf("ERROR! pairFileName not specified.\n");
-        exit(0);
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -1799,7 +1799,7 @@ int main(int argc, char *argv[]) {
 	if (seqBufRef == NULL || seqBufQer == NULL || aln == NULL)
 	{
 		printf("Memory not allocated\nExiting...\n");
-		exit(0);
+		exit(EXIT_FAILURE);
 	} else {
 		printf("Memory allocated: %0.2lf MB\n",
 			   ((int64_t)(maxRefLen + maxQerLen ) * MAX_NUM_PAIRS + MAX_LINE_LEN)/1e6);
@@ -1837,7 +1837,7 @@ int main(int argc, char *argv[]) {
     if(pairFile == NULL)
     {
         fprintf(stderr, "Could not open file: %s\n", pairFileName);
-        exit(0);
+        exit(EXIT_FAILURE);
     }
 
 	// BandedPairWiseSW *pwsw = new BandedPairWiseSW(w_match, w_mismatch, w_open,

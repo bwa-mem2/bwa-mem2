@@ -89,10 +89,10 @@ BandedPairWiseSW::BandedPairWiseSW(const int o_del, const int e_del, const int o
 	H16__ = (int16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
 
 	if (F8_ == NULL || H8_ == NULL || H8__ == NULL) {
-		printf("BSW8 Memory not alloacted!!!\n"); exit(0);
+		printf("BSW8 Memory not alloacted!!!\n"); exit(EXIT_FAILURE);
 	}   	
 	if (F16_ == NULL || H16_ == NULL || H16__ == NULL) {
-		printf("BSW16 Memory not alloacted!!!\n"); exit(0);
+		printf("BSW16 Memory not alloacted!!!\n"); exit(EXIT_FAILURE);
 	}   	
 }
 
