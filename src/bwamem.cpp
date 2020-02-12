@@ -2740,7 +2740,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 		fprintf(stderr, "Error: assert failed for seqPair size, "
 				"numPairsLeft: %d, numPairsRight %d\nExiting.\n",
 				numPairsLeft, numPairsRight);
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	/* Discard seeds and hence their alignemnts */
 	

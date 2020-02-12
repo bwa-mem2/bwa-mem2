@@ -599,7 +599,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 	pwsw->getScores16(seqPairArray + pcnt8, seqBufRef, seqBufQer, aln + pcnt8, pcnt-pcnt8, nthreads, 0);
 #else
 	fprintf(stderr, "Error: This should not have happened!! \nPlease look in to AVX512 macros\n");
-	exit(0);
+	exit(EXIT_FAILURE);
 #endif
 	tprof[SAM2][0] += __rdtsc() - tim;
 	tprof[PE24][0] += pcnt;
@@ -632,7 +632,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 	pwsw->getScores16(seqPairArray + pos8, seqBufRef, seqBufQer, aln + pos8, pos16, nthreads, 1);
 #else
 	fprintf(stderr, "Error: This should not have happened!! \nPlease look in to AVX512 macros\n");
-	exit(0);
+	exit(EXIT_FAILURE);
 #endif
 	
 	tprof[SAM2][0] += __rdtsc() - tim;

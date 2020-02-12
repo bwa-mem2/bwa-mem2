@@ -49,7 +49,7 @@ FMI_search::FMI_search(char *ref_file_name)
     if (cpstream == NULL)
     {
 		fprintf(stderr, "ERROR! Unable to open the file: %s\n", cp_file_name);
-		exit(0);
+		exit(EXIT_FAILURE);
     }
 
     fread(&reference_seq_len, sizeof(int64_t), 1, cpstream);

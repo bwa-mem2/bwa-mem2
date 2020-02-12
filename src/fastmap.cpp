@@ -145,7 +145,7 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 	
 	if (w.regs == NULL || w.chain_ar == NULL) {
 		fprintf(stderr, "Memory not allocated!!\nExiting...\n");
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 
 	int64_t allocMem = memSize * sizeof(mem_alnreg_v) +
@@ -699,7 +699,7 @@ int main_mem(int argc, char *argv[])
 			aux.fp = fopen(optarg, "w");
 			if (aux.fp == NULL) {
 				fprintf(stderr, "Error: can't open %s input file\n", optarg);
-				exit(0);
+				exit(EXIT_FAILURE);
 			}
 			/*fclose(aux.fp);*/
 			/*MPI_File_open(MPI_COMM_WORLD, optarg, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &aux.mfp);*/
@@ -908,7 +908,7 @@ int main_mem(int argc, char *argv[])
 		
 		if (fr == NULL) {
 			fprintf(stderr, "Error: can't open %s input file\n", binary_seq_file);
-			exit(0);
+			exit(EXIT_FAILURE);
 		}
 		
 		int64_t rlen = 0;
