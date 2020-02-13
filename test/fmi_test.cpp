@@ -39,7 +39,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <ittnotify.h>
 #endif
 
-#define QUERY_DB_SIZE 512000000
+#define QUERY_DB_SIZE 1280000000
 int myrank, num_ranks;
 
 int main(int argc, char **argv) {
@@ -47,9 +47,9 @@ int main(int argc, char **argv) {
     __itt_pause();
 #endif
 
-    if(argc!=7)
+    if(argc!=6)
     {
-        printf("Need seven arguments : ref_file query_set batch_size readlength minSeedLen n_threads\n");
+        printf("Need five arguments : ref_file query_set batch_size minSeedLen n_threads\n");
         return 1;
     }
 
@@ -68,25 +68,33 @@ int main(int argc, char **argv) {
     if(seqs == NULL)
     {
         printf("ERROR! seqs = NULL\n");
-        exit(0);
+        exit(EXIT_FAILURE);
     }
     int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(numReads * sizeof(int32_t), 64);
 
     FMI_search *fmiSearch = new FMI_search(argv[1]);
 
-    int readlength=atoi(argv[4]);
-    assert(readlength > 0);
-    assert(readlength < 10000);
-    assert(numReads > 0);
-    assert(numReads * readlength < QUERY_DB_SIZE);
-    printf("numReads = %d, readlength = %d, %d\n", numReads, seqs[0].l_seq, readlength);
 
-    uint8_t *enc_qdb=(uint8_t *)malloc(numReads*readlength*sizeof(uint8_t));
+    int max_readlength = seqs[0].l_seq;
+    int min_readlength = seqs[0].l_seq;
+    for(int i = 1; i < numReads; i++)
+    {
+        if(max_readlength < seqs[i].l_seq)
+            max_readlength = seqs[i].l_seq;
+        if(min_readlength > seqs[i].l_seq)
+            min_readlength = seqs[i].l_seq;
+    }
+    assert(max_readlength > 0);
+    assert(max_readlength < 10000);
+    assert(numReads > 0);
+    assert(numReads * max_readlength < QUERY_DB_SIZE);
+    printf("numReads = %d, max_readlength = %d, min_readlength = %d\n", numReads, max_readlength, min_readlength);
+    uint8_t *enc_qdb=(uint8_t *)malloc(numReads * max_readlength * sizeof(uint8_t));
 
     int64_t cind,st;
 #if 0
     printf("Priting query\n");
-    for(st = 0; st < readlength; st++)
+    for(st = 0; st < max_readlength; st++)
     {
         printf("%c", seqs[0].seq[st]);
     }
@@ -94,9 +102,9 @@ int main(int argc, char **argv) {
 #endif
     uint64_t r;
     for (st=0; st < numReads; st++) {
-        query_cum_len_ar[st] = st * readlength;
-        cind=st*readlength;
-        for(r = 0; r < readlength; ++r) {
+        query_cum_len_ar[st] = st * max_readlength;
+        cind=st*max_readlength;
+        for(r = 0; r < max_readlength; ++r) {
             switch(seqs[st].seq[r])
             {
                 case 'A': enc_qdb[r+cind]=0;
@@ -118,10 +126,10 @@ int main(int argc, char **argv) {
     assert(batch_size > 0);
     assert(batch_size <= numReads);
 
-    SMEM *matchArray = (SMEM *)_mm_malloc(numReads * readlength * sizeof(SMEM), 64);
+    SMEM *matchArray = (SMEM *)_mm_malloc(numReads * max_readlength * sizeof(SMEM), 64);
 
-    int32_t minSeedLen = atoi(argv[5]);
-    int numthreads=atoi(argv[6]);
+    int32_t minSeedLen = atoi(argv[4]);
+    int numthreads=atoi(argv[5]);
     assert(numthreads > 0);
     assert(numthreads <= omp_get_max_threads());
 
@@ -147,16 +155,6 @@ int main(int argc, char **argv) {
     __itt_resume();
 #endif
     startTick = __rdtsc();
-#if 0
-    fmiSearch->getSMEMs(enc_qdb,
-            numReads,
-            batch_size,
-            readlength,
-            minIntv,
-            numthreads,
-            matchArray,
-            numTotalSmem);
-#else
     memset(numTotalSmem, 0, num_batches * sizeof(int64_t));
     int64_t workTicks[numthreads];
     memset(workTicks, 0, numthreads * sizeof(int64_t));
@@ -181,27 +179,27 @@ int main(int argc, char **argv) {
             int32_t batch_id = i/batch_size;
             //printf("%d] i = %d, batch_count = %d, batch_size = %d\n", tid, i, batch_count, batch_size);
             //fflush(stdout);
-            fmiSearch->getSMEMsAllPosOneThread(enc_qdb + i * readlength,
+            fmiSearch->getSMEMsAllPosOneThread(enc_qdb + i * max_readlength,
                     min_intv_array + i,
                     rid_array,
                     batch_count,
                     batch_size,
                     seqs + i,
                     query_cum_len_ar,
-                    readlength,
+                    max_readlength,
                     minSeedLen,
-                    matchArray + i * readlength,
+                    matchArray + i * max_readlength,
                     numTotalSmem + batch_id);
             //printf("numTotalSmem = %d\n", numTotalSmem[batch_id]);
             //fflush(stdout);
-            fmiSearch->sortSMEMs(matchArray + i * readlength,
+            fmiSearch->sortSMEMs(matchArray + i * max_readlength,
                     numTotalSmem + batch_id,
                     batch_count,
-                    readlength,
+                    max_readlength,
                     1);
             for(j = 0; j < numTotalSmem[batch_id]; j++)
             {
-                matchArray[i * readlength + j].rid += i;
+                matchArray[i * max_readlength + j].rid += i;
             }
             int64_t et1 = __rdtsc();
             workTicks[tid] += (et1 - st1);
@@ -212,7 +210,6 @@ int main(int argc, char **argv) {
         _mm_free(rid_array);
     }
 
-#endif
     endTick = __rdtsc();
 #ifdef VTUNE_ANALYSIS
     __itt_pause();
@@ -241,7 +238,7 @@ int main(int argc, char **argv) {
     for(batch_id = 0; batch_id < num_batches; batch_id++)
     {
         int32_t first = batch_id * batch_size;;
-        SMEM *myMatchArray = matchArray + first * readlength;
+        SMEM *myMatchArray = matchArray + first * max_readlength;
         int64_t i;
         for(i = 0; i < numTotalSmem[batch_id]; i++)
         {
