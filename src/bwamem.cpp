@@ -85,11 +85,12 @@ static inline int cal_max_gap(const mem_opt_t *opt, int qlen)
 static smem_aux_t *smem_aux_init()
 {
 	smem_aux_t *a;
-	a = (smem_aux_t *) calloc(BATCH_SIZE, sizeof(smem_aux_t));
+	if ((a = (smem_aux_t *) calloc(BATCH_SIZE, sizeof(smem_aux_t))) == NULL) { fprintf(stderr, "ERROR: out of memory %s\n", __func__); exit(1); }
 	for (int i=0; i<BATCH_SIZE; i++)
 	{
 		a[i].tmpv[0] = (bwtintv_v *) calloc(1, sizeof(bwtintv_v));
 		a[i].tmpv[1] = (bwtintv_v *) calloc(1, sizeof(bwtintv_v));
+		if (!a[i].tmpv[0] || !a[i].tmpv[1]) { fprintf(stderr, "ERROR: out of memory %s\n", __func__); exit(1); }
 	}
 	return a;
 }
@@ -111,7 +112,7 @@ static void smem_aux_destroy(smem_aux_t *a)
 mem_opt_t *mem_opt_init()
 {
 	mem_opt_t *o;
-	o = (mem_opt_t *) calloc(1, sizeof(mem_opt_t));
+	if ((o = (mem_opt_t *) calloc(1, sizeof(mem_opt_t))) == NULL)  { fprintf(stderr, "ERROR: out of memory\n"); exit(1); }
 	o->flag = 0;
 	o->a = 1; o->b = 4;
 	o->o_del = o->o_ins = 6;
@@ -391,13 +392,13 @@ static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
 			int pm = c->m;			
 			c->m <<= 1;
 			if (pm == SEEDS_PER_CHAIN) {  // re-new memory
-				auxSeedBuf = (mem_seed_t *) calloc(c->m, sizeof(mem_seed_t));
+				if ((auxSeedBuf = (mem_seed_t *) calloc(c->m, sizeof(mem_seed_t))) == NULL) { fprintf(stderr, "ERROR: out of memory auxSeedBuf\n"); exit(1); }
 				memcpy((char*) (auxSeedBuf), c->seeds, c->n * sizeof(mem_seed_t));
 				c->seeds = auxSeedBuf;
 				tprof[PE13][tid]++;
 			} else {  // new memory
 				// fprintf(stderr, "[%0.4d] re-allocing old seed, m: %d\n", tid, c->m);
-				auxSeedBuf = (mem_seed_t *) realloc(c->seeds, c->m * sizeof(mem_seed_t));
+				if ((auxSeedBuf = (mem_seed_t *) realloc(c->seeds, c->m * sizeof(mem_seed_t))) == NULL) { fprintf(stderr, "ERROR: out of memory auxSeedBuf\n"); exit(1); }
 				c->seeds = auxSeedBuf;
 			}
             memset((char*) (c->seeds + c->n), 0, (c->m - c->n) * sizeof(mem_seed_t));			
