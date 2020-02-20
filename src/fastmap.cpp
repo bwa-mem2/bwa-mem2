@@ -158,19 +158,19 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int ntid, char* idx_prefix) {
 	// int avg_seed_per_read = 35;
 	w.size = BATCH_SIZE * SEEDS_PER_READ;
 	for(int l=0; l<ntid; l++) {
-        w.mmc.seqBufLeftRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t));
-        w.mmc.seqBufLeftQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t));
-        w.mmc.seqBufRightRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t));
-        w.mmc.seqBufRightQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t));
-        w.mmc.seqPairArrayAux[l * MAX_LINE_LEN]      = (SeqPair *) malloc(w.size * sizeof(SeqPair));
-		w.mmc.seqPairArrayLeft128[l * MAX_LINE_LEN]  = (SeqPair *) malloc(w.size * sizeof(SeqPair));
-		w.mmc.seqPairArrayRight128[l * MAX_LINE_LEN] = (SeqPair *) malloc(w.size * sizeof(SeqPair));
+        w.mmc.seqBufLeftRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+        w.mmc.seqBufLeftQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
+        w.mmc.seqBufRightRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+        w.mmc.seqBufRightQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
+        w.mmc.seqPairArrayAux[l * MAX_LINE_LEN]      = (SeqPair *) malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
+		w.mmc.seqPairArrayLeft128[l * MAX_LINE_LEN]  = (SeqPair *) malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
+		w.mmc.seqPairArrayRight128[l * MAX_LINE_LEN] = (SeqPair *) malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
 		w.mmc.wsize[l * MAX_LINE_LEN] = w.size;
 	}
 
-	allocMem = (w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)) * opt->n_threads * 2 +
-		(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)) * opt->n_threads * 2 +		
-		w.size * sizeof(SeqPair) * opt->n_threads * 3;
+	allocMem = (w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2 +
+		(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2 +		
+		(w.size * sizeof(SeqPair) + MAX_LINE_LEN) * opt->n_threads * 3;
 	
 	fprintf(stderr, "Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
     
@@ -290,20 +290,20 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 #else
 	
 	for(int l=0; l<ntid; l++) {
-        w.mmc.seqBufLeftRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t));
-        w.mmc.seqBufLeftQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t));
-        w.mmc.seqBufRightRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t));
-        w.mmc.seqBufRightQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t));
-        w.mmc.seqPairArrayAux[l * MAX_LINE_LEN]      = (SeqPair *) malloc(w.size * sizeof(SeqPair));
-		w.mmc.seqPairArrayLeft128[l * MAX_LINE_LEN]  = (SeqPair *) malloc(w.size * sizeof(SeqPair));
-		w.mmc.seqPairArrayRight128[l * MAX_LINE_LEN] = (SeqPair *) malloc(w.size * sizeof(SeqPair));
+        w.mmc.seqBufLeftRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+        w.mmc.seqBufLeftQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
+        w.mmc.seqBufRightRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+        w.mmc.seqBufRightQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
+        w.mmc.seqPairArrayAux[l * MAX_LINE_LEN]      = (SeqPair *) malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
+		w.mmc.seqPairArrayLeft128[l * MAX_LINE_LEN]  = (SeqPair *) malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
+		w.mmc.seqPairArrayRight128[l * MAX_LINE_LEN] = (SeqPair *) malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
 		w.mmc.wsize[l * MAX_LINE_LEN] = w.size;
 	}
 #endif
 	
-	allocMem = (w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)) * opt->n_threads * 2 +
-		(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)) * opt->n_threads * 2 +		
-		w.size * sizeof(SeqPair) * opt->n_threads * 3;
+	allocMem = (w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2 +
+		(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2 +		
+		(w.size * sizeof(SeqPair) + MAX_LINE_LEN) * opt->n_threads * 3;
 	
 	fprintf(stderr, "Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
 	
