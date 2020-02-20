@@ -102,7 +102,7 @@ void bns_dump(const bntseq_t *bns, const char *prefix)
 
 bntseq_t *bns_restore_core(const char *ann_filename, const char* amb_filename, const char* pac_filename)
 {
-	char str[8192];
+	char str[8193];
 	FILE *fp;
 	const char *fname;
 	bntseq_t *bns;
