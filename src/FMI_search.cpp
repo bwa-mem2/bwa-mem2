@@ -64,7 +64,10 @@ FMI_search::FMI_search(char *ref_file_name)
     cp_occ = NULL;
 
     err_fread_noeof(&count[0], sizeof(int64_t), 5, cpstream);
-    cp_occ = (CP_OCC *)_mm_malloc(cp_occ_size * sizeof(CP_OCC), 64);
+    if ((cp_occ = (CP_OCC *)_mm_malloc(cp_occ_size * sizeof(CP_OCC), 64)) == NULL) {
+        fprintf(stderr, "ERROR! unable to allocated cp_occ memory\n");
+        exit(EXIT_FAILURE);
+    }
 
     err_fread_noeof(cp_occ, sizeof(CP_OCC), cp_occ_size, cpstream);
     int64_t ii = 0;
