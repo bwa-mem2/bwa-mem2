@@ -28,6 +28,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 *****************************************************************************************/
 
 // #include <immintrin.h>
+#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
 #include "kswv.h"
@@ -430,7 +431,8 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
 {
 	
 	int m_b, n_b;
-	uint8_t minsc[SIMD_WIDTH8] = {0}, endsc[SIMD_WIDTH8] = {0};
+	uint8_t minsc[SIMD_WIDTH8] alignas(64) = {0};
+	uint8_t endsc[SIMD_WIDTH8] alignas(64) = {0};
 	uint64_t *b;
 
 	__m512i zero512 = _mm512_setzero_si512();
