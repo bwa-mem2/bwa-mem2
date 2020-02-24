@@ -491,20 +491,9 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
 						 mem_cache *mmc, int64_t offset1, int64_t offset2,
-						 int64_t offset3, int64_t &pcnt, int32_t &gcnt, int tid)
+						 int64_t offset3, int64_t &pcnt, int32_t &gcnt, int tid,
+						 int& maxRefLen, int& maxQerLen)
 {
-	uint8_t *seqBufRef = mmc->seqBufLeftRef + offset2;
-	uint8_t *seqBufQer = mmc->seqBufLeftQer + offset3;
-#if 0
-	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
-	// int32_t *gar = (int32_t*) (mmc->seqPairArrayRight128 + offset1);
-	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux + offset1);
-#else
-	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
-	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux[tid]);
-	int64_t *wsize = &(mmc->wsize[tid]);
-#endif
-	
 	int i, j, n_aa[2];
 	kstring_t str;
 	mem_aln_t h[2], g[2];
@@ -529,8 +518,8 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
 				int64_t val = mem_matesw_batch_pre(opt, bns, pac, pes, &b[i].a[j],
 												   s[!i].l_seq, (uint8_t*)s[!i].seq,
-												   &a[!i], seqPairArray, seqBufRef,
-												   seqBufQer, pcnt, gcnt, gar, *wsize);
+												   &a[!i], mmc, tid, pcnt, gcnt,
+												   maxRefLen, maxQerLen);
 				pcnt = val;
 				gcnt += 4;
 				// fprintf(stderr, "In pre, gcnt :%d, [%d %d %d %d] - %d\n",
@@ -552,18 +541,12 @@ static inline void revseq(int l, uint8_t *s)
 
 // This function is equivalent to align2() for axv512 i.e #else part
 int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int64_t offset2,
-					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln, int tid)
+					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln, int tid,
+					 int maxRefLen, int maxQerLen)
 {
-	uint8_t *seqBufRef = mmc->seqBufLeftRef + offset2;
-	uint8_t *seqBufQer = mmc->seqBufLeftQer + offset3;
-#if 0
-	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
-#else
-	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
-	// int64_t *wsize = &(mmc->wsize[tid]);
-#endif
-	//int32_t *index = (int32_t*) (mmc->seqPairArrayLeft128 + offset1);
-	//int32_t *index = (int32_t*) (mmc->seqPairArrayAux + offset1);
+	uint8_t *seqBufRef = mmc->seqBufLeftRef[tid * MAX_LINE_LEN];
+	uint8_t *seqBufQer = mmc->seqBufLeftQer[tid * MAX_LINE_LEN];
+	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid * MAX_LINE_LEN];
 
 #if 0    // orig function, for debuggin
 	uint64_t tim = __rdtsc();	
@@ -592,7 +575,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 
 	uint64_t tim = __rdtsc();
 
-	kswv *pwsw = new kswv(opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, opt->a, -1*opt->b, nthreads);
+	kswv *pwsw = new kswv(opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, opt->a, -1*opt->b, nthreads, maxRefLen, maxQerLen);
 
 #if __AVX512BW__
 	pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pcnt8, nthreads, 0);
@@ -670,7 +653,7 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 
 	// int32_t *gar = (int32_t*) (mmc->seqPairArrayRight128 + offset1);
 	// int32_t *gar = (int32_t*) (mmc->seqPairArrayAux + offset1);
-	int32_t *gar = (int32_t*) mmc->seqPairArrayAux[tid];
+	int32_t *gar = (int32_t*) mmc->seqPairArrayAux[tid * MAX_LINE_LEN];
 	
 	int n = 0, i, j, z[2], o, subo, n_sub, extra_flag = 1, n_pri[2], n_aa[2];
 	kstring_t str;
@@ -853,13 +836,25 @@ no_pairing:
 int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
-						 mem_alnreg_v *ma, SeqPair *seqPairArray, uint8_t* seqBufRef,
-						 uint8_t* seqBufQer, int pcnt, int32_t gcnt, int32_t *gar,
-						 int wsize)
+						 mem_alnreg_v *ma, mem_cache* mmc, int tid, 
+						 int pcnt, int32_t gcnt, int& maxRefLen, int& maxQerLen)
 {
 	extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 									const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
-	
+	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid * MAX_LINE_LEN];
+	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux[tid * MAX_LINE_LEN]);
+
+	SeqPair *seqPairArrayAux	  = mmc->seqPairArrayAux[tid * MAX_LINE_LEN];
+	SeqPair *seqPairArrayLeft128  = mmc->seqPairArrayLeft128[tid * MAX_LINE_LEN];
+	SeqPair *seqPairArrayRight128 = mmc->seqPairArrayRight128[tid * MAX_LINE_LEN];
+	uint8_t *seqBufLeftRef	= mmc->seqBufLeftRef[tid * MAX_LINE_LEN];
+	uint8_t *seqBufLeftQer	= mmc->seqBufLeftQer[tid * MAX_LINE_LEN];
+	uint8_t *seqBufRightRef	= mmc->seqBufRightRef[tid * MAX_LINE_LEN];
+	uint8_t *seqBufRightQer	= mmc->seqBufRightQer[tid * MAX_LINE_LEN];
+	int64_t *wsize = &(mmc->wsize[tid * MAX_LINE_LEN]);
+	uint8_t* seqBufRef = seqBufLeftRef;
+	uint8_t* seqBufQer = seqBufLeftQer;
+
 	int64_t l_pac = bns->l_pac;
 	int i, r, skip[4], rid = -1;
 	for (r = 0; r < 4; ++r)
@@ -931,24 +926,46 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 			SeqPair sp;
 			sp.h0 = xtra;
 			// assert(pcnt < BATCH_SIZE * SEEDS_PER_READ);
-			assert(pcnt < wsize);
+			// assert(pcnt < wsize);
 			
 			sp.idq = qerOffset;
 			sp.idr = refOffset;
-			uint8_t *qs = seqBufQer + sp.idq;
-			uint8_t *rs = seqBufRef + sp.idr;
 			sp.len1 = re - rb;
 			sp.len2 = l_ms;
 			sp.id = sp.score = sp.seqid = sp.gtle = sp.tle = sp.qle = sp.max_off = sp.gscore = -1; // not needed, remove while code cleaning
 			
 			assert(sp.len1 >= 0 && sp.len2 >= 0);
-			assert(refOffset + sp.len1 < MAX_SEQ_LEN_REF * BATCH_SIZE * SEEDS_PER_READ);
-			assert(qerOffset + sp.len2 < MAX_SEQ_LEN_QER * BATCH_SIZE * SEEDS_PER_READ);
-			// assert(pcnt < BATCH_SIZE * SEEDS_PER_READ);
-			// assert(gcnt + r < BATCH_SIZE * SEEDS_PER_READ);
-			assert(pcnt < wsize);
-			assert(gcnt + r < wsize);
-			
+			if (sp.len1 > maxRefLen) {
+				maxRefLen = sp.len1;
+			}
+			if (sp.len2 > maxQerLen) {
+				maxQerLen = sp.len2;
+			}
+			if ((pcnt >= *wsize) || (gcnt + r >= *wsize) || ((refOffset + sp.len1) >= (*wsize * MAX_SEQ_LEN_REF)) || ((qerOffset + sp.len2) >= (*wsize * MAX_SEQ_LEN_QER))) {
+				fprintf(stderr, "[%s] Reallocation tid:%d\n", __func__, tid);
+				*wsize *= 2;
+				seqBufLeftRef = (uint8_t*) realloc(seqBufLeftRef, *wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+				seqBufLeftQer = (uint8_t*) realloc(seqBufLeftQer, *wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
+				seqBufRightRef = (uint8_t*) realloc(seqBufRightRef, *wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+				seqBufRightQer = (uint8_t*) realloc(seqBufRightQer, *wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
+				seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux, *wsize * sizeof(SeqPair) + MAX_LINE_LEN);
+				seqPairArrayLeft128 = (SeqPair *) realloc(seqPairArrayLeft128, *wsize * sizeof(SeqPair) + MAX_LINE_LEN);
+				seqPairArrayRight128 = (SeqPair *) realloc(seqPairArrayRight128, *wsize * sizeof(SeqPair) + MAX_LINE_LEN);
+				mmc->seqBufLeftRef[tid * MAX_LINE_LEN] = seqBufLeftRef;
+				mmc->seqBufLeftQer[tid * MAX_LINE_LEN] = seqBufLeftQer;
+				mmc->seqBufRightRef[tid * MAX_LINE_LEN] = seqBufRightRef;
+				mmc->seqBufRightQer[tid * MAX_LINE_LEN] = seqBufRightQer;
+				mmc->seqPairArrayAux[tid * MAX_LINE_LEN] = seqPairArrayAux;
+				mmc->seqPairArrayLeft128[tid * MAX_LINE_LEN] = seqPairArrayLeft128;
+				mmc->seqPairArrayRight128[tid * MAX_LINE_LEN] = seqPairArrayRight128;
+				seqPairArray = mmc->seqPairArrayLeft128[tid * MAX_LINE_LEN];
+				gar = (int32_t*) (mmc->seqPairArrayAux[tid * MAX_LINE_LEN]);
+				seqBufRef = seqBufLeftRef;
+				seqBufQer = seqBufLeftQer;
+			}
+			uint8_t *qs = seqBufQer + sp.idq;
+			uint8_t *rs = seqBufRef + sp.idr;
+
 			for (int l=0; l<sp.len1; l++) rs[l] = ref[l];
 			for (int l=0; l<sp.len2; l++) qs[l] = seq[l];
 
