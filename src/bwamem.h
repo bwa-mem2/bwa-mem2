@@ -178,7 +178,8 @@ typedef struct {
 } smem_aux_t;
 
 typedef struct {
-       // Fix potential false sharing during reallocation
+	// Fix potential false sharing during reallocation
+	uint8_t *seqMem[MAX_THREADS * MAX_LINE_LEN];
 	SeqPair *seqPairArrayAux[MAX_THREADS * MAX_LINE_LEN];
 	SeqPair *seqPairArrayLeft128[MAX_THREADS * MAX_LINE_LEN];
 	SeqPair *seqPairArrayRight128[MAX_THREADS * MAX_LINE_LEN];

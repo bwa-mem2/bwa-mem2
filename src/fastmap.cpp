@@ -157,22 +157,25 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 	
 	/* SWA mem allocation */
 	// int avg_seed_per_read = 35;
-	w.size = BATCH_SIZE * SEEDS_PER_READ;		
+	// Align worker size to be a multiple of 64
+	w.size = (((BATCH_SIZE * SEEDS_PER_READ) + 63) >> 6) << 6;		
 	
 	for(int l=0; l<ntid; l++) {
-		w.mmc.seqBufLeftRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
-		w.mmc.seqBufLeftQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
-		w.mmc.seqBufRightRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
-		w.mmc.seqBufRightQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
+		w.mmc.seqMem[l * MAX_LINE_LEN] = (uint8_t*) malloc(w.size * 
+				((2 * MAX_SEQ_LEN_REF + 2 * MAX_SEQ_LEN_QER) * sizeof(int8_t)) + 64 + MAX_LINE_LEN);
+		w.mmc.seqBufLeftRef[l * MAX_LINE_LEN] = (uint8_t*)((((size_t)w.mmc.seqMem[l * MAX_LINE_LEN] + 63) >> 6) << 6); // 64-byte aligned memory
+		w.mmc.seqBufLeftQer[l * MAX_LINE_LEN] = (uint8_t*)(w.mmc.seqBufLeftRef[l * MAX_LINE_LEN] + w.size * MAX_SEQ_LEN_REF * sizeof(int8_t));
+		w.mmc.seqBufRightRef[l * MAX_LINE_LEN] = (uint8_t*)(w.mmc.seqBufLeftQer[l * MAX_LINE_LEN] + w.size * MAX_SEQ_LEN_QER * sizeof(int8_t));
+		w.mmc.seqBufRightQer[l * MAX_LINE_LEN] = (uint8_t*)(w.mmc.seqBufRightRef[l * MAX_LINE_LEN] + w.size * MAX_SEQ_LEN_REF * sizeof(int8_t));
 		w.mmc.seqPairArrayAux[l * MAX_LINE_LEN] = (SeqPair *)malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
 		w.mmc.seqPairArrayLeft128[l * MAX_LINE_LEN] = (SeqPair *)malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
 		w.mmc.seqPairArrayRight128[l * MAX_LINE_LEN] = (SeqPair *)malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
 		w.mmc.wsize[l * MAX_LINE_LEN] = w.size;
 	}
 	
-	allocMem = ((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2) +
-		((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2) +		
-		((w.size * sizeof(SeqPair) + MAX_LINE_LEN) * opt->n_threads * 3);
+	allocMem = ((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)) * opt->n_threads * 2) +
+		((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)) * opt->n_threads * 2) + 
+		((w.size * sizeof(SeqPair) + MAX_LINE_LEN) * opt->n_threads * 3) + 64 + MAX_LINE_LEN;
 	
 	fprintf(stderr, "Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
 	
@@ -546,10 +549,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     free(w.seedBuf);
 
 	for(int l=0; l<nthreads; l++) {
-		free(w.mmc.seqBufLeftRef[l * MAX_LINE_LEN]);
-		free(w.mmc.seqBufLeftQer[l * MAX_LINE_LEN]);
-		free(w.mmc.seqBufRightRef[l * MAX_LINE_LEN]);
-		free(w.mmc.seqBufRightQer[l * MAX_LINE_LEN]);
+		free(w.mmc.seqMem[l * MAX_LINE_LEN]);
 		free(w.mmc.seqPairArrayAux[l * MAX_LINE_LEN]);
 		free(w.mmc.seqPairArrayLeft128[l * MAX_LINE_LEN]);
 		free(w.mmc.seqPairArrayRight128[l * MAX_LINE_LEN]);
