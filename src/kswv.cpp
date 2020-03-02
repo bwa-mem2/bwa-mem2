@@ -28,6 +28,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 *****************************************************************************************/
 
 // #include <immintrin.h>
+#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
 #include "kswv.h"
@@ -486,7 +487,8 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
 {
 	
 	int m_b, n_b;
-	uint8_t minsc[SIMD_WIDTH8] = {0}, endsc[SIMD_WIDTH8] = {0};
+	uint8_t minsc[SIMD_WIDTH8] alignas(64) = {0};
+	uint8_t endsc[SIMD_WIDTH8] alignas(64) = {0};
 	uint64_t *b;
 
 	__m512i zero512 = _mm512_setzero_si512();
@@ -2316,11 +2318,11 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 	int16_t	*F		= F16 + tid * SIMD_WIDTH16 * maxQerLen;
 	int16_t	*rowMax	= rowMax16 + tid * SIMD_WIDTH16 * maxRefLen;
 	
-	_mm_prefetch((const char*) (F + SIMD_WIDTH16), 0);
-	_mm_prefetch((const char*) seq2SoA, 0);
-	_mm_prefetch((const char*) seq1SoA, 0);
-	_mm_prefetch((const char*) (H1 + SIMD_WIDTH16), 0);
-	_mm_prefetch((const char*) (F + SIMD_WIDTH16), 0);
+	_mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
+	_mm_prefetch((const char*) seq2SoA, _MM_HINT_NTA);
+	_mm_prefetch((const char*) seq1SoA, _MM_HINT_NTA);
+	_mm_prefetch((const char*) (H1 + SIMD_WIDTH16), _MM_HINT_NTA);
+	_mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
 
 	for (int i=ncol; i >= 0; i--) {
 		_mm512_store_si512((__m512*) (H0 + i * SIMD_WIDTH16), zero512);
@@ -2589,11 +2591,11 @@ void kswv::kswv512_16(int16_t seq1SoA[],
 
 	int16_t	*rowMax	= rowMax16 + tid * SIMD_WIDTH16 * maxRefLen;
 	
-	_mm_prefetch((const char*) (F + SIMD_WIDTH16), 0);
-	_mm_prefetch((const char*) seq2SoA, 0);
-	_mm_prefetch((const char*) seq1SoA, 0);
-	_mm_prefetch((const char*) (H1 + SIMD_WIDTH16), 0);
-	_mm_prefetch((const char*) (F + SIMD_WIDTH16), 0);
+	_mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
+	_mm_prefetch((const char*) seq2SoA, _MM_HINT_NTA);
+	_mm_prefetch((const char*) seq1SoA, _MM_HINT_NTA);
+	_mm_prefetch((const char*) (H1 + SIMD_WIDTH16), _MM_HINT_NTA);
+	_mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
 
 	for (int i=ncol; i >= 0; i--) {
 		_mm512_store_si512((__m512*) (H0 + i * SIMD_WIDTH16), zero512);

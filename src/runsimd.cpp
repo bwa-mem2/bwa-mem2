@@ -109,11 +109,11 @@ static int exe_path(const char *exe, int max, char buf[], int *base_st)
 		buf[abs_len + last_slash + 2] = 0;
 	} else {
 		char *env, *p, *q, *tmp;
-		int env_len, found = 0, ret;
+		int env_len, found = 0;
 		struct stat st;
 		env = getenv("PATH");
 		env_len = strlen(env);
-		tmp = (char*)malloc(env_len + len + 2);
+		if ((tmp = (char*)malloc(env_len + len + 2)) == NULL) { fprintf( stderr, "ERROR: out of memory %s", __func__); }
 		for (p = q = env;; ++p) {
 			if (*p == ':' || *p == 0) {
 				strncpy(tmp, q, p - q);
@@ -158,7 +158,10 @@ int main(int argc, char *argv[])
 	}
 	//printf("%s\n", buf);
 	buf_len = strlen(buf);
-	prefix = (char*)malloc(buf_len + (strlen(argv0) - base_st) + 20);
+	if ((prefix = (char*)malloc(buf_len + (strlen(argv0) - base_st) + 20)) == NULL) {
+		fprintf(stderr, "ERROR: out of memory.\n");
+		return 1;
+        }
 	strcpy(prefix, buf);
 	strcpy(prefix + buf_len, &argv0[base_st]);
 	prefix_len = strlen(prefix);

@@ -38,6 +38,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <ctime>
 #include<fstream>
 #include <emmintrin.h>
+#include <inttypes.h>
 
 #include "sais.h"
 
@@ -662,7 +663,7 @@ void build_binaryRef(const char* prefix) {
 
 int build_index(const char *prefix) {
 
-    int64_t startTick;
+    uint64_t startTick;
     startTick = __rdtsc();
     cur_alloc = 0;
 
@@ -680,7 +681,7 @@ int build_index(const char *prefix) {
     sprintf(binary_ref_name, "%s.0123", prefix);
     std::fstream binary_ref_stream (binary_ref_name, std::ios::out | std::ios::binary);
     binary_ref_stream.seekg(0);
-    fprintf(stderr, "init ticks = %ld\n", __rdtsc() - startTick);
+    fprintf(stderr, "init ticks = %" PRIu64 "\n", __rdtsc() - startTick);
     startTick = __rdtsc();
     int64_t i, count[16];
 	memset(count, 0, sizeof(int64_t) * 16);
@@ -712,7 +713,7 @@ int build_index(const char *prefix) {
     count[0]=0;
     fprintf(stderr, "ref seq len = %ld\n", pac_len);
     binary_ref_stream.write(binary_ref_seq, pac_len * sizeof(char));
-    fprintf(stderr, "binary seq ticks = %ld\n", __rdtsc() - startTick);
+    fprintf(stderr, "binary seq ticks = %" PRIu64 "\n", __rdtsc() - startTick);
     startTick = __rdtsc();
 
     size = (pac_len + 2) * sizeof(int64_t);
@@ -722,7 +723,7 @@ int build_index(const char *prefix) {
     startTick = __rdtsc();
 	status = saisxx(reference_seq.c_str(), suffix_array + 1, pac_len);
 	suffix_array[0] = pac_len;
-    fprintf(stderr, "build index ticks = %ld\n", __rdtsc() - startTick);
+    fprintf(stderr, "build index ticks = %" PRIu64 "\n", __rdtsc() - startTick);
     startTick = __rdtsc();
 
     build_fm_index_avx(prefix, binary_ref_seq, pac_len, suffix_array, count);

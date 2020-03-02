@@ -120,15 +120,15 @@ bseq1_t *bseq_read(int64_t chunk_size, int *n_, void *ks1_, void *ks2_,
 #else
 			//kstring_t kstr;
 			//printf("%d\n", ks_getuntil2(kst, KS_SEP_LINE, &kstr, 0, 0));
-			fgets((char*) buf, len, fpp);
+			err_fgets((char*) buf, len, fpp);
 			size2 += strlen((char*) buf);
 			// printf("First line: %d, %s\n", strlen(buf), buf);
-			fgets((char*) buf, len, fpp);
+			err_fgets((char*) buf, len, fpp);
 			size2 += strlen((char*) buf);
 			if (seqs[n].qual != NULL) {
-				fgets((char*) buf, len, fpp);
+				err_fgets((char*) buf, len, fpp);
 				size2 += strlen((char*) buf);
-				fgets((char*) buf, len, fpp);
+				err_fgets((char*) buf, len, fpp);
 				size2 += strlen((char*) buf);
 			}
 #endif
