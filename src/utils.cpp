@@ -208,6 +208,17 @@ int err_fputc(int c, FILE *stream)
 	return ret;
 }
 
+char* err_fgets(char *str, int size, FILE *stream)
+{
+	char* ret = fgets(str, size, stream );
+	if (ret == NULL)
+	{
+		_err_fatal_simple("fgets", strerror(errno));
+	}
+
+	return ret;
+}
+
 int err_fputs(const char *s, FILE *stream)
 {
 	int ret = fputs(s, stream);
