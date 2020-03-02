@@ -607,7 +607,7 @@ static void update_a(mem_opt_t *opt, const mem_opt_t *opt0)
 
 static void usage(const mem_opt_t *opt)
 {
-	fprintf(stderr, "Usage: bwa2 mem [options] <idxbase> <in1.fq> [in2.fq]\n");
+	fprintf(stderr, "Usage: bwa-mem2 mem [options] <idxbase> <in1.fq> [in2.fq]\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  Algorithm options:\n");
 	fprintf(stderr, "    -o STR        Output SAM file name\n");
