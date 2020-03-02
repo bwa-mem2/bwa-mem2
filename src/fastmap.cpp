@@ -56,49 +56,49 @@ int64_t nreads, memSize;
 // ---------------
 void __cpuid(unsigned int i, unsigned int cpuid[4]) {
 #ifdef _WIN32
-  __cpuid((int *) cpuid, (int)i);
+	__cpuid((int *) cpuid, (int)i);
 
 #else
-  asm volatile
-    ("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
-     : "0" (i), "2" (0));
+	asm volatile
+		("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
+			: "0" (i), "2" (0));
 #endif
 }
 
 
 int HTStatus()
 {
-  unsigned int cpuid[4];
-  char platform_vendor[12];
-  __cpuid(0, cpuid);
-  ((unsigned int *)platform_vendor)[0] = cpuid[1]; // B
-  ((unsigned int *)platform_vendor)[1] = cpuid[3]; // D
-  ((unsigned int *)platform_vendor)[2] = cpuid[2]; // C
-  std::string platform = std::string(platform_vendor, 12);
+	unsigned int cpuid[4];
+	char platform_vendor[12];
+	__cpuid(0, cpuid);
+	((unsigned int *)platform_vendor)[0] = cpuid[1]; // B
+	((unsigned int *)platform_vendor)[1] = cpuid[3]; // D
+	((unsigned int *)platform_vendor)[2] = cpuid[2]; // C
+	std::string platform = std::string(platform_vendor, 12);
 
-  __cpuid(1, cpuid);
-  unsigned int platform_features = cpuid[3]; //D
+	__cpuid(1, cpuid);
+	unsigned int platform_features = cpuid[3]; //D
 
-  // __cpuid(1, cpuid);
-  unsigned int num_logical_cpus = (cpuid[1] >> 16) & 0xFF; // B[23:16]
-  // fprintf(stderr, "#logical cpus: ", num_logical_cpus);
-  
-  unsigned int num_cores = -1;
-  if (platform == "GenuineIntel") {
-	  __cpuid(4, cpuid);
-	  num_cores = ((cpuid[0] >> 26) & 0x3f) + 1; //A[31:26] + 1
-	  fprintf(stderr, "Platform vendor: Intel.\n");
-  } else  {
-	  fprintf(stderr, "Platform vendor unknown.\n");
-  }
+	// __cpuid(1, cpuid);
+	unsigned int num_logical_cpus = (cpuid[1] >> 16) & 0xFF; // B[23:16]
+	// fprintf(stderr, "#logical cpus: ", num_logical_cpus);
 
-  // fprintf(stderr, "#physical cpus: ", num_cores);
+	unsigned int num_cores = -1;
+	if (platform == "GenuineIntel") {
+		__cpuid(4, cpuid);
+		num_cores = ((cpuid[0] >> 26) & 0x3f) + 1; //A[31:26] + 1
+		fprintf(stderr, "Platform vendor: Intel.\n");
+	} else  {
+		fprintf(stderr, "Platform vendor unknown.\n");
+	}
 
-  int ht = platform_features & (1 << 28) && num_cores < num_logical_cpus;
-  if (ht)
-	  fprintf(stderr, "CPUs support hyperThreading !!\n");
+	// fprintf(stderr, "#physical cpus: ", num_cores);
 
-  return ht;
+	int ht = platform_features & (1 << 28) && num_cores < num_logical_cpus;
+	if (ht)
+		fprintf(stderr, "CPUs support hyperThreading !!\n");
+
+	return ht;
 }
 
 //---------------
@@ -358,7 +358,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 				fputs(ret->seqs[i].sam, aux->fp);
 			}
 			free(ret->seqs[i].name); free(ret->seqs[i].comment);
-		    free(ret->seqs[i].seq); free(ret->seqs[i].qual);
+			free(ret->seqs[i].seq); free(ret->seqs[i].qual);
 			free(ret->seqs[i].sam);
 		}
 		free(ret->seqs);
@@ -421,8 +421,8 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	mem_opt_t	*opt			  = aux->opt;
 
 	nthreads = opt->n_threads; // global variable for profiling!
-	int  deno = 1;
 #if NUMA_ENABLED
+	int  deno = 1;
 	int tc = numa_num_task_cpus();
 	int tn = numa_num_task_nodes();
 	int tcc = numa_num_configured_cpus();
@@ -561,7 +561,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	/* Dealloc memory allcoated in the header section */	
 	free(w.chain_ar);
 	free(w.regs);
-    free(w.seedBuf);
+	free(w.seedBuf);
 
 	_mm_free(w.mmc.seqBufLeftRef);
 	_mm_free(w.mmc.seqBufRightRef);
@@ -771,12 +771,12 @@ int main_mem(int argc, char *argv[])
 		}
 		else if (c == 'R')
 		{
-		if ((rg_line = bwa_set_rg(optarg)) == 0) {
-			free(opt);
-			if (is_o)
-				fclose(aux.fp);
+			if ((rg_line = bwa_set_rg(optarg)) == 0) {
+				free(opt);
+				if (is_o)
+					fclose(aux.fp);
 				return 1;
-            }
+			}
 		}
 		else if (c == 'H')
 		{
@@ -881,7 +881,7 @@ int main_mem(int argc, char *argv[])
 			if (is_o)
 				fclose(aux.fp);
 			return 1;
-        }
+		}
 	} else update_a(opt, &opt0);
 	
 	/* Matrix for SWA */
@@ -900,8 +900,8 @@ int main_mem(int argc, char *argv[])
 		tim = __rdtsc();
 		fprintf(stderr, "Reading reference genome..\n");
 		
-        char binary_seq_file[200];
-        sprintf(binary_seq_file, "%s.0123", argv[optind]);
+		char binary_seq_file[200];
+		sprintf(binary_seq_file, "%s.0123", argv[optind]);
 		
 		fprintf(stderr, "Binary seq file = %s\n", binary_seq_file);
 		FILE *fr = fopen(binary_seq_file, "r");

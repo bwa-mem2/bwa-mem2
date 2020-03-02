@@ -109,7 +109,7 @@ static int exe_path(const char *exe, int max, char buf[], int *base_st)
 		buf[abs_len + last_slash + 2] = 0;
 	} else {
 		char *env, *p, *q, *tmp;
-		int env_len, found = 0, ret;
+		int env_len, found = 0;
 		struct stat st;
 		env = getenv("PATH");
 		env_len = strlen(env);
