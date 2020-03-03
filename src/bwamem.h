@@ -179,31 +179,17 @@ typedef struct {
 } smem_aux_t;
 
 typedef struct {
-	//SeqPair *seqPairArrayLeft;
-	// SeqPair *seqPairArrayRight;
-	// SeqPair *seqPairArrayAux128;
-#if 0
-	SeqPair *seqPairArrayAux;
-	SeqPair *seqPairArrayLeft128;
-	SeqPair *seqPairArrayRight128;
-#else
-	// SeqPair *seqPairArrayAux[MAX_THREADS];
-	// SeqPair *seqPairArrayLeft128[MAX_THREADS];
-	// SeqPair *seqPairArrayRight128[MAX_THREADS];
-	// int64_t wsize[MAX_THREADS];
+	// Fix potential false sharing during reallocation
+	uint8_t *seqMem[MAX_THREADS * MAX_LINE_LEN];
 	SeqPair *seqPairArrayAux[MAX_THREADS * MAX_LINE_LEN];
 	SeqPair *seqPairArrayLeft128[MAX_THREADS * MAX_LINE_LEN];
 	SeqPair *seqPairArrayRight128[MAX_THREADS * MAX_LINE_LEN];
-    int64_t wsize[MAX_THREADS * MAX_LINE_LEN]; // Fix potential false sharing
-    uint8_t *seqBufLeftRef[MAX_THREADS * MAX_LINE_LEN];
-    uint8_t *seqBufLeftQer[MAX_THREADS * MAX_LINE_LEN];
-    uint8_t *seqBufRightRef[MAX_THREADS * MAX_LINE_LEN];
-    uint8_t *seqBufRightQer[MAX_THREADS * MAX_LINE_LEN];
-#endif
-	// uint8_t *seqBufLeftRef, *seqBufRightRef;
-	// uint8_t *seqBufLeftQer, *seqBufRightQer;
-	
-    SMEM *matchArray;
+	int64_t wsize[MAX_THREADS * MAX_LINE_LEN]; 
+	uint8_t *seqBufLeftRef[MAX_THREADS * MAX_LINE_LEN];
+	uint8_t *seqBufLeftQer[MAX_THREADS * MAX_LINE_LEN];
+	uint8_t *seqBufRightRef[MAX_THREADS * MAX_LINE_LEN];
+	uint8_t *seqBufRightQer[MAX_THREADS * MAX_LINE_LEN];
+	SMEM *matchArray;
 	int32_t *min_intv_ar, *rid, *lim;
 	int16_t *query_pos_ar;
 	uint8_t *enc_qdb;
@@ -309,7 +295,7 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
 						 mem_cache *mmc, int64_t offset1, int64_t offset2,
 						 int64_t offset3, int64_t &pcnt, int32_t &gcnt, int tid,
-                         int& maxRefLen, int& maxQerLen);
+						 int& maxRefLen, int& maxQerLen);
 
 int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
@@ -322,8 +308,8 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
 						 mem_alnreg_v *ma, mem_cache* mmc, int tid, 
-                         int pcnt, int32_t gcnt, 
-                         int& maxRefLen, int& maxQerLen);
+						 int pcnt, int32_t gcnt, 
+						 int& maxRefLen, int& maxQerLen);
 
 int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
@@ -334,7 +320,7 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 
 int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int64_t offset2,
 					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln, int tid,
-                     int maxRefLen, int maxQerLen);
+					 int maxRefLen, int maxQerLen);
 
 int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],

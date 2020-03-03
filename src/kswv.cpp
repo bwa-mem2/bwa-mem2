@@ -183,7 +183,7 @@ kswv::kswv(const int o_del, const int e_del, const int o_ins,
 	rowMax16 = (int16_t *)_mm_malloc(MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
 	// 8-bit
 	//F8	   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-    //H8_0   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
+	//H8_0   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	//H8_1   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	//H8_max = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	//rowMax8 = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH8 * numThreads* sizeof(uint8_t), 64);
@@ -193,8 +193,8 @@ kswv::kswv(const int o_del, const int e_del, const int o_ins,
 	H8_max = (uint8_t*) H16_max;
 	rowMax8 = (uint8_t*) rowMax16;
 
-    maxRefLen = MAX_SEQ_LEN_REF_SAM;
-    maxQerLen = MAX_SEQ_LEN_QER_SAM;
+	maxRefLen = MAX_SEQ_LEN_REF_SAM;
+	maxQerLen = MAX_SEQ_LEN_QER_SAM;
 }
 
 // constructor
@@ -224,19 +224,19 @@ kswv::kswv(const int o_del, const int e_del, const int o_ins,
 	swTicks = 0;
 	sort2Ticks = 0;
 
-    maxRefLen = ((_maxRefLen + 15 + 1) / 16) * 16; // FIXME: +1 to account for dummy loop condition = 
-    maxQerLen = ((_maxQerLen + 15 + 1) / 16) * 16; // FIXME: account for quanta
+	maxRefLen = ((_maxRefLen + 15 + 1) / 16) * 16; // FIXME: +1 to account for dummy loop condition = 
+	maxQerLen = ((_maxQerLen + 15 + 1) / 16) * 16; // FIXME: account for quanta
 
 	//printf("match: %d, mismatch: %d, open: %d, extend: %d, ambig: %d\n",
 	//	   w_match, this->w_mismatch, w_open, w_extend, w_ambig);
-    F16	    = (int16_t *)_mm_malloc(maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-    H16_0   = (int16_t *)_mm_malloc(maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+	F16	    = (int16_t *)_mm_malloc(maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+	H16_0   = (int16_t *)_mm_malloc(maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
 	H16_1   = (int16_t *)_mm_malloc(maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
 	H16_max = (int16_t *)_mm_malloc(maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
 	rowMax16 = (int16_t *)_mm_malloc(maxRefLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
 	// 8-bit
 	//F8	   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-    //H8_0   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
+	//H8_0   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	//H8_1   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	//H8_max = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	//rowMax8 = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH8 * numThreads* sizeof(uint8_t), 64);
@@ -297,10 +297,10 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
 	int64_t st1, st2, st3, st4, st5;
     // st1 = __rdtsc();
     uint8_t *seq1SoA = NULL;
-	seq1SoA = (uint8_t *)_mm_malloc(maxRefLen * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
+    seq1SoA = (uint8_t *)_mm_malloc(maxRefLen * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	
     uint8_t *seq2SoA = NULL;
-	seq2SoA = (uint8_t *)_mm_malloc(maxQerLen * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
+    seq2SoA = (uint8_t *)_mm_malloc(maxQerLen * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	
     assert(seq1SoA != NULL);
     assert(seq2SoA != NULL);
@@ -487,8 +487,8 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
 {
 	
 	int m_b, n_b;
-	uint8_t minsc[SIMD_WIDTH8] alignas(64) = {0};
-	uint8_t endsc[SIMD_WIDTH8] alignas(64) = {0};
+	uint8_t minsc[SIMD_WIDTH8] __attribute((aligned(64))) = {0};
+	uint8_t endsc[SIMD_WIDTH8] __attribute((aligned(64))) = {0};
 	uint64_t *b;
 
 	__m512i zero512 = _mm512_setzero_si512();

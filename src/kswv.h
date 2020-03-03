@@ -291,8 +291,8 @@ private:
 	int64_t swTicks;
 	int64_t sort2Ticks;
 
-    int maxRefLen;
-    int maxQerLen;
+	int maxRefLen;
+	int maxQerLen;
 };
 
 #endif
