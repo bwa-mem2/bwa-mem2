@@ -208,18 +208,18 @@ typedef struct worker_t {
 	mem_chain_v *chain_ar;
 	mem_cache mmc;
 	int64_t size;
-    mem_seed_t *seedBuf;
-    int64_t seedBufSize;
-    mem_seed_t *auxSeedBuf;
-    int64_t auxSeedBufSize;
-    uint64_t* kmer_offsets;
-    uint8_t* mlt_table;
-    uint8_t* lep;
-    mem_v* smems;
-    u64v* hits_ar;
-    int64_t hitBufSize;
-    int64_t smemBufSize; 
-    int useErt;
+	mem_seed_t *seedBuf;
+	int64_t seedBufSize;
+	mem_seed_t *auxSeedBuf;
+	int64_t auxSeedBufSize;
+	uint64_t* kmer_offsets;
+	uint8_t* mlt_table;
+	uint8_t* lep;
+	mem_v* smems;
+	u64v* hits_ar;
+	int64_t hitBufSize;
+	int64_t smemBufSize; 
+	int useErt;
 } worker_t;
 
 
@@ -265,18 +265,18 @@ int mem_kernel1_core(const mem_opt_t *opt,
 					 int tid);
 
 int mem_kernel1_core_ert(const mem_opt_t *opt,
-                         const bntseq_t *bns,
-                         const uint8_t *pac,
-                         bseq1_t *seq_,
-                         int nseq,
-                         mem_chain_v *chain_ar,
-                         mem_seed_t *seedBuf,
-                         int64_t seedBufSize,
-                         uint64_t* kmer_offsets,
-                         uint8_t* mlt_table,
-                         mem_v* smems,
-                         u64v* hits,
-                         int tid);
+					 const bntseq_t *bns,
+					 const uint8_t *pac,
+					 bseq1_t *seq_,
+					 int nseq,
+					 mem_chain_v *chain_ar,
+					 mem_seed_t *seedBuf,
+					 int64_t seedBufSize,
+					 uint64_t* kmer_offsets,
+					 uint8_t* mlt_table,
+					 mem_v* smems,
+					 u64v* hits,
+					 int tid);
 
 void mem_chain2aln_across_reads(const mem_opt_t *opt, const bntseq_t *bns,
 								const uint8_t *pac, bseq1_t *seq_, int nseq,
@@ -329,10 +329,10 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  int32_t *gar, mem_cache *mmc, int , int, int);
 
 int mem_matesw_batch_post_orig(const mem_opt_t *opt, const bntseq_t *bns,
-						       const uint8_t *pac, const mem_pestat_t pes[4],
-                               const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
-                               mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
-                               int32_t *gar, mem_cache *mmc, int , int, int);
+						  const uint8_t *pac, const mem_pestat_t pes[4],
+						  const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
+						  mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
+						  int32_t *gar, mem_cache *mmc, int , int, int);
 
 int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
@@ -400,7 +400,7 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 	 */
 	void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n, const mem_alnreg_v *regs, mem_pestat_t pes[4]);
 
-    void sort_alnreg_re(int n, mem_alnreg_t* a);
-    void sort_alnreg_score(int n, mem_alnreg_t* a);
+	void sort_alnreg_re(int n, mem_alnreg_t* a);
+	void sort_alnreg_score(int n, mem_alnreg_t* a);
 
 #endif

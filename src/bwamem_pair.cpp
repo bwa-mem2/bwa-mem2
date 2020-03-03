@@ -158,8 +158,8 @@ int mem_matesw(const mem_opt_t *opt, const bntseq_t *bns,
 							        const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
 	extern int mem_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 							   const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
-    extern void sort_alnreg_re(int n, mem_alnreg_t* a);
-    extern void sort_alnreg_score(int n, mem_alnreg_t* a);
+	extern void sort_alnreg_re(int n, mem_alnreg_t* a);
+	extern void sort_alnreg_score(int n, mem_alnreg_t* a);
 	
     //int tid = omp_get_thread_num();
 	int64_t l_pac = bns->l_pac;
@@ -227,36 +227,36 @@ int mem_matesw(const mem_opt_t *opt, const bntseq_t *bns,
 				b.seedcov = (b.re - b.rb < b.qe - b.qb? b.re - b.rb : b.qe - b.qb) >> 1;
 
 				kv_push(mem_alnreg_t, *ma, b); // make room for a new element
-                int resort = 0;
+				int resort = 0;
 				// move b s.t. ma is sorted
 				for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
-                    if (ma->a[i].re == b.re) {
-                        resort = 1;
-                        break;
-                    }
-                    if (ma->a[i].re > b.re) {
-                        break;
-                    }
-                }
-                if (resort) {
-                    // Don't know where to put this alignment. So let the scores decide
-                    sort_alnreg_score(ma->n - 1, ma->a);
-                    for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
-                        if (ma->a[i].score < b.score) {
-                            break;
-                        }
-                    }
-                    tmp = i;
-                    for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
-                    ma->a[i] = b;
-                    // Now we can sort based on end position
-                    sort_alnreg_re(ma->n, ma->a);
-                }
-                else {
-                    tmp = i;
-                    for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
-                    ma->a[i] = b;
-                }
+					if (ma->a[i].re == b.re) {
+						resort = 1;
+						break;
+					}
+					if (ma->a[i].re > b.re) {
+						break;
+					}
+				}
+				if (resort) {
+					// Don't know where to put this alignment. So let the scores decide
+					sort_alnreg_score(ma->n - 1, ma->a);
+					for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
+						if (ma->a[i].score < b.score) {
+							break;
+						}
+					}
+					tmp = i;
+					for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
+					ma->a[i] = b;
+					// Now we can sort based on end position
+					sort_alnreg_re(ma->n, ma->a);
+				}
+				else {
+					tmp = i;
+					for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
+					ma->a[i] = b;
+				}
 				tprof[PE26][0] ++;
 			}
 			++n;
@@ -344,15 +344,15 @@ int mem_matesw_orig(const mem_opt_t *opt, const bntseq_t *bns,
 
 				kv_push(mem_alnreg_t, *ma, b); // make room for a new element
 				
-                // move b s.t. ma is sorted
-                for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
-                    if (ma->a[i].score < b.score) {
-                        break;
-                    }
-                }
-                tmp = i;
-                for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
-                ma->a[i] = b;
+				// move b s.t. ma is sorted
+				for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
+					if (ma->a[i].score < b.score) {
+						break;
+					}
+				}
+				tmp = i;
+				for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
+				ma->a[i] = b;
 
 				tprof[PE26][0] ++;
 			}
@@ -438,14 +438,14 @@ void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq
 int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 			   const uint8_t *pac, const mem_pestat_t pes[4],
 			   uint64_t id, bseq1_t s[2], mem_alnreg_v a[2], 
-               int useErt)
+			   int useErt)
 {
 	extern int mem_mark_primary_se(const mem_opt_t *opt, int n, mem_alnreg_t *a, int64_t id);
 	extern int mem_approx_mapq_se(const mem_opt_t *opt, const mem_alnreg_t *a);
 	extern void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m);
 	extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_alnreg_v *a, int l_query, const char *query);
-    extern void sort_alnreg_re(int n, mem_alnreg_t* a);
-    extern void sort_alnreg_score(int n, mem_alnreg_t* a);
+	extern void sort_alnreg_re(int n, mem_alnreg_t* a);
+	extern void sort_alnreg_score(int n, mem_alnreg_t* a);
 	extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 									const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a); 
 
@@ -472,33 +472,33 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 		// static int ncnt = 0;
 		uint64_t tim = __rdtsc();
 		for (i = 0; i < 2; ++i) {
-            if (useErt) {
-                sort_alnreg_re(a[!i].n, a[!i].a);
-            }
-            int val;
+			if (useErt) {
+				sort_alnreg_re(a[!i].n, a[!i].a);
+			}
+			int val;
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
 				//if (strcmp(s[!i].name, "HK35MCCXX160204:1:1102:5761:21104") == 0) {
 				//	ncnt=-1;
 				//}					
-                if (useErt) {
-                    val = mem_matesw(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
-                }
-                else {
-                    val = mem_matesw_orig(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
-                }
+				if (useErt) {
+					val = mem_matesw(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
+				}
+				else {
+					val = mem_matesw_orig(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
+				}
 				n += val;
 				ncnt++;
 			}
-            if (useErt) {
-                if (val) {
-                    mem_alnreg_v* ma = &a[!i];
-                    ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
-                }
-                else {
-                    sort_alnreg_score(a[!i].n, a[!i].a);
-                }
-            }
-        }
+			if (useErt) {
+				if (val) {
+					mem_alnreg_v* ma = &a[!i];
+					ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
+				}
+				else {
+					sort_alnreg_score(a[!i].n, a[!i].a);
+				}
+			}
+		}
 		// tprof[SAM1][tid] += __rdtsc() - tim;
 		free(b[0].a); free(b[1].a);		
 	}
@@ -799,8 +799,8 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 	extern int mem_approx_mapq_se(const mem_opt_t *opt, const mem_alnreg_t *a);
 	extern void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m);
 	extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_alnreg_v *a, int l_query, const char *query);
-    extern void sort_alnreg_re(int n, mem_alnreg_t* a);
-    extern void sort_alnreg_score(int n, mem_alnreg_t* a);
+	extern void sort_alnreg_re(int n, mem_alnreg_t* a);
+	extern void sort_alnreg_score(int n, mem_alnreg_t* a);
 	extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 									const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
 
@@ -835,36 +835,36 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 		tim = __rdtsc();
 
 		for (i = 0; i < 2; ++i) {
-            if (useErt) {
-                sort_alnreg_re(a[!i].n, a[!i].a);
-            }
-            int val;
+			if (useErt) {
+				sort_alnreg_re(a[!i].n, a[!i].a);
+			}
+			int val;
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
-                if (useErt) {
-                    val = mem_matesw_batch_post(opt, bns, pac, pes, &b[i].a[j],
-										        s[!i].l_seq, (uint8_t*)s[!i].seq,
-											    &a[!i], myaln, gcnt, gar, mmc,
-											    offset1, offset2, offset3);
-                }
-                else {
-                    val = mem_matesw_batch_post_orig(opt, bns, pac, pes, &b[i].a[j],
-										             s[!i].l_seq, (uint8_t*)s[!i].seq,
-											         &a[!i], myaln, gcnt, gar, mmc,
-											         offset1, offset2, offset3);
-                }
+				if (useErt) {
+					val = mem_matesw_batch_post(opt, bns, pac, pes, &b[i].a[j],
+							s[!i].l_seq, (uint8_t*)s[!i].seq,
+							&a[!i], myaln, gcnt, gar, mmc,
+							offset1, offset2, offset3);
+				}
+				else {
+					val = mem_matesw_batch_post_orig(opt, bns, pac, pes, &b[i].a[j],
+							s[!i].l_seq, (uint8_t*)s[!i].seq,
+							&a[!i], myaln, gcnt, gar, mmc,
+							offset1, offset2, offset3);
+				}
 				n += val;
 				ncnt++;
 				gcnt += 4;
 			}
-            if (useErt) {
-                if (val) {
-                    mem_alnreg_v* ma = &a[!i];
-                    ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
-                }
-                else {
-                    sort_alnreg_score(a[!i].n, a[!i].a);
-                }
-            }
+			if (useErt) {
+				if (val) {
+					mem_alnreg_v* ma = &a[!i];
+					ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
+				}
+				else {
+					sort_alnreg_score(a[!i].n, a[!i].a);
+				}
+			}
 		}
 
 		// tprof[SAM3][tid] += __rdtsc() - tim;
@@ -1172,8 +1172,8 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 	
 	extern int mem_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 									const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
-    extern void sort_alnreg_re(int n, mem_alnreg_t* a);
-    extern void sort_alnreg_score(int n, mem_alnreg_t* a);
+	extern void sort_alnreg_re(int n, mem_alnreg_t* a);
+	extern void sort_alnreg_score(int n, mem_alnreg_t* a);
 
 	int64_t l_pac = bns->l_pac;
 	int i, r, skip[4], n = 0, rid = -1;
@@ -1261,36 +1261,36 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 //				printf("*** %d, [%lld,%lld], %d:%d, (%lld,%lld), (%lld,%lld) == (%lld,%lld)\n", aln.score, rb, re, is_rev, is_larger, a->rb, a->re, ma->a[0].rb, ma->a[0].re, b.rb, b.re);
 
 				kv_push(mem_alnreg_t, *ma, b); // make room for a new element
-                int resort = 0;
-                // move b s.t. ma is sorted
+				int resort = 0;
+				// move b s.t. ma is sorted
 				for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
-                    if (ma->a[i].re == b.re) {
-                        resort = 1;
-                        break;
-                    }
-                    if (ma->a[i].re > b.re) {
-                        break;
-                    }
-                }
-                if (resort) {
-                    // Don't know where to put this alignment. So let the scores decide
-                    sort_alnreg_score(ma->n - 1, ma->a);
-                    for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
-                        if (ma->a[i].score < b.score) {
-                            break;
-                        }
-                    }
-                    tmp = i;
-                    for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
-                    ma->a[i] = b;
-                    // Now we can sort based on end position
-                    sort_alnreg_re(ma->n, ma->a);
-                }
-                else {
-                    tmp = i;
-                    for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
-                    ma->a[i] = b;
-                }
+					if (ma->a[i].re == b.re) {
+						resort = 1;
+						break;
+					}
+					if (ma->a[i].re > b.re) {
+						break;
+					}
+				}
+				if (resort) {
+					// Don't know where to put this alignment. So let the scores decide
+					sort_alnreg_score(ma->n - 1, ma->a);
+					for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
+						if (ma->a[i].score < b.score) {
+							break;
+						}
+					}
+					tmp = i;
+					for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
+					ma->a[i] = b;
+					// Now we can sort based on end position
+					sort_alnreg_re(ma->n, ma->a);
+				}
+				else {
+					tmp = i;
+					for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
+					ma->a[i] = b;
+				}
 
 				tprof[PE26][0] ++;
 			}
@@ -1402,15 +1402,15 @@ int mem_matesw_batch_post_orig(const mem_opt_t *opt, const bntseq_t *bns,
 //				printf("*** %d, [%lld,%lld], %d:%d, (%lld,%lld), (%lld,%lld) == (%lld,%lld)\n", aln.score, rb, re, is_rev, is_larger, a->rb, a->re, ma->a[0].rb, ma->a[0].re, b.rb, b.re);
 
 				kv_push(mem_alnreg_t, *ma, b); // make room for a new element
-                // move b s.t. ma is sorted
-                for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
-                    if (ma->a[i].score < b.score) {
-                        break;
-                    }
-                }
-                tmp = i;
-                for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
-                ma->a[i] = b;
+				// move b s.t. ma is sorted
+				for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
+					if (ma->a[i].score < b.score) {
+						break;
+					}
+				}
+				tmp = i;
+				for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
+				ma->a[i] = b;
 
 				tprof[PE26][0] ++;
 			}

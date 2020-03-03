@@ -78,7 +78,7 @@ static void *ktf_worker(void *data)
 		// i = __sync_fetch_and_add(&g_itr, 1);
 		long st = i * BATCH_SIZE;
 		if (st >= w->t->n) break;
-        long ed = (i + 1) * BATCH_SIZE < w->t->n? (i + 1) * BATCH_SIZE : w->t->n;
+		long ed = (i + 1) * BATCH_SIZE < w->t->n? (i + 1) * BATCH_SIZE : w->t->n;
 		w->t->func(w->t->data, st, ed-st, w - w->t->w);
 	}
 
@@ -103,7 +103,7 @@ void kt_for(void (*func)(void*, long, long, int), void *data, int n)
 		t.w[i].t = &t, t.w[i].i = i;
 
 	pthread_attr_t attr;
-    pthread_attr_init(&attr);
+	pthread_attr_init(&attr);
 	
 	// printf("getcpu: %d\n", sched_getcpu());
 	g_itr = 0;
@@ -121,6 +121,6 @@ void kt_for(void (*func)(void*, long, long, int), void *data, int n)
 	}
 	for (i = 0; i < nthreads; ++i) pthread_join(tid[i], 0);
 
-    free(t.w);
+	free(t.w);
 	free(tid);
 }

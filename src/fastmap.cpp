@@ -140,7 +140,7 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int ntid, char* idx_prefix) {
 	w.chain_ar = (mem_chain_v*) malloc (memSize * sizeof(mem_chain_v));
 	w.seedBuf = (mem_seed_t *) calloc(memSize * AVG_SEEDS_PER_READ, sizeof(mem_seed_t));
 	assert(w.seedBuf != NULL);
-    w.seedBufSize = BATCH_SIZE * AVG_SEEDS_PER_READ;
+	w.seedBufSize = BATCH_SIZE * AVG_SEEDS_PER_READ;
 	
 	if (w.regs == NULL || w.chain_ar == NULL || w.seedBuf == NULL) {
 		fprintf(stderr, "Memory not allocated!!\nExiting...\n");
@@ -156,98 +156,103 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int ntid, char* idx_prefix) {
 	
 	/* SWA mem allocation */
 	// int avg_seed_per_read = 35;
-	w.size = BATCH_SIZE * SEEDS_PER_READ;
+	
+	// Align worker size to be a multiple of 64
+	w.size = (((BATCH_SIZE * SEEDS_PER_READ) + 63) >> 6) << 6;
+	
 	for(int l=0; l<ntid; l++) {
-        w.mmc.seqBufLeftRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
-        w.mmc.seqBufLeftQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
-        w.mmc.seqBufRightRef[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
-        w.mmc.seqBufRightQer[l * MAX_LINE_LEN] = (uint8_t *)malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
-        w.mmc.seqPairArrayAux[l * MAX_LINE_LEN]      = (SeqPair *) malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
-		w.mmc.seqPairArrayLeft128[l * MAX_LINE_LEN]  = (SeqPair *) malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
-		w.mmc.seqPairArrayRight128[l * MAX_LINE_LEN] = (SeqPair *) malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
+		w.mmc.seqMem[l * MAX_LINE_LEN] = (uint8_t*) malloc(w.size * 
+				((2 * MAX_SEQ_LEN_REF + 2 * MAX_SEQ_LEN_QER) * sizeof(int8_t)) + 64 + MAX_LINE_LEN);
+		w.mmc.seqBufLeftRef[l * MAX_LINE_LEN] = (uint8_t*)((((size_t)w.mmc.seqMem[l * MAX_LINE_LEN] + 63) >> 6) << 6); // 64-byte aligned memory
+		w.mmc.seqBufLeftQer[l * MAX_LINE_LEN] = (uint8_t*)(w.mmc.seqBufLeftRef[l * MAX_LINE_LEN] + w.size * MAX_SEQ_LEN_REF * sizeof(int8_t));
+		w.mmc.seqBufRightRef[l * MAX_LINE_LEN] = (uint8_t*)(w.mmc.seqBufLeftQer[l * MAX_LINE_LEN] + w.size * MAX_SEQ_LEN_QER * sizeof(int8_t));
+		w.mmc.seqBufRightQer[l * MAX_LINE_LEN] = (uint8_t*)(w.mmc.seqBufRightRef[l * MAX_LINE_LEN] + w.size * MAX_SEQ_LEN_REF * sizeof(int8_t));
+		w.mmc.seqPairArrayAux[l * MAX_LINE_LEN] = (SeqPair *)malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
+		w.mmc.seqPairArrayLeft128[l * MAX_LINE_LEN] = (SeqPair *)malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
+		w.mmc.seqPairArrayRight128[l * MAX_LINE_LEN] = (SeqPair *)malloc(w.size * sizeof(SeqPair) + MAX_LINE_LEN);
 		w.mmc.wsize[l * MAX_LINE_LEN] = w.size;
 	}
-
-	allocMem = (w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2 +
-		(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2 +		
-		(w.size * sizeof(SeqPair) + MAX_LINE_LEN) * opt->n_threads * 3;
 	
+	allocMem = ((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)) * opt->n_threads * 2) +
+		((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)) * opt->n_threads * 2) + 
+		((w.size * sizeof(SeqPair) + MAX_LINE_LEN) * opt->n_threads * 3) + 64 + MAX_LINE_LEN;
+
 	fprintf(stderr, "Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
-    
-    w.mmc.lim = (int32_t *) _mm_malloc
+
+	w.mmc.lim = (int32_t *) _mm_malloc
 		(nthreads * (BATCH_SIZE + 32) * sizeof(int32_t), 64);
 
 	allocMem = nthreads * (BATCH_SIZE + 32) * sizeof(int32_t);
 	fprintf(stderr, "Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
 	fprintf(stderr, "------------------------------------------\n");
-   
-    char* kmer_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
-    strcpy(kmer_tbl_file_name, idx_prefix); 
-    strcat(kmer_tbl_file_name, ".kmer_table");
-    char* ml_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
-    strcpy(ml_tbl_file_name, idx_prefix);
-    strcat(ml_tbl_file_name, ".mlt_table");
 
-    FILE *kmer_tbl_fd, *ml_tbl_fd;
+	char* kmer_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
+	strcpy(kmer_tbl_file_name, idx_prefix); 
+	strcat(kmer_tbl_file_name, ".kmer_table");
+	char* ml_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
+	strcpy(ml_tbl_file_name, idx_prefix);
+	strcat(ml_tbl_file_name, ".mlt_table");
 
-    kmer_tbl_fd = fopen(kmer_tbl_file_name, "rb");
-    if (kmer_tbl_fd == NULL) {
-        fprintf(stderr, "[M::%s::ERT] Can't open k-mer index\n.", __func__);
-        exit(1);
-    }
-    ml_tbl_fd = fopen(ml_tbl_file_name, "rb");
-    if (ml_tbl_fd == NULL) {
-        fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
-        exit(1);
-    }
-        
+	FILE *kmer_tbl_fd, *ml_tbl_fd;
+
+	kmer_tbl_fd = fopen(kmer_tbl_file_name, "rb");
+	if (kmer_tbl_fd == NULL) {
+		fprintf(stderr, "[M::%s::ERT] Can't open k-mer index\n.", __func__);
+		exit(1);
+	}
+	ml_tbl_fd = fopen(ml_tbl_file_name, "rb");
+	if (ml_tbl_fd == NULL) {
+		fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
+		exit(1);
+	}
+
 	free(kmer_tbl_file_name);
 	free(ml_tbl_file_name);
 
-    double ctime, rtime;
-    ctime = cputime(); rtime = realtime();
-    allocMem = numKmers * 8L; 
-    //
-    // Read k-mer index
-    //
-    w.kmer_offsets = (uint64_t*) malloc(numKmers * sizeof(uint64_t));
-    if (bwa_verbose >= 3) {
-        fprintf(stderr, "[M::%s::ERT] Reading kmer index to memory\n", __func__);
-    }
-    fread(w.kmer_offsets, sizeof(uint64_t), numKmers, kmer_tbl_fd);
-    // 
-    // Read multi-level tree index
-    //
-    fseek(ml_tbl_fd, 0L, SEEK_END);
-    long size = ftell(ml_tbl_fd);
-    allocMem += size;
-    w.mlt_table = (uint8_t*) malloc(size * sizeof(uint8_t));
-    fseek(ml_tbl_fd, 0L, SEEK_SET);        
-    if (bwa_verbose >= 3) {
-        fprintf(stderr, "[M::%s::ERT] Reading multi-level tree index to memory\n", __func__);
-    }
-    fread(w.mlt_table, sizeof(uint8_t), size, ml_tbl_fd); 
-    
-    fclose(kmer_tbl_fd);
-    fclose(ml_tbl_fd);
+	double ctime, rtime;
+	ctime = cputime(); rtime = realtime();
+	allocMem = numKmers * 8L; 
+	//
+	// Read k-mer index
+	//
+	w.kmer_offsets = (uint64_t*) malloc(numKmers * sizeof(uint64_t));
+	if (bwa_verbose >= 3) {
+		fprintf(stderr, "[M::%s::ERT] Reading kmer index to memory\n", __func__);
+	}
+	fread(w.kmer_offsets, sizeof(uint64_t), numKmers, kmer_tbl_fd);
+	//
+	// Read multi-level tree index
+	//
+	fseek(ml_tbl_fd, 0L, SEEK_END);
+	long size = ftell(ml_tbl_fd);
+	allocMem += size;
+	w.mlt_table = (uint8_t*) malloc(size * sizeof(uint8_t));
+	fseek(ml_tbl_fd, 0L, SEEK_SET);        
+	if (bwa_verbose >= 3) {
+		fprintf(stderr, "[M::%s::ERT] Reading multi-level tree index to memory\n", __func__);
+	}
+	fread(w.mlt_table, sizeof(uint8_t), size, ml_tbl_fd); 
 
-    if (bwa_verbose >= 3) {        
-        fprintf(stderr, "[M::%s::ERT] Index tables loaded in %.3f CPU sec, %.3f real sec...\n", __func__, cputime() - ctime, realtime() - rtime);
-    }
+	fclose(kmer_tbl_fd);
+	fclose(ml_tbl_fd);
 
-    allocMem += ((nthreads * MAX_LINE_LEN * sizeof(mem_v)) + (nthreads * MAX_LINE_LEN * sizeof(u64v)));
-    allocMem += ((nthreads * BATCH_MUL * READ_LEN * sizeof(mem_t)) + (nthreads * MAX_HITS_PER_READ * sizeof(uint64_t)));
-    w.smemBufSize = MAX_LINE_LEN * sizeof(mem_v);
-    w.smems = (mem_v*) malloc(nthreads * w.smemBufSize);
-    w.hitBufSize = MAX_LINE_LEN * sizeof(u64v);
-    w.hits_ar = (u64v*) malloc(nthreads * w.hitBufSize);
-    for (int i = 0 ; i < nthreads; ++i) {
-        kv_init_base(mem_t, w.smems[i * MAX_LINE_LEN], BATCH_MUL * READ_LEN);
-        kv_init_base(uint64_t, w.hits_ar[i * MAX_LINE_LEN], MAX_HITS_PER_READ);
-    }
-    w.useErt = 1;
+	if (bwa_verbose >= 3) {        
+		fprintf(stderr, "[M::%s::ERT] Index tables loaded in %.3f CPU sec, %.3f real sec...\n", __func__, cputime() - ctime, realtime() - rtime);
+	}
 
-    fprintf(stderr, "Memory pre-allocation for ERT: %0.4lf GB\n", allocMem/1e9);
+	allocMem += ((nthreads * MAX_LINE_LEN * sizeof(mem_v)) + (nthreads * MAX_LINE_LEN * sizeof(u64v)));
+	allocMem += ((nthreads * BATCH_MUL * READ_LEN * sizeof(mem_t)) + (nthreads * MAX_HITS_PER_READ * sizeof(uint64_t)));
+	w.smemBufSize = MAX_LINE_LEN * sizeof(mem_v);
+	w.smems = (mem_v*) malloc(nthreads * w.smemBufSize);
+	w.hitBufSize = MAX_LINE_LEN * sizeof(u64v);
+	w.hits_ar = (u64v*) malloc(nthreads * w.hitBufSize);
+	for (int i = 0 ; i < nthreads; ++i) {
+		kv_init_base(mem_t, w.smems[i * MAX_LINE_LEN], BATCH_MUL * READ_LEN);
+		kv_init_base(uint64_t, w.hits_ar[i * MAX_LINE_LEN], MAX_HITS_PER_READ);
+	}
+	w.useErt = 1;
+
+	fprintf(stderr, "Memory pre-allocation for ERT: %0.4lf GB\n", allocMem/1e9);
 	fprintf(stderr, "------------------------------------------\n");
 
 }
@@ -261,9 +266,9 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 	w.regs = NULL; w.chain_ar = NULL; w.seedBuf = NULL;
 	w.regs = (mem_alnreg_v *) calloc(memSize, sizeof(mem_alnreg_v));
 	w.chain_ar = (mem_chain_v*) malloc (memSize * sizeof(mem_chain_v));
-    w.seedBuf = (mem_seed_t *) calloc(sizeof(mem_seed_t),  memSize * AVG_SEEDS_PER_READ);
+	w.seedBuf = (mem_seed_t *) calloc(sizeof(mem_seed_t),  memSize * AVG_SEEDS_PER_READ);
 	assert(w.seedBuf != NULL);
-    w.seedBufSize = BATCH_SIZE * AVG_SEEDS_PER_READ;
+	w.seedBufSize = BATCH_SIZE * AVG_SEEDS_PER_READ;
 	
 	if (w.regs == NULL || w.chain_ar == NULL) {
 		fprintf(stderr, "Memory not allocated!!\nExiting...\n");
@@ -321,8 +326,8 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 		nthreads * (BATCH_SIZE + 32) * sizeof(int32_t);
 	fprintf(stderr, "Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
 	fprintf(stderr, "------------------------------------------\n");
-    
-    w.useErt = 0;
+
+	w.useErt = 0;
 }
 
 ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, worker_t &w)
@@ -622,14 +627,14 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads, char
 	nreads = aux->actual_chunk_size/ (readLen) + 10;
 	fprintf(stderr, "Info: projected #read in a task: %ld\n", (long)nreads);
 	
-    
-    /* All memory allocation */
-    if (ert_idx_prefix) {
-        memoryAllocErt(aux, w, nthreads, ert_idx_prefix);
-    }
-    else {
-        memoryAlloc(aux, w, nthreads);
-    }
+
+	/* All memory allocation */
+	if (ert_idx_prefix) {
+		memoryAllocErt(aux, w, nthreads, ert_idx_prefix);
+	}
+	else {
+		memoryAlloc(aux, w, nthreads);
+	}
 	
 	/* pipeline using pthreads */
 	ktp_t aux_;
@@ -685,23 +690,23 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads, char
 		free(w.mmc.seqPairArrayRight128[l * MAX_LINE_LEN]);
 	}
 
-    if (ert_idx_prefix) {
-        free(w.kmer_offsets);
-        free(w.mlt_table);
-        for (int i = 0 ; i < nthreads; ++i) {
-            kv_destroy(w.smems[i * MAX_LINE_LEN]);
-            kv_destroy(w.hits_ar[i * MAX_LINE_LEN]);
-        }
-        free(w.smems);
-        free(w.hits_ar);
-    }
-    else {    
-        _mm_free(w.mmc.matchArray);
-        free(w.mmc.min_intv_ar);
-        free(w.mmc.query_pos_ar);
-        free(w.mmc.enc_qdb);
-        free(w.mmc.rid);
-    }
+	if (ert_idx_prefix) {
+		free(w.kmer_offsets);
+		free(w.mlt_table);
+		for (int i = 0 ; i < nthreads; ++i) {
+			kv_destroy(w.smems[i * MAX_LINE_LEN]);
+			kv_destroy(w.hits_ar[i * MAX_LINE_LEN]);
+		}
+		free(w.smems);
+		free(w.hits_ar);
+	}
+	else {    
+		_mm_free(w.mmc.matchArray);
+		free(w.mmc.min_intv_ar);
+		free(w.mmc.query_pos_ar);
+		free(w.mmc.enc_qdb);
+		free(w.mmc.rid);
+	}
 	_mm_free(w.mmc.lim);
 	return 0;
 }
@@ -779,8 +784,8 @@ int main_mem(int argc, char *argv[])
 	int			 fixed_chunk_size		   = -1;
 	char		*p, *rg_line			   = 0, *hdr_line = 0;
 	const char	*mode					   = 0;
-    int useErt = 0;
-    char  *idx_prefix                = 0;
+	int useErt = 0;
+	char  *idx_prefix = 0;
 
 	mem_opt_t		*opt, opt0;
 	gzFile			 fp, fp2   = 0;
@@ -936,8 +941,8 @@ int main_mem(int argc, char *argv[])
 				pes[1].low  = (int)(strtod(p+1, &p) + .499);
 		}
 		else if (c == 'Z') {
-            useErt = 1;
-        }
+			useErt = 1;
+		}
 		else {
 			free(opt);
 			if (is_o)
@@ -1017,14 +1022,14 @@ int main_mem(int argc, char *argv[])
 
 		fprintf(stderr, "Reference index file: %s\n", argv[optind]);			
 		
-        if (!useErt) {
-            fmi = new FMI_search(argv[optind]);
-        }
-        else {
-            idx_prefix = argv[optind];
-            fmi = new FMI_search(argv[optind], BWA_IDX_BNS | BWA_IDX_PAC);
-        }
-        tprof[FMI][0] += __rdtsc() - tim;
+		if (!useErt) {
+			fmi = new FMI_search(argv[optind]);
+		}
+		else {
+			idx_prefix = argv[optind];
+			fmi = new FMI_search(argv[optind], BWA_IDX_BNS | BWA_IDX_PAC);
+		}
+		tprof[FMI][0] += __rdtsc() - tim;
 		// reading ref string from the file
 		tim = __rdtsc();
 		fprintf(stderr, "Reading reference genome..\n");
@@ -1056,11 +1061,11 @@ int main_mem(int argc, char *argv[])
 		fprintf(stderr, "Reference genome size: %ld bp\n", rlen);
 		fprintf(stderr, "Done reading reference genome !!\n\n");
 
-    }
+	}
 
-    if (ignore_alt)
-        for (i = 0; i < fmi->idx->bns->n_seqs; ++i)
-            fmi->idx->bns->anns[i].is_alt = 0;
+	if (ignore_alt)
+		for (i = 0; i < fmi->idx->bns->n_seqs; ++i)
+			fmi->idx->bns->anns[i].is_alt = 0;
 
 	/* READS file operations */
 	fp = gzopen(argv[optind + 1], "r");
@@ -1100,7 +1105,7 @@ int main_mem(int argc, char *argv[])
 	}
 #endif
 
-    bwa_print_sam_hdr(fmi->idx->bns, hdr_line, aux.fp);
+	bwa_print_sam_hdr(fmi->idx->bns, hdr_line, aux.fp);
 
 	// aux.totEl += ftell(aux.fp);
 	// aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads; // IMP modification
@@ -1122,8 +1127,8 @@ int main_mem(int argc, char *argv[])
 
 	uint64_t tim = __rdtsc();
 
-    /* Relay process function */
-    process(&aux, fp, fp2, no_mt_io? 1:2, idx_prefix);
+	/* Relay process function */
+	process(&aux, fp, fp2, no_mt_io? 1:2, idx_prefix);
 	tprof[PROCESS][0] += __rdtsc() - tim;
 
 	// free memory
@@ -1145,7 +1150,7 @@ int main_mem(int argc, char *argv[])
 	}
 
 	// new bwt/FMI
-    delete(fmi);
+	delete(fmi);
 	
 	return 0;
 }

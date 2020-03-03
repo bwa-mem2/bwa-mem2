@@ -12,17 +12,17 @@ typedef struct _node_t node_t;
 typedef enum {EMPTY, LEAF, UNIFORM, DIVERGE} node_type_t;
 
 struct _node_t {
-    node_type_t type;
-    int pos;
-    int num_bp;
-    int l_seq;
-    int numChildren;
-    uint64_t numHits;
-    uint64_t start_addr;
-    uint64_t* hits;
-    uint8_t seq[READ_LEN + 1];
-    node_t* parent_node;
-    node_t* child_nodes[4];
+	node_type_t type;
+	int pos;
+	int num_bp;
+	int l_seq;
+	int numChildren;
+	uint64_t numHits;
+	uint64_t start_addr;
+	uint64_t* hits;
+	uint8_t seq[READ_LEN + 1];
+	node_t* parent_node;
+	node_t* child_nodes[4];
 };
 
 typedef kvec_t(node_t) node_v;
@@ -30,17 +30,17 @@ typedef kvec_t(node_t) node_v;
 typedef node_t* node_ptr_t;
 
 typedef struct {
-    int tid;
-    int step;
-    int readLength;
-    uint64_t* kmer_table;
-    uint64_t startKmer;
-    uint64_t endKmer;
-    bwaidx_t* bid; 
-    uint64_t* numHits;
-    char* filePrefix;
-    uint64_t* byte_offsets;
-    uint64_t end_offset;
+	int tid;
+	int step;
+	int readLength;
+	uint64_t* kmer_table;
+	uint64_t startKmer;
+	uint64_t endKmer;
+	bwaidx_t* bid; 
+	uint64_t* numHits;
+	char* filePrefix;
+	uint64_t* byte_offsets;
+	uint64_t end_offset;
 } thread_data_t;
 
 // FIXME : Add to options later

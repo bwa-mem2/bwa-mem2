@@ -193,7 +193,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define MAX_HITS_PER_READ 2000000
 
 #define log_file(fd, M, ...) \
-    fprintf(fd, M "\n", ##__VA_ARGS__); \
-    fflush(fd)
+	fprintf(fd, M "\n", ##__VA_ARGS__); \
+	fflush(fd)
 
 #endif

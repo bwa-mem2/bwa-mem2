@@ -184,11 +184,11 @@ KSORT_INIT(mem_ars_hash, mem_alnreg_t, alnreg_hlt)
 KSORT_INIT(mem_ars_hash2, mem_alnreg_t, alnreg_hlt2)
 
 void sort_alnreg_re(int n, mem_alnreg_t* a) {
-    ks_introsort(mem_ars2, n, a);
+	ks_introsort(mem_ars2, n, a);
 }
 
 void sort_alnreg_score(int n, mem_alnreg_t* a) {
-    ks_introsort(mem_ars, n, a);
+	ks_introsort(mem_ars, n, a);
 }
 
 #define PATCH_MAX_R_BW 0.05f
@@ -280,7 +280,7 @@ int mem_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 			oq = q->qb < p->qb? q->qe - p->qb : p->qe - q->qb; // overlap length on the query
 			mr = q->re - q->rb < p->re - p->rb? q->re - q->rb : p->re - p->rb; // min ref len in alignment
 			mq = q->qe - q->qb < p->qe - p->qb? q->qe - q->qb : p->qe - p->qb; // min qry len in alignment
-            if (or_ > opt->mask_level_redun * mr && oq > opt->mask_level_redun * mq) { // one of the hits is redundant
+			if (or_ > opt->mask_level_redun * mr && oq > opt->mask_level_redun * mq) { // one of the hits is redundant
 				if (p->score < q->score)
 				{
 					p->qe = p->qb;
@@ -1071,100 +1071,100 @@ void mem_chain_new(const mem_opt_t *opt,
 }
 
 int mem_kernel1_core_ert(const mem_opt_t *opt,
-                         const bntseq_t *bns,
-					     const uint8_t *pac,
-					     bseq1_t *seq_,
-					     int nseq,
-					     mem_chain_v *chain_ar,
-                         mem_seed_t *seedBuf,
-                         int64_t seedBufSize,
-                         uint64_t* kmer_offsets,
-                         uint8_t* mlt_table,
-                         mem_v* smems,
-                         u64v* hits,
-                         int tid)
+					 const bntseq_t *bns,
+					 const uint8_t *pac,
+					 bseq1_t *seq_,
+					 int nseq,
+					 mem_chain_v *chain_ar,
+					 mem_seed_t *seedBuf,
+					 int64_t seedBufSize,
+					 uint64_t* kmer_offsets,
+					 uint8_t* mlt_table,
+					 mem_v* smems,
+					 u64v* hits,
+					 int tid)
 {	
 	int i;
- 	mem_chain_v *chn;
-    int64_t seedBufCount = 0;
+	mem_chain_v *chn;
+	int64_t seedBufCount = 0;
 	/* convert to 2-bit encoding if we have not done so */
-    for (int l=0; l<nseq; l++)
+	for (int l=0; l<nseq; l++)
 	{
-        smems->n = 0;
-        char *seq = seq_[l].seq;
-        int hasN = 0;
-	    if (strchr(seq, 'N') || strchr(seq, 'n')) {
-	        hasN = 1;
-	    }
+		smems->n = 0;
+		char *seq = seq_[l].seq;
+		int hasN = 0;
+		if (strchr(seq, 'N') || strchr(seq, 'n')) {
+			hasN = 1;
+		}
 		int len = seq_[l].l_seq;
-        uint8_t unpacked_rc_queue_buf[READ_LEN];
-        assert(len <= READ_LEN);
+		uint8_t unpacked_rc_queue_buf[READ_LEN];
+		assert(len <= READ_LEN);
 		for (i = 0; i < len; ++i) {
 			seq[i] = seq[i] < 4? seq[i] : nst_nt4_table[(int)seq[i]]; //nst_nt4??
-            unpacked_rc_queue_buf[len - i - 1] = seq[i] < 4 ? 3 - seq[i] : 4; 
-        }
-       
+			unpacked_rc_queue_buf[len - i - 1] = seq[i] < 4 ? 3 - seq[i] : 4; 
+		}
+
 #ifdef PRINT_SMEM
-        printf("=====> Processing read '%s' <=====\n", seq_[l].name);
+		printf("=====> Processing read '%s' <=====\n", seq_[l].name);
 #endif
-        int split_len = (int)(opt->min_seed_len * opt->split_factor + .499);
+		int split_len = (int)(opt->min_seed_len * opt->split_factor + .499);
 
-        index_aux_t iaux;
-        iaux.kmer_offsets = kmer_offsets;
-        iaux.mlt_table = mlt_table;
-        iaux.bns = bns;
-        iaux.pac = pac;
+		index_aux_t iaux;
+		iaux.kmer_offsets = kmer_offsets;
+		iaux.mlt_table = mlt_table;
+		iaux.bns = bns;
+		iaux.pac = pac;
 
-        read_aux_t raux;
-        raux.min_seed_len = opt->min_seed_len;
-        raux.l_seq = len;
-        raux.read_name = seq_[l].name;
-        raux.unpacked_queue_buf = (uint8_t*) seq;
-        raux.unpacked_rc_queue_buf = unpacked_rc_queue_buf;
+		read_aux_t raux;
+		raux.min_seed_len = opt->min_seed_len;
+		raux.l_seq = len;
+		raux.read_name = seq_[l].name;
+		raux.unpacked_queue_buf = (uint8_t*) seq;
+		raux.unpacked_rc_queue_buf = unpacked_rc_queue_buf;
 
-        hits->n = 0;
+		hits->n = 0;
 
-        if (hasN) {
-            get_seeds(&iaux, &raux, smems, hits);
-        }
-        else {
-            get_seeds_prefix(&iaux, &raux, smems, hits);
-        }
+		if (hasN) {
+			get_seeds(&iaux, &raux, smems, hits);
+		}
+		else {
+			get_seeds_prefix(&iaux, &raux, smems, hits);
+		}
 
-        /// 2. Reseeding: Break down larger SMEMs
-        int old_n = smems->n;
-        for (i = 0; i < old_n; ++i) {
-            int qbeg = smems->a[i].start;
-            int qend = smems->a[i].end;
-            if ((qend - qbeg) < split_len || smems->a[i].hitcount > opt->split_width) {
-                continue;
-            }
-            if (hasN) {
-                reseed(&iaux, &raux, smems, 
-                       (qbeg + qend) >> 1, smems->a[i].hitcount + 1, 
-                       &smems->a[i].pt, hits);
-            }
-            else {
-                reseed_prefix(&iaux, &raux, smems, 
-                              (qbeg + qend) >> 1, smems->a[i].hitcount + 1, 
-                              &smems->a[i].pt, hits);
-            }
-        }
-            
-        /// 3. Apply LAST heuristic to find out non-overlapping seeds
-        last(&iaux, &raux, smems, opt->max_mem_intv, hits);
-       
-        ks_introsort(mem_smem_sort_lt, smems->n, smems->a);
+		/// 2. Reseeding: Break down larger SMEMs
+		int old_n = smems->n;
+		for (i = 0; i < old_n; ++i) {
+			int qbeg = smems->a[i].start;
+			int qend = smems->a[i].end;
+			if ((qend - qbeg) < split_len || smems->a[i].hitcount > opt->split_width) {
+				continue;
+			}
+			if (hasN) {
+				reseed(&iaux, &raux, smems, 
+						(qbeg + qend) >> 1, smems->a[i].hitcount + 1, 
+						&smems->a[i].pt, hits);
+			}
+			else {
+				reseed_prefix(&iaux, &raux, smems, 
+						(qbeg + qend) >> 1, smems->a[i].hitcount + 1, 
+						&smems->a[i].pt, hits);
+			}
+		}
+
+		/// 3. Apply LAST heuristic to find out non-overlapping seeds
+		last(&iaux, &raux, smems, opt->max_mem_intv, hits);
+
+		ks_introsort(mem_smem_sort_lt, smems->n, smems->a);
 
 		kv_init(chain_ar[l]);
-        mem_chain_new(opt, bns, len, (uint8_t*)seq, 
-                      smems, &chain_ar[l], l, 
-                      hits, 
-		              seedBuf, seedBufSize, seedBufCount, 
-		              tid);
-        chn = &chain_ar[l];
-        chn->n = mem_chain_flt(opt, chn->n, chn->a, tid);
-        mem_flt_chained_seeds(opt, bns, pac, seq_, chn->n, chn->a);
+		mem_chain_new(opt, bns, len, (uint8_t*)seq, 
+				smems, &chain_ar[l], l, 
+				hits, 
+				seedBuf, seedBufSize, seedBufCount, 
+				tid);
+		chn = &chain_ar[l];
+		chn->n = mem_chain_flt(opt, chn->n, chn->a, tid);
+		mem_flt_chained_seeds(opt, bns, pac, seq_, chn->n, chn->a);
 	}
 	return 1;
 }
@@ -1175,8 +1175,8 @@ int mem_kernel1_core(const mem_opt_t *opt,
 					 bseq1_t *seq_,
 					 int nseq,
 					 mem_chain_v *chain_ar,
-                     mem_seed_t *seedBuf,
-                     int64_t seedBufSize,
+					 mem_seed_t *seedBuf,
+					 int64_t seedBufSize,
 					 SMEM *matchArray,
 					 int32_t *min_intv_ar,
 					 int16_t *query_pos_ar,
@@ -1186,7 +1186,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
 {	
 	int i;
 	int64_t num_smem = 0;
- 	mem_chain_v *chn;
+	mem_chain_v *chn;
 	
 	uint64_t tim;
 	// tim = __rdtsc();
@@ -1229,9 +1229,9 @@ int mem_kernel1_core(const mem_opt_t *opt,
 	mem_chain_seeds(opt, fmi->idx->bns,
 					seq_, nseq, tid,
 					chain_ar,
-                    seedBuf,
-                    seedBufSize,
-                    matchArray,
+					seedBuf,
+					seedBufSize,
+					matchArray,
 					num_smem);
 	
 	printf_(VER, "5. Done mem_chain..\n");
@@ -1385,34 +1385,34 @@ static void worker_bwt(void *data, long seq_id, long batch_size, int tid)
 		// fprintf(stderr, "[%0.4d] Info: adjusted seedBufSz %d\n", tid, seedBufSz);
 	}
 
-    if (w->useErt) {
-        assert(tid < nthreads);
-        mem_kernel1_core_ert(w->opt, w->bns, w->pac,
-                             w->seqs + seq_id,
-                             batch_size,
-                             w->chain_ar + seq_id,
-                             w->seedBuf + seq_id * AVG_SEEDS_PER_READ,
-                             seedBufSz,
-                             w->kmer_offsets,
-                             w->mlt_table,
-                             w->smems + (tid * MAX_LINE_LEN),
-                             w->hits_ar + (tid * MAX_LINE_LEN), 
-                             tid);
-    }
-    else {
-        mem_kernel1_core(w->opt, w->bns, w->pac,
-                         w->seqs + seq_id,
-                         batch_size,
-                         w->chain_ar + seq_id,
-                         w->seedBuf + seq_id * AVG_SEEDS_PER_READ,
-                         seedBufSz,
-                         w->mmc.matchArray + offset,
-                         w->mmc.min_intv_ar + offset,
-                         w->mmc.query_pos_ar + offset,
-                         w->mmc.enc_qdb + offset,
-                         w->mmc.rid + offset,
-                         tid);
-    }
+	if (w->useErt) {
+		assert(tid < nthreads);
+		mem_kernel1_core_ert(w->opt, w->bns, w->pac,
+				w->seqs + seq_id,
+				batch_size,
+				w->chain_ar + seq_id,
+				w->seedBuf + seq_id * AVG_SEEDS_PER_READ,
+				seedBufSz,
+				w->kmer_offsets,
+				w->mlt_table,
+				w->smems + (tid * MAX_LINE_LEN),
+				w->hits_ar + (tid * MAX_LINE_LEN), 
+				tid);
+	}
+	else {
+		mem_kernel1_core(w->opt, w->bns, w->pac,
+				w->seqs + seq_id,
+				batch_size,
+				w->chain_ar + seq_id,
+				w->seedBuf + seq_id * AVG_SEEDS_PER_READ,
+				seedBufSz,
+				w->mmc.matchArray + offset,
+				w->mmc.min_intv_ar + offset,
+				w->mmc.query_pos_ar + offset,
+				w->mmc.enc_qdb + offset,
+				w->mmc.rid + offset,
+				tid);
+	}
 	printf_(VER, "4. Done mem_kernel1_core....\n");
 }
 
@@ -1466,7 +1466,7 @@ static void worker_sam(void *data, long seqid, long batch_size, int tid)
 					   (w->n_processed >> 1) + pos++,   // check!
 					   &w->seqs[i],
 					   &w->regs[i],
-                       w->useErt);
+					   w->useErt);
 			
 			free(w->regs[i].a);
 			free(w->regs[i+1].a);
@@ -1514,7 +1514,7 @@ static void worker_sam(void *data, long seqid, long batch_size, int tid)
 								  &w->mmc, sizeA, sizeB, sizeC,
 								  gcnt,
 								  tid,
-                                  w->useErt);
+								  w->useErt);
 
 			free(w->regs[i].a);
 			free(w->regs[i+1].a);
@@ -1566,12 +1566,12 @@ void mem_process_seqs(mem_opt_t *opt,
 	fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_bwt\n", myrank);
 	
 	kt_for(worker_bwt, &w, n_); // SMEMs (+SAL)
-    fprintf(stderr, "time_worker_bwt %.3f CPU sec, real %.3f sec\n", cputime() - ctime, realtime() - rtime);
+	// fprintf(stderr, "time_worker_bwt %.3f CPU sec, real %.3f sec\n", cputime() - ctime, realtime() - rtime);
 
 	fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_aln\n", myrank);
-    ctime1 = cputime(); rtime1 = realtime(); 
+	// ctime1 = cputime(); rtime1 = realtime(); 
 	kt_for(worker_aln, &w, n_); // BSW
-    fprintf(stderr, "time_worker_aln %.3f CPU sec, real %.3f sec\n", cputime() - ctime1, realtime() - rtime1);
+	// fprintf(stderr, "time_worker_aln %.3f CPU sec, real %.3f sec\n", cputime() - ctime1, realtime() - rtime1);
 
 	tprof[WORKER10][0] += __rdtsc() - tim;		
 
@@ -1592,10 +1592,10 @@ void mem_process_seqs(mem_opt_t *opt,
 	tim = __rdtsc();
 	fprintf(stderr, "[%0.4d] 10. Calling kt_for - worker_sam\n", myrank);
 	
-    ctime1 = cputime(); rtime1 = realtime(); 
+	// ctime1 = cputime(); rtime1 = realtime(); 
 	kt_for(worker_sam, &w,  n_);   // SAM	
-    fprintf(stderr, "time_worker_sam %.3f CPU sec, real %.3f sec\n", cputime() - ctime1, realtime() - rtime1);
-  	tprof[WORKER20][0] += __rdtsc() - tim;
+	// fprintf(stderr, "time_worker_sam %.3f CPU sec, real %.3f sec\n", cputime() - ctime1, realtime() - rtime1);
+	tprof[WORKER20][0] += __rdtsc() - tim;
 
 	fprintf(stderr, "\t[%0.4d][ M::%s] Processed %d reads in %.3f "
 			"CPU sec, %.3f real sec\n", myrank,
