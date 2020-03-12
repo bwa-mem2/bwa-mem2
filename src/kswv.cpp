@@ -150,7 +150,8 @@ FILE *fp;
 // constructor
 kswv::kswv(const int o_del, const int e_del, const int o_ins,
 		   const int e_ins, int8_t w_match, int8_t w_mismatch,
-		   int numThreads)
+		   int numThreads, int32_t maxRefLen = MAX_SEQ_LEN_REF_SAM,
+		   int32_t maxQerLen = MAX_SEQ_LEN_QER_SAM)
 {
 	SW_cells = 0;
 	// this->mat = mat_;
@@ -167,25 +168,22 @@ kswv::kswv(const int o_del, const int e_del, const int o_ins,
 	this->w_ambig	 = DEFAULT_AMBIG;
 	this->g_qmax = max_(w_match, w_mismatch);
 	this->g_qmax = max_(this->g_qmax, w_ambig);
+
+	this->maxRefLen = maxRefLen + 16;
+	this->maxQerLen = maxQerLen + 16;
 	
 	this->swTicks = 0;
 	setupTicks = 0;
 	sort1Ticks = 0;
 	swTicks = 0;
 	sort2Ticks = 0;
-	//printf("match: %d, mismatch: %d, open: %d, extend: %d, ambig: %d\n",
-	//	   w_match, this->w_mismatch, w_open, w_extend, w_ambig);
-    F16	    = (int16_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-    H16_0   = (int16_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	H16_1   = (int16_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	H16_max = (int16_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	rowMax16 = (int16_t *)_mm_malloc(MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	// 8-bit
-	//F8	   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-    //H8_0   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-	//H8_1   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-	//H8_max = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-	//rowMax8 = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH8 * numThreads* sizeof(uint8_t), 64);
+
+    F16	    = (int16_t *)_mm_malloc(this->maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+    H16_0   = (int16_t *)_mm_malloc(this->maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+	H16_1   = (int16_t *)_mm_malloc(this->maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+	H16_max = (int16_t *)_mm_malloc(this->maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+	rowMax16 = (int16_t *)_mm_malloc(this->maxRefLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+
 	F8 = (uint8_t*) F16;
 	H8_0 = (uint8_t*) H16_0;
 	H8_1 = (uint8_t*) H16_1;
@@ -197,9 +195,6 @@ kswv::kswv(const int o_del, const int e_del, const int o_ins,
 kswv::~kswv() {
 	_mm_free(F16); _mm_free(H16_0); _mm_free(H16_max); _mm_free(H16_1);
 	_mm_free(rowMax16);
-	
-	//_mm_free(F8); _mm_free(H8_0); _mm_free(H8_max); _mm_free(H8_1);
-	//_mm_free(rowMax8);	
 }
 
 
@@ -212,20 +207,10 @@ void kswv::getScores8(SeqPair *pairArray,
 					  uint16_t numThreads,
 					  int phase)
 {
-    int64_t startTick, endTick;
-    //F8	   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-    //H8_0   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-	//H8_1   = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-	//H8_max = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-	//rowMax8 = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-	//rowMax16 = (int16_t *)_mm_malloc(MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
-	
+    int64_t startTick, endTick;	
     // startTick = __rdtsc();
 	kswvBatchWrapper8(pairArray, seqBufRef, seqBufQer, aln, numPairs, numThreads, phase);
     // endTick = __rdtsc();
-
-	// _mm_free(F8); _mm_free(H8_0); _mm_free(H8_max); _mm_free(H8_1);
-	// _mm_free(rowMax8);
 }
 
 #define PFD_ 2
@@ -242,10 +227,10 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
 	int64_t st1, st2, st3, st4, st5;
     // st1 = __rdtsc();
     uint8_t *seq1SoA = NULL;
-	seq1SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
+	seq1SoA = (uint8_t *)_mm_malloc(this->maxRefLen * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	
     uint8_t *seq2SoA = NULL;
-	seq2SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
+	seq2SoA = (uint8_t *)_mm_malloc(this->maxQerLen * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	
     assert(seq1SoA != NULL);
     assert(seq2SoA != NULL);
@@ -267,14 +252,14 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
     // Sort the sequences according to decreasing order of lengths
     SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
 											   sizeof(SeqPair), 64);
-    int16_t *hist = (int16_t *)_mm_malloc((MAX_SEQ_LEN_QER_SAM + 32) * numThreads *
+    int16_t *hist = (int16_t *)_mm_malloc((this->maxQerLen + 32) * numThreads *
 										  sizeof(int16_t), 64);
 
 #pragma omp parallel num_threads(numThreads)
     {
         int32_t tid = omp_get_thread_num();
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
-        int16_t *myHist = hist + tid * (MAX_SEQ_LEN_QER_SAM + 32);
+        int16_t *myHist = hist + tid * (this->maxQerLen + 32);
 
 #pragma omp for
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
@@ -297,13 +282,12 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
         int32_t i;
         // uint16_t tid = omp_get_thread_num();
 		uint16_t tid = 0;
-        uint8_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH8;
-        uint8_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH8;
+        uint8_t *mySeq1SoA = seq1SoA + tid * this->maxRefLen * SIMD_WIDTH8;
+        uint8_t *mySeq2SoA = seq2SoA + tid * this->maxQerLen * SIMD_WIDTH8;
         uint8_t *seq1;
         uint8_t *seq2;
 				
 		int nstart = 0, nend = numPairs;
-
 		
 //#pragma omp for schedule(dynamic, 128)
 		for(i = nstart; i < nend; i+=SIMD_WIDTH8)
@@ -312,18 +296,18 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
             int32_t j, k;
             int maxLen1 = 0;
             int maxLen2 = 0;
-			
+			// fprintf(stderr, "i: %d, nend: %d\n", i, nend);
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
                 SeqPair sp = pairArray[i + j];
 #if MAINY				
-				seq1 = seqBufRef + (int64_t)sp.id * MAX_SEQ_LEN_REF_SAM;
+				seq1 = seqBufRef + (int64_t)sp.id * this->maxRefLen;
 #else
 				seq1 = seqBufRef + sp.idr;
+				// assert(sp.len1 <= MAX_SEQ_LEN_REF_SAM);
 #endif
                 for(k = 0; k < sp.len1; k++)
                 {
-                    // mySeq1SoA[k * SIMD_WIDTH8 + j] = (seq1[k] == AMBIG_?0xFF:seq1[k]);
 					mySeq1SoA[k * SIMD_WIDTH8 + j] = (seq1[k] == AMBIG_ ? AMBR:seq1[k]);
                 }
                 if(maxLen1 < sp.len1) maxLen1 = sp.len1;
@@ -333,7 +317,6 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
                 SeqPair sp = pairArray[i + j];
                 for(k = sp.len1; k <= maxLen1; k++) //removed "="
                 {
-					//mySeq1SoA[k * SIMD_WIDTH8 + j] = DUMMY1_;
 					mySeq1SoA[k * SIMD_WIDTH8 + j] = 0xFF;
                 }
             }
@@ -342,19 +325,18 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
             {				
                 SeqPair sp = pairArray[i + j];
 #if MAINY
-				seq2 = seqBufQer + (int64_t)sp.id * MAX_SEQ_LEN_QER_SAM;
+				seq2 = seqBufQer + (int64_t)sp.id * this->maxQerLen;
 #else
 				seq2 = seqBufQer + sp.idq;
 #endif
-				assert(sp.len2 < MAX_SEQ_LEN_QER_SAM);
+				// assert(sp.len2 < this->maxQerLen);
 				int quanta = 16 - sp.len2 % 16;  // based on SSE2-8 bit lane
                 for(k = 0; k < sp.len2; k++)
                 {
-					// mySeq2SoA[k * SIMD_WIDTH8 + j] = (seq2[k]==AMBIG_?0xFF:seq2[k]);
 					mySeq2SoA[k * SIMD_WIDTH8 + j] = (seq2[k]==AMBIG_? AMBQ:seq2[k]);
                 }
+
 				for(k = sp.len2; k < sp.len2 + quanta; k++) {
-					// mySeq2SoA[k * SIMD_WIDTH16 + j] = DUMMY3;
 					mySeq2SoA[k * SIMD_WIDTH8 + j] = DUMMY5;  // SSE2 qunata
 				}
                 if(maxLen2 < (sp.len2 + quanta)) maxLen2 = sp.len2 + quanta;
@@ -366,11 +348,12 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
 				int quanta = 16 - sp.len2 % 16;  // based on SSE2-8 bit lane				
                 for(k = sp.len2 + quanta; k <= maxLen2; k++)
                 {
-					// mySeq2SoA[k * SIMD_WIDTH8 + j] = DUMMY2_;
 					mySeq2SoA[k * SIMD_WIDTH8 + j] = 0xFF;
                 }
             }
-			
+
+
+			// fprintf(stderr, "start\n");
             kswv512_u8(mySeq1SoA, mySeq2SoA,
 					   maxLen1, maxLen2,
 					   pairArray + i,
@@ -378,6 +361,7 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
 					   tid,
 					   numPairs,
 					   phase);
+			// fprintf(stderr, "end\n");
         }
     }
 	
@@ -411,9 +395,11 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
     swTicks = st4 - st3;
     sort2Ticks = st5 - st4;
 
+	// fprintf(stderr, "free start\n");
 	// free mem
 	_mm_free(seq1SoA);
 	_mm_free(seq2SoA);
+	// fprintf(stderr, "free end\n");
 	
     return;
 }
@@ -521,11 +507,11 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
 	__mmask64 exit0 = 0xFFFFFFFFFFFFFFFF;
 
 	tid = 0;  // no threading for now !!
-	uint8_t	*H0		= H8_0 + tid * SIMD_WIDTH8 * MAX_SEQ_LEN_QER_SAM;
-	uint8_t	*H1		= H8_1 + tid * SIMD_WIDTH8 * MAX_SEQ_LEN_QER_SAM;
-	uint8_t	*Hmax	= H8_max + tid * SIMD_WIDTH8 * MAX_SEQ_LEN_QER_SAM;
-	uint8_t	*F		= F8 + tid * SIMD_WIDTH8 * MAX_SEQ_LEN_QER_SAM;
-	uint8_t	*rowMax	= rowMax8 + tid * SIMD_WIDTH8 * MAX_SEQ_LEN_REF_SAM;
+	uint8_t	*H0		= H8_0 + tid * SIMD_WIDTH8 * this->maxQerLen;
+	uint8_t	*H1		= H8_1 + tid * SIMD_WIDTH8 * this->maxQerLen;
+	uint8_t	*Hmax	= H8_max + tid * SIMD_WIDTH8 * this->maxQerLen;
+	uint8_t	*F		= F8 + tid * SIMD_WIDTH8 * this->maxQerLen;
+	uint8_t	*rowMax	= rowMax8 + tid * SIMD_WIDTH8 * this->maxRefLen;
 	
 	
 	for (int i=0; i <=ncol; i++) {
@@ -1017,8 +1003,8 @@ void kswv::kswvScalaWrapper(SeqPair *seqPairArray,
 			
 		//uint8_t *seq1 = seqBuf + p->id * 2 * MAX_SEQ_LEN;
         //uint8_t *seq2 = seqBuf + (p->id * 2 + 1) * MAX_SEQ_LEN;
-		uint8_t *target = seqBufRef + p->id * MAX_SEQ_LEN_REF_SAM;
-		uint8_t *query = seqBufQer + p->id * MAX_SEQ_LEN_QER_SAM;
+		uint8_t *target = seqBufRef + p->id * this->maxRefLen;
+		uint8_t *query = seqBufQer + p->id * this->maxQerLen;
 		int tlen = p->len1;
 		int qlen = p->len2;
 		int xtra = p->h0;
@@ -1669,12 +1655,12 @@ int loadPairs(SeqPair *seqPairArray, uint8_t *seqBufRef, uint8_t* seqBufQer, FIL
 		//printf("xtra: %d, %x, %s\n", xtra, xtra, temp);
 
         //if(!fgets((char *)(seqBuf + numPairs * 2 * MAX_SEQ_LEN), MAX_SEQ_LEN, pairFile))
-		if(!fgets((char *)(seqBufRef + numPairs * MAX_SEQ_LEN_REF_SAM), MAX_SEQ_LEN_REF_SAM, pairFile))
+		if(!fgets((char *)(seqBufRef + numPairs * this->maxRefLen), this->maxRefLen, pairFile))
         {
             break;
         }
         //if(!fgets((char *)(seqBuf + (numPairs * 2 + 1) * MAX_SEQ_LEN), MAX_SEQ_LEN, pairFile))
-		if(!fgets((char *)(seqBufQer + numPairs * MAX_SEQ_LEN_QER_SAM), MAX_SEQ_LEN_QER_SAM, pairFile))	
+		if(!fgets((char *)(seqBufQer + numPairs * this->maxQerLen), this->maxQerLen, pairFile))	
         {
             printf("ERROR! Odd number of sequences in %s\n", pairFileName);
             break;
@@ -1684,15 +1670,15 @@ int loadPairs(SeqPair *seqPairArray, uint8_t *seqBufRef, uint8_t* seqBufQer, FIL
         sp.id = numPairs;
         // sp.seq1 = seqBuf + numPairs * 2 * MAX_SEQ_LEN;
         // sp.seq2 = seqBuf + (numPairs * 2 + 1) * MAX_SEQ_LEN;
-        sp.len1 = strnlen((char *)(seqBufRef + numPairs * MAX_SEQ_LEN_REF_SAM), MAX_SEQ_LEN_REF_SAM) - 1;
-        sp.len2 = strnlen((char *)(seqBufQer + numPairs * MAX_SEQ_LEN_QER_SAM), MAX_SEQ_LEN_QER_SAM) - 1;
+        sp.len1 = strnlen((char *)(seqBufRef + numPairs * this->maxRefLen), this->maxRefLen) - 1;
+        sp.len2 = strnlen((char *)(seqBufQer + numPairs * this->maxQerLen), this->maxQerLen) - 1;
 		sp.h0 = xtra;
         // sp.score = 0;
 
 		//uint8_t *seq1 = seqBuf + numPairs * 2 * MAX_SEQ_LEN;
         //uint8_t *seq2 = seqBuf + (numPairs * 2 + 1) * MAX_SEQ_LEN;
-		uint8_t *seq1 = seqBufRef + numPairs * MAX_SEQ_LEN_REF_SAM;
-        uint8_t *seq2 = seqBufQer + numPairs * MAX_SEQ_LEN_QER_SAM;
+		uint8_t *seq1 = seqBufRef + numPairs * this->maxRefLen;
+        uint8_t *seq2 = seqBufQer + numPairs * this->maxQerLen;
 
 		for (int l=0; l<sp.len1; l++)
 			seq1[l] -= 48;
@@ -1734,9 +1720,9 @@ int main(int argc, char *argv[]) {
 
 	SeqPair *seqPairArray = (SeqPair *)_mm_malloc((MAX_NUM_PAIRS + SIMD_WIDTH8) * sizeof(SeqPair), 64);
 	uint8_t *seqBufRef = NULL, *seqBufQer = NULL;
-	seqBufRef = (uint8_t *)_mm_malloc((MAX_SEQ_LEN_REF_SAM * MAX_NUM_PAIRS + MAX_LINE_LEN)
+	seqBufRef = (uint8_t *)_mm_malloc((this->maxRefLen * MAX_NUM_PAIRS + MAX_LINE_LEN)
 									  * sizeof(int8_t), 64);
-	seqBufQer = (uint8_t *)_mm_malloc((MAX_SEQ_LEN_QER_SAM * MAX_NUM_PAIRS + MAX_LINE_LEN)
+	seqBufQer = (uint8_t *)_mm_malloc((this->maxQerLen * MAX_NUM_PAIRS + MAX_LINE_LEN)
 									  * sizeof(int8_t), 64);
 
 	kswr_t *aln = NULL;
@@ -1748,7 +1734,7 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	} else {
 		printf("Memory allocated: %0.2lf MB\n",
-			   ((int64_t)(MAX_SEQ_LEN_REF_SAM + MAX_SEQ_LEN_QER_SAM ) * MAX_NUM_PAIRS + MAX_LINE_LEN)/1e6);
+			   ((int64_t)(this->maxRefLen + this->maxQerLen ) * MAX_NUM_PAIRS + MAX_LINE_LEN)/1e6);
 	}
 	uint64_t tim = __rdtsc(), readTim = 0;
 	
@@ -1973,15 +1959,15 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
 	int64_t st1, st2, st3, st4, st5;
     // st1 = __rdtsc();
     int16_t *seq1SoA = NULL;
-	seq1SoA = (int16_t *)_mm_malloc(MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+	seq1SoA = (int16_t *)_mm_malloc(this->maxRefLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
 	
     int16_t *seq2SoA = NULL;
-	seq2SoA = (int16_t *)_mm_malloc(MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
+	seq2SoA = (int16_t *)_mm_malloc(this->maxQerLen * SIMD_WIDTH16 * numThreads * sizeof(int16_t), 64);
 
     assert(seq1SoA != NULL);
     assert(seq2SoA != NULL);	
 	
-	// int16_t	*qp	= qp16 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM * this->m;
+	// int16_t	*qp	= qp16 + tid * SIMD_WIDTH16 * this->maxQerLen * this->m;
 	
     int32_t ii;
     int32_t roundNumPairs = ((numPairs + SIMD_WIDTH16 - 1) / SIMD_WIDTH16 ) * SIMD_WIDTH16;
@@ -2000,14 +1986,14 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
     // Sort the sequences according to decreasing order of lengths
     SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
 											   sizeof(SeqPair), 64);
-    int16_t *hist = (int16_t *)_mm_malloc((MAX_SEQ_LEN_QER_SAM + 32) * numThreads *
+    int16_t *hist = (int16_t *)_mm_malloc((this->maxQerLen + 32) * numThreads *
 										  sizeof(int16_t), 64);
 
 #pragma omp parallel num_threads(numThreads)
     {
         int32_t tid = omp_get_thread_num();
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
-        int16_t *myHist = hist + tid * (MAX_SEQ_LEN_QER_SAM + 32);
+        int16_t *myHist = hist + tid * (this->maxQerLen + 32);
 
 #pragma omp for
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
@@ -2031,11 +2017,11 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
         // uint16_t tid = omp_get_thread_num();
 		uint16_t tid = 0;
         int16_t *mySeq1SoA = NULL;
-		mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN_REF_SAM * SIMD_WIDTH16;
+		mySeq1SoA = seq1SoA + tid * this->maxRefLen * SIMD_WIDTH16;
 		assert(mySeq1SoA != NULL);
 			
 		int16_t *mySeq2SoA = NULL;
-		mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN_QER_SAM * SIMD_WIDTH16;
+		mySeq2SoA = seq2SoA + tid * this->maxQerLen * SIMD_WIDTH16;
 		assert(mySeq1SoA != NULL);
 		
         uint8_t *seq1;
@@ -2055,11 +2041,11 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
             {
                 SeqPair sp = pairArray[i + j];
 #if MAINY
-				seq1 = seqBufRef + (int64_t)sp.id * MAX_SEQ_LEN_REF_SAM;
+				seq1 = seqBufRef + (int64_t)sp.id * this->maxRefLen;
 #else
 				seq1 = seqBufRef + sp.idr;
 #endif
-				assert(sp.len1 < MAX_SEQ_LEN_REF_SAM);
+				assert(sp.len1 < this->maxRefLen);
                 for(k = 0; k < sp.len1; k++)
                 {
                     // mySeq1SoA[k * SIMD_WIDTH16 + j] = (seq1[k] == AMBIG?0xFFFF:seq1[k]);
@@ -2082,11 +2068,11 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
             {
                 SeqPair sp = pairArray[i + j];
 #if MAINY
-				seq2 = seqBufQer + (int64_t)sp.id * MAX_SEQ_LEN_QER_SAM;
+				seq2 = seqBufQer + (int64_t)sp.id * this->maxQerLen;
 #else
 				seq2 = seqBufQer + sp.idq;
 #endif
-				assert(sp.len2 <= MAX_SEQ_LEN_QER_SAM);
+				assert(sp.len2 <= this->maxQerLen);
 
 #if 1
 				int quanta = 8 - sp.len2 % 8;  // based on SSE2-16 bit lane
@@ -2094,14 +2080,14 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
 				int quanta = 16 - sp.len2 % 16;  // based on SSE2-8 bit lane
 #endif
 				
-				assert(sp.len2 < MAX_SEQ_LEN_QER_SAM);
+				assert(sp.len2 < this->maxQerLen);
                 for(k = 0; k < sp.len2; k++)
                 {
 					// mySeq2SoA[k * SIMD_WIDTH16 + j] = (seq2[k]==AMBIG?0xFFFF:seq2[k]);
 					mySeq2SoA[k * SIMD_WIDTH16 + j] = (seq2[k]==AMBIG_? AMBQ16:seq2[k]);
                 }
 				
-				assert(sp.len2 + quanta < MAX_SEQ_LEN_QER_SAM);	
+				assert(sp.len2 + quanta < this->maxQerLen);	
 				
 				for(k = sp.len2; k < sp.len2 + quanta; k++) {
 					mySeq2SoA[k * SIMD_WIDTH16 + j] = DUMMY3;
@@ -2256,11 +2242,11 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
 
 	
 	tid = 0;  // no threading for now !!
-	int16_t	*H0		= H16_0 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM;
-	int16_t	*H1		= H16_1 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM;
-	int16_t	*Hmax	= H16_max + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM;
-	int16_t	*F		= F16 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM;
-	int16_t	*rowMax	= rowMax16 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_REF_SAM;
+	int16_t	*H0		= H16_0 + tid * SIMD_WIDTH16 * this->maxQerLen;
+	int16_t	*H1		= H16_1 + tid * SIMD_WIDTH16 * this->maxQerLen;
+	int16_t	*Hmax	= H16_max + tid * SIMD_WIDTH16 * this->maxQerLen;
+	int16_t	*F		= F16 + tid * SIMD_WIDTH16 * this->maxQerLen;
+	int16_t	*rowMax	= rowMax16 + tid * SIMD_WIDTH16 * this->maxRefLen;
 	
 	_mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
 	_mm_prefetch((const char*) seq2SoA, _MM_HINT_NTA);
@@ -2527,13 +2513,13 @@ void kswv::kswv512_16(int16_t seq1SoA[],
 
 	
 	tid = 0;  // no threading for now !!
-	int16_t	*H0		= H16_0 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM;
-	int16_t	*H1		= H16_1 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM;
-	int16_t	*Hmax	= H16_max + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM;
-	int16_t	*F		= F16 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM;
-	// int16_t	*qp		= qp16 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_QER_SAM;
+	int16_t	*H0		= H16_0 + tid * SIMD_WIDTH16 * this->maxQerLen;
+	int16_t	*H1		= H16_1 + tid * SIMD_WIDTH16 * this->maxQerLen;
+	int16_t	*Hmax	= H16_max + tid * SIMD_WIDTH16 * this->maxQerLen;
+	int16_t	*F		= F16 + tid * SIMD_WIDTH16 * this->maxQerLen;
+	// int16_t	*qp		= qp16 + tid * SIMD_WIDTH16 * this->maxQerLen;
 
-	int16_t	*rowMax	= rowMax16 + tid * SIMD_WIDTH16 * MAX_SEQ_LEN_REF_SAM;
+	int16_t	*rowMax	= rowMax16 + tid * SIMD_WIDTH16 * this->maxRefLen;
 	
 	_mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
 	_mm_prefetch((const char*) seq2SoA, _MM_HINT_NTA);

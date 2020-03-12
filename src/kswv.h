@@ -149,7 +149,7 @@ public:
 
 	kswv(const int o_del, const int e_del, const int o_ins,
 		 const int e_ins, int8_t w_match, int8_t w_mismatch,
-		 int numThreads);
+		 int numThreads, int32_t maxRefLen, int32_t maxQerLen);
 	
 	~kswv();
 
@@ -280,7 +280,8 @@ private:
 	int16_t *H16_0, *H16_max, *H16_1;
 	// int16_t *qp16;
 	int16_t *rowMax16;
-
+	int32_t maxRefLen, maxQerLen;
+	
 	int g_qmax;
 	int64_t sort1Ticks;
 	int64_t setupTicks;

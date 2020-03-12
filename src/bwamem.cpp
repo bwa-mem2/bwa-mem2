@@ -1193,6 +1193,7 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 #else   // re-structured
 		// pre-processing
 		// uint64_t tim = __rdtsc();
+		int32_t maxRefLen = 0, maxQerLen = 0;
 		int32_t gcnt = 0;
 		for (int i=start; i< end; i+=2)
 		{
@@ -1202,7 +1203,10 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 								 &w->seqs[i],
 								 &w->regs[i],
 								 &w->mmc, sizeA, sizeB, sizeC,
-								 pcnt, gcnt, tid);
+								 pcnt, gcnt,
+								 maxRefLen,
+								 maxQerLen,
+								 tid);
 		}
 		
 		// tprof[SAM1][tid] += __rdtsc() - tim;
@@ -1210,10 +1214,11 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 
 		kswr_t *aln = (kswr_t *) _mm_malloc ((pcnt + SIMD_WIDTH8) * sizeof(kswr_t), 64);
 		assert(aln != NULL);
-		
+
 		// processing
 		mem_sam_pe_batch(w->opt, &w->mmc, sizeA, sizeB, sizeC,
-						 pcnt, pcnt8, aln, tid);		
+						 pcnt, pcnt8, aln, maxRefLen, maxQerLen,
+						 tid);		
 
 		// post-processing
 		// tim = __rdtsc();

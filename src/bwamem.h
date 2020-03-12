@@ -275,7 +275,8 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
 						 mem_cache *mmc, int64_t offset1, int64_t offset2,
-						 int64_t offset3, int64_t &pcnt, int32_t &gcnt, int tid);
+						 int64_t offset3, int64_t &pcnt, int32_t &gcnt,
+						 int32_t&, int32_t&, int tid);
 
 int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
@@ -289,17 +290,18 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
 						 mem_alnreg_v *ma, SeqPair *seqPairArray, uint8_t* seqBufRef,
 						 uint8_t* seqBufQer, int pcnt, int32_t gcnt, int32_t *gar,
-						 int wsize);
+						 int wsize, int32_t&, int32_t&);
 
-int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
-						 const uint8_t *pac, const mem_pestat_t pes[4],
-						 const mem_alnreg_t *a,
-						 int l_ms, const uint8_t *ms, mem_alnreg_v *ma,
-						 SeqPair *seqPairArray, uint8_t* seqBufRef,
-						 uint8_t* seqBufQer, int pcnt);
+// int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
+// 						 const uint8_t *pac, const mem_pestat_t pes[4],
+// 						 const mem_alnreg_t *a,
+// 						 int l_ms, const uint8_t *ms, mem_alnreg_v *ma,
+// 						 SeqPair *seqPairArray, uint8_t* seqBufRef,
+// 						 uint8_t* seqBufQer, int pcnt);
 
 int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int64_t offset2,
-					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln, int tid);
+					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln,
+					 int32_t, int32_t, int tid);
 
 int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
@@ -307,10 +309,10 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
 						  int32_t *gar, mem_cache *mmc, int , int, int);
 
-int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
-						  const uint8_t *pac, const mem_pestat_t pes[4],
-						  const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
-						  mem_alnreg_v *ma, kswr_t **myaln_);
+// int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
+// 						  const uint8_t *pac, const mem_pestat_t pes[4],
+// 						  const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
+// 						  mem_alnreg_v *ma, kswr_t **myaln_);
 
 int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 			   const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2],
