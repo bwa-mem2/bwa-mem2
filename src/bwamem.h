@@ -184,18 +184,35 @@ typedef struct {
 	SeqPair *seqPairArrayAux;
 	SeqPair *seqPairArrayLeft128;
 	SeqPair *seqPairArrayRight128;
-#else
-	SeqPair *seqPairArrayAux[MAX_THREADS];
-	SeqPair *seqPairArrayLeft128[MAX_THREADS];
-	SeqPair *seqPairArrayRight128[MAX_THREADS];
-	int64_t wsize[MAX_THREADS];
-#endif
 	uint8_t *seqBufLeftRef, *seqBufRightRef;
 	uint8_t *seqBufLeftQer, *seqBufRightQer;
 	SMEM *matchArray;
 	int32_t *min_intv_ar, *rid, *lim;
 	int16_t *query_pos_ar;
-	uint8_t *enc_qdb;
+	uint8_t *enc_qdb;	
+#else
+	SeqPair *seqPairArrayAux[MAX_THREADS];
+	SeqPair *seqPairArrayLeft128[MAX_THREADS];
+	SeqPair *seqPairArrayRight128[MAX_THREADS];
+	
+	int64_t wsize[MAX_THREADS];
+	int64_t wsize_buf_ref[MAX_THREADS];	
+	int64_t wsize_buf_qer[MAX_THREADS];
+	
+	uint8_t *seqBufLeftRef[MAX_THREADS];
+	uint8_t *seqBufRightRef[MAX_THREADS];
+	uint8_t *seqBufLeftQer[MAX_THREADS];
+	uint8_t *seqBufRightQer[MAX_THREADS];
+	
+	SMEM *matchArray[MAX_THREADS];
+	int32_t *min_intv_ar[MAX_THREADS];
+	int32_t *rid[MAX_THREADS];
+	int32_t *lim[MAX_THREADS];
+	int16_t *query_pos_ar[MAX_THREADS];
+	uint8_t *enc_qdb[MAX_THREADS];
+	
+	int64_t wsize_mem[MAX_THREADS];
+#endif
 } mem_cache;
 
 // chain moved to .h
@@ -252,11 +269,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
 					 bseq1_t *seq_,
 					 int nseq,
 					 mem_chain_v *chain_ar,
-					 SMEM *matchArray,
-					 int32_t *min_intv_ar,
-					 int16_t *query_pos_ar,
-					 uint8_t *enc_qdb,
-					 int32_t *rid,
+					 mem_cache *mmc,
 					 int tid);
 
 void mem_chain2aln_across_reads(const mem_opt_t *opt, const bntseq_t *bns,
@@ -288,16 +301,9 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
-						 mem_alnreg_v *ma, SeqPair *seqPairArray, uint8_t* seqBufRef,
-						 uint8_t* seqBufQer, int pcnt, int32_t gcnt, int32_t *gar,
-						 int wsize, int32_t&, int32_t&);
+						 mem_alnreg_v *ma, mem_cache *mmc, int pcnt, int32_t gcnt,
+						 int32_t &maxRefLen, int32_t &maxQerLen, int32_t tid);
 
-// int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
-// 						 const uint8_t *pac, const mem_pestat_t pes[4],
-// 						 const mem_alnreg_t *a,
-// 						 int l_ms, const uint8_t *ms, mem_alnreg_v *ma,
-// 						 SeqPair *seqPairArray, uint8_t* seqBufRef,
-// 						 uint8_t* seqBufQer, int pcnt);
 
 int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int64_t offset2,
 					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln,
@@ -308,11 +314,6 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
 						  mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
 						  int32_t *gar, mem_cache *mmc, int , int, int);
-
-// int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
-// 						  const uint8_t *pac, const mem_pestat_t pes[4],
-// 						  const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
-// 						  mem_alnreg_v *ma, kswr_t **myaln_);
 
 int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 			   const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2],

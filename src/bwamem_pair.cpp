@@ -495,8 +495,15 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 int32_t &maxRefLen, int32_t &maxQerLen,
 						 int tid)
 {
+#if 0
 	uint8_t *seqBufRef = mmc->seqBufLeftRef + offset2;
 	uint8_t *seqBufQer = mmc->seqBufLeftQer + offset3;
+#else
+	uint8_t *seqBufRef = mmc->seqBufLeftRef[tid];
+	uint8_t *seqBufQer = mmc->seqBufLeftQer[tid];
+	// int64_t *wsize_buf = &(mmc->wsize_buf[tid]);
+#endif
+	
 #if 0
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
 	// int32_t *gar = (int32_t*) (mmc->seqPairArrayRight128 + offset1);
@@ -504,7 +511,7 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 #else
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
 	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux[tid]);
-	int64_t *wsize = &(mmc->wsize[tid]);
+	// int64_t *wsize = &(mmc->wsize[tid]);
 #endif
 	
 	int i, j, n_aa[2];
@@ -529,11 +536,19 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 		// NEW, batching
 		for (i = 0; i < 2; ++i) {
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
+#if 0
 				int64_t val = mem_matesw_batch_pre(opt, bns, pac, pes, &b[i].a[j],
 												   s[!i].l_seq, (uint8_t*)s[!i].seq,
 												   &a[!i], seqPairArray, seqBufRef,
-												   seqBufQer, pcnt, gcnt, gar, *wsize,
-												   maxRefLen, maxQerLen);
+												   seqBufQer, pcnt, gcnt, gar, wsize,
+												   wsize_buf, maxRefLen, maxQerLen);
+#else
+				int64_t val = mem_matesw_batch_pre(opt, bns, pac, pes, &b[i].a[j],
+												   s[!i].l_seq, (uint8_t*)s[!i].seq,
+												   &a[!i], mmc, pcnt, gcnt,
+												   maxRefLen, maxQerLen, tid);
+
+#endif
 				pcnt = val;
 				gcnt += 4;
 			}
@@ -556,8 +571,14 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln,
 					 int32_t maxRefLen, int32_t maxQerLen, int tid)
 {
+#if 0
 	uint8_t *seqBufRef = mmc->seqBufLeftRef + offset2;
 	uint8_t *seqBufQer = mmc->seqBufLeftQer + offset3;
+#else
+	uint8_t *seqBufRef = mmc->seqBufLeftRef[tid];
+	uint8_t *seqBufQer = mmc->seqBufLeftQer[tid];	
+#endif
+	
 #if 0
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
 #else
@@ -853,12 +874,20 @@ no_pairing:
 int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
-						 mem_alnreg_v *ma, SeqPair *seqPairArray, uint8_t* seqBufRef,
-						 uint8_t* seqBufQer, int pcnt, int32_t gcnt, int32_t *gar,
-						 int wsize, int32_t &maxRefLen, int32_t &maxQerLen)
+						 mem_alnreg_v *ma, mem_cache *mmc, int pcnt, int32_t gcnt,
+						 int32_t &maxRefLen, int32_t &maxQerLen, int32_t tid)
 {
 	extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 									const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
+
+	uint8_t *seqBufRef = mmc->seqBufLeftRef[tid];
+	uint8_t *seqBufQer = mmc->seqBufLeftQer[tid];
+	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
+	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux[tid]);
+
+	int64_t *wsize_pair = &(mmc->wsize[tid]);
+	int64_t *wsize_buf_ref = &(mmc->wsize_buf_ref[tid]);
+	int64_t *wsize_buf_qer = &(mmc->wsize_buf_qer[tid]);
 	
 	int64_t l_pac = bns->l_pac;
 	int i, r, skip[4], rid = -1;
@@ -931,26 +960,62 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 			SeqPair sp;
 			sp.h0 = xtra;
 			// assert(pcnt < BATCH_SIZE * SEEDS_PER_READ);
-			assert(pcnt < wsize);
+			assert(pcnt < *wsize_pair);
 			
 			sp.idq = qerOffset;
 			sp.idr = refOffset;
-			uint8_t *qs = seqBufQer + sp.idq;
-			uint8_t *rs = seqBufRef + sp.idr;
 			sp.len1 = re - rb;
 			sp.len2 = l_ms;
 			sp.id = sp.score = sp.seqid = sp.gtle = sp.tle = sp.qle = sp.max_off = sp.gscore = -1; // not needed, remove while code cleaning
 			
 			assert(sp.len1 >= 0 && sp.len2 >= 0);
-			assert(refOffset + sp.len1 < MAX_SEQ_LEN_REF * BATCH_SIZE * SEEDS_PER_READ);
-			assert(qerOffset + sp.len2 < MAX_SEQ_LEN_QER * BATCH_SIZE * SEEDS_PER_READ);
-			// assert(pcnt < BATCH_SIZE * SEEDS_PER_READ);
-			// assert(gcnt + r < BATCH_SIZE * SEEDS_PER_READ);
-			assert(pcnt < wsize);
-			assert(gcnt + r < wsize);
+			// assert(refOffset + sp.len1 < MAX_SEQ_LEN_REF * *wsize_buf);
+			if (refOffset + sp.len1 >= *wsize_buf_ref)
+			{
+				fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s\n", tid, __func__);
+				*wsize_buf_ref *= 2;
+				uint8_t *seqBufRef_ = realloc(mmc->seqBufLeftRef[tid], *wsize_buf_ref);
+				mmc->seqBufLeftRef[tid] = seqBufRef = seqBufRef_;
+
+				seqBufRef_ = realloc(mmc->seqBufRightRef[tid], *wsize_buf_ref);
+				mmc->seqBufRightRef[tid] = seqBufRef_;				
+			}
+			
+			// assert(qerOffset + sp.len2 < *wsize_buf_qer);
+			if (qerOffset + sp.len2 >= *wsize_buf_qer) {
+				fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufQers in %s\n", tid, __func__);
+				*wsize_buf_qer *= 2;
+				uint8_t *seqBufQer_ = realloc(mmc->seqBufLeftQer[tid], *wsize_buf_qer);
+				mmc->seqBufLeftQer[tid] = seqBufQer = seqBufQer_;
+
+				seqBufQer_ = realloc(mmc->seqBufRightQer[tid], *wsize_buf_qer);
+				mmc->seqBufRightQer[tid] = seqBufQer_;				
+			}
+			
+			
+			// assert(pcnt < *wsize_pair);
+			// assert(gcnt + r < *wsize_pair);
+			if (pcnt >= *wsize_pair) {
+				fprintf(stderr, "[%0.4d] Re-allocating seqPairs in %s\n", tid, __func__);
+				*wsize_pair += 1000;
+				mmc->seqPairArrayAux[tid] = realloc(mmc->seqPairArrayAux[tid],
+													(*wsize_pair + MAX_LINE_LEN)
+													* sizeof(SeqPair));
+				mmc->seqPairArrayLeft128[tid] = realloc(mmc->seqPairArrayLeft128[tid],
+													(*wsize_pair + MAX_LINE_LEN)
+													* sizeof(SeqPair));
+				mmc->seqPairArrayRight128[tid] = realloc(mmc->seqPairArrayRight128[tid],
+													(*wsize_pair + MAX_LINE_LEN)
+													* sizeof(SeqPair));
+				seqPairArray = mmc->seqPairArrayLeft128[tid];
+				gar = (int32_t*) (mmc->seqPairArrayAux[tid]);				
+			}
 
 			if (maxRefLen < sp.len1) maxRefLen = sp.len1;
 			if (maxQerLen < sp.len2) maxQerLen = sp.len2;
+			
+			uint8_t *qs = seqBufQer + sp.idq;
+			uint8_t *rs = seqBufRef + sp.idr;
 			for (int l=0; l<sp.len1; l++) rs[l] = ref[l];
 			for (int l=0; l<sp.len2; l++) qs[l] = seq[l];
 

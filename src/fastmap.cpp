@@ -137,17 +137,18 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 
 	/* Mem allocation section for core kernels */
 	w.regs = NULL; w.chain_ar = NULL; w.seedBuf = NULL;
+
 	w.regs = (mem_alnreg_v *) calloc(memSize, sizeof(mem_alnreg_v));
 	w.chain_ar = (mem_chain_v*) malloc (memSize * sizeof(mem_chain_v));
     w.seedBuf = (mem_seed_t *) calloc(sizeof(mem_seed_t),  memSize * AVG_SEEDS_PER_READ);
-	assert(w.seedBuf != NULL);
-    w.seedBufSize = BATCH_SIZE * AVG_SEEDS_PER_READ;
-	
-	if (w.regs == NULL || w.chain_ar == NULL) {
-		fprintf(stderr, "Memory not allocated!!\nExiting...\n");
-		exit(EXIT_FAILURE);
-	}
 
+	assert(w.seedBuf  != NULL);
+	assert(w.regs     != NULL);
+	assert(w.chain_ar != NULL);
+
+    w.seedBufSize = BATCH_SIZE * AVG_SEEDS_PER_READ;
+
+	/*** printing ***/
 	int64_t allocMem = memSize * sizeof(mem_alnreg_v) +
 		memSize * sizeof(mem_chain_v) +
 		sizeof(mem_seed_t) * memSize * AVG_SEEDS_PER_READ;
@@ -156,8 +157,8 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 
 	
 	/* SWA mem allocation */
-	// int avg_seed_per_read = 35;
-	w.size = BATCH_SIZE * SEEDS_PER_READ;		
+	w.size = BATCH_SIZE * SEEDS_PER_READ;
+#if 0
 	w.mmc.seqBufLeftRef	 = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)
 												 + MAX_LINE_LEN) * opt->n_threads, 64);
 	w.mmc.seqBufLeftQer	 = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)
@@ -166,34 +167,43 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 												  + MAX_LINE_LEN) * opt->n_threads, 64);
 	w.mmc.seqBufRightQer = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)
 												  + MAX_LINE_LEN) * opt->n_threads, 64);
-#if 0	
-	w.mmc.seqPairArrayAux	   = (SeqPair *)_mm_malloc((w.size + MAX_LINE_LEN) * sizeof(SeqPair)
-													   * opt->n_threads, 64);
-	w.mmc.seqPairArrayLeft128  = (SeqPair *)_mm_malloc((w.size + MAX_LINE_LEN) * sizeof(SeqPair)
-													   * opt->n_threads, 64);
-	w.mmc.seqPairArrayRight128 = (SeqPair *)_mm_malloc((w.size + MAX_LINE_LEN) * sizeof(SeqPair)
-													   * opt->n_threads, 64);
 #else
+	for(int l=0; l<ntid; l++) {
+		w.mmc.seqBufLeftRef[l]  = (uint8_t *)
+			malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+		w.mmc.seqBufLeftQer[l]  = (uint8_t *)
+			malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);	      
+		w.mmc.seqBufRightRef[l] = (uint8_t *)
+			malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+		w.mmc.seqBufRightQer[l] = (uint8_t *)
+			malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
+		w.mmc.wsize_buf_ref[l] = w.size * MAX_SEQ_LEN_REF;
+		w.mmc.wsize_buf_qer[l] = w.size * MAX_SEQ_LEN_QER;
+		
+		assert(w.mmc.seqBufLeftRef[l] != NULL);
+		assert(w.mmc.seqBufLeftQer[l] != NULL);
+		assert(w.mmc.seqBufRightRef[l] != NULL);
+		assert(w.mmc.seqBufRightQer[l] != NULL);		
+	}
+#endif
 	
 	for(int l=0; l<ntid; l++) {
 		w.mmc.seqPairArrayAux[l]      = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
 		w.mmc.seqPairArrayLeft128[l]  = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
 		w.mmc.seqPairArrayRight128[l] = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
 		w.mmc.wsize[l] = w.size;
-	}
-#endif
-	
 
-	assert(w.mmc.seqBufLeftRef != NULL);
-	assert(w.mmc.seqBufLeftQer != NULL);
-	assert(w.mmc.seqPairArrayRight128 != NULL);
+		assert(w.mmc.seqPairArrayAux[l] != NULL);
+		assert(w.mmc.seqPairArrayLeft128[l] != NULL);
+		assert(w.mmc.seqPairArrayRight128[l] != NULL);
+	}	
+
 
 	allocMem = (w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2+
 		(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads	* 2 +		
-		w.size * sizeof(SeqPair) * opt->n_threads * 3;
-	
+		w.size * sizeof(SeqPair) * opt->n_threads * 3;	
 	fprintf(stderr, "Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
-	
+#if 0
 	w.mmc.matchArray = (SMEM *)_mm_malloc
 		(nthreads * BATCH_MUL * BATCH_SIZE * readLen * sizeof(SMEM), 64);
 	w.mmc.min_intv_ar = (int32_t *) malloc
@@ -206,7 +216,19 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 		(nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t));
 	w.mmc.lim = (int32_t *) _mm_malloc
 		(nthreads * (BATCH_SIZE + 32) * sizeof(int32_t), 64);
-
+#else
+	for (int l=0; l<ntid; l++)
+	{
+		w.mmc.wsize_mem[l] = BATCH_MUL * BATCH_SIZE * readLen;
+		// w.mmc.matchArray[l] = (SMEM *)_mm_malloc(w.mmc.wsize_mem[l] * sizeof(SMEM), 64);
+		w.mmc.matchArray[l] = (SMEM *) malloc(w.mmc.wsize_mem[l] * sizeof(SMEM));
+		w.mmc.min_intv_ar[l] = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
+		w.mmc.query_pos_ar[l] = (int16_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int16_t));
+		w.mmc.enc_qdb[l] = (uint8_t *) malloc(w.mmc.wsize_mem[l] * sizeof(uint8_t));
+		w.mmc.rid[l] = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
+		w.mmc.lim[l] = (int32_t *) _mm_malloc((BATCH_SIZE + 32) * sizeof(int32_t), 64); // candidate not for reallocation, deferred for next round of changes.
+	}
+#endif
 	allocMem = nthreads * BATCH_MUL * BATCH_SIZE * readLen * sizeof(SMEM) +
 		nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t) +
 		nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int16_t) +
@@ -562,11 +584,20 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	free(w.chain_ar);
 	free(w.regs);
 	free(w.seedBuf);
-
+	
+#if 0
 	_mm_free(w.mmc.seqBufLeftRef);
 	_mm_free(w.mmc.seqBufRightRef);
 	_mm_free(w.mmc.seqBufLeftQer);
 	_mm_free(w.mmc.seqBufRightQer);
+#else
+	for(int l=0; l<nthreads; l++) {
+		free(w.mmc.seqBufLeftRef[l]);
+		free(w.mmc.seqBufRightRef[l]);
+		free(w.mmc.seqBufLeftQer[l]);
+		free(w.mmc.seqBufRightQer[l]);
+	}
+#endif
 	
 #if 0
 	_mm_free(w.mmc.seqPairArrayAux);
@@ -579,13 +610,24 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 		free(w.mmc.seqPairArrayRight128[l]);
 	}
 #endif
-	
+
+#if 0
 	_mm_free(w.mmc.matchArray);
 	free(w.mmc.min_intv_ar);
 	free(w.mmc.query_pos_ar);
 	free(w.mmc.enc_qdb);
 	free(w.mmc.rid);
 	_mm_free(w.mmc.lim);
+#else
+	for(int l=0; l<nthreads; l++) {
+		free(w.mmc.matchArray[l]);
+		free(w.mmc.min_intv_ar[l]);
+		free(w.mmc.query_pos_ar[l]);
+		free(w.mmc.enc_qdb[l]);
+		free(w.mmc.rid[l]);
+		_mm_free(w.mmc.lim[l]);
+	}
+#endif
 	return 0;
 }
 
