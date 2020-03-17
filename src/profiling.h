@@ -30,7 +30,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #ifndef _PROFILE_HPP
 #define _PROFILE_HPP
 
-int display_stats();
-void mpi_profile();
+int display_stats(int );
 
 #endif

@@ -48,9 +48,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "utils.h"
 #include "bntseq.h"
 #include "kseq.h"
-// #if MPI_ENABLED
-// #include <mpi.h>
-// #endif
+#include "profiling.h"
 
 KSEQ_DECLARE(gzFile)
 
@@ -60,10 +58,15 @@ typedef struct {
 	mem_pestat_t *pes0;
 	int64_t n_processed;
 	int copy_comment;
-	int64_t my_ntasks, ntasks, task_size, actual_chunk_size;
-	// bwaidx_t *idx;
+	int64_t my_ntasks;
+	int64_t ntasks;
+	int64_t task_size;
+	int64_t actual_chunk_size;
 	int64_t totEl;
 	FILE *fp;
+	uint8_t *ref_string;
+	FMI_search *fmi;	
+	// bwaidx_t *idx;
 	// MPI_File mfp;
 } ktp_aux_t;
 

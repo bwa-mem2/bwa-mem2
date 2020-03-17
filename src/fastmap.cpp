@@ -38,22 +38,17 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <sstream>
 #include "fastmap.h"
 #include "FMI_search.h"
-// #include "fasta_file.h"
+
 #if 0 && (__linux__)
 #include <sys/sysinfo.h>
 #endif
 
 // --------------
 // global vars
-FMI_search *fmi;
-extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
-extern unsigned char nst_nt4_table[256];
-extern int num_ranks, myrank;
-extern int nthreads;
-uint8_t *ref_string;
-int readLen, affy[256];
-int64_t nreads, memSize;
+extern uint64_t tprof[LIM_R][LIM_C];
+int affy[256];
 // ---------------
+
 void __cpuid(unsigned int i, unsigned int cpuid[4]) {
 #ifdef _WIN32
 	__cpuid((int *) cpuid, (int)i);
@@ -130,10 +125,11 @@ int64_t get_limit_fsize(FILE *fpp, int64_t nread_lim,
 	return position;	
 }
 
-void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
+void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
 {
-	mem_opt_t	*opt			  = aux->opt;	
-	memSize = nreads;
+	mem_opt_t *opt = aux->opt;	
+	int32_t memSize = nreads;
+	int32_t readLen = READ_LEN;
 
 	/* Mem allocation section for core kernels */
 	w.regs = NULL; w.chain_ar = NULL; w.seedBuf = NULL;
@@ -153,45 +149,35 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 		memSize * sizeof(mem_chain_v) +
 		sizeof(mem_seed_t) * memSize * AVG_SEEDS_PER_READ;
 	fprintf(stderr, "------------------------------------------\n");
-	fprintf(stderr, "Memory pre-allocation for chaining: %0.4lf MB\n", allocMem/1e6);
+	fprintf(stderr, "1. Memory pre-allocation for Chaining: %0.4lf MB\n", allocMem/1e6);
 
 	
 	/* SWA mem allocation */
-	w.size = BATCH_SIZE * SEEDS_PER_READ;
-#if 0
-	w.mmc.seqBufLeftRef	 = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)
-												 + MAX_LINE_LEN) * opt->n_threads, 64);
-	w.mmc.seqBufLeftQer	 = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)
-												 + MAX_LINE_LEN) * opt->n_threads, 64);	      
-	w.mmc.seqBufRightRef = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_REF * sizeof(int8_t)
-												  + MAX_LINE_LEN) * opt->n_threads, 64);
-	w.mmc.seqBufRightQer = (uint8_t *)_mm_malloc((w.size * MAX_SEQ_LEN_QER * sizeof(int8_t)
-												  + MAX_LINE_LEN) * opt->n_threads, 64);
-#else
-	for(int l=0; l<ntid; l++) {
+	// w.size = BATCH_SIZE * SEEDS_PER_READ;
+	int64_t wsize = BATCH_SIZE * SEEDS_PER_READ;
+	for(int l=0; l<nthreads; l++) {
 		w.mmc.seqBufLeftRef[l]  = (uint8_t *)
-			malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+			malloc(wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
 		w.mmc.seqBufLeftQer[l]  = (uint8_t *)
-			malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);	      
+			malloc(wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);	      
 		w.mmc.seqBufRightRef[l] = (uint8_t *)
-			malloc(w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+			malloc(wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
 		w.mmc.seqBufRightQer[l] = (uint8_t *)
-			malloc(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
-		w.mmc.wsize_buf_ref[l] = w.size * MAX_SEQ_LEN_REF;
-		w.mmc.wsize_buf_qer[l] = w.size * MAX_SEQ_LEN_QER;
+			malloc(wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
+		w.mmc.wsize_buf_ref[l] = wsize * MAX_SEQ_LEN_REF;
+		w.mmc.wsize_buf_qer[l] = wsize * MAX_SEQ_LEN_QER;
 		
 		assert(w.mmc.seqBufLeftRef[l] != NULL);
 		assert(w.mmc.seqBufLeftQer[l] != NULL);
 		assert(w.mmc.seqBufRightRef[l] != NULL);
 		assert(w.mmc.seqBufRightQer[l] != NULL);		
 	}
-#endif
 	
-	for(int l=0; l<ntid; l++) {
-		w.mmc.seqPairArrayAux[l]      = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
-		w.mmc.seqPairArrayLeft128[l]  = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
-		w.mmc.seqPairArrayRight128[l] = (SeqPair *) malloc((w.size + MAX_LINE_LEN)* sizeof(SeqPair));
-		w.mmc.wsize[l] = w.size;
+	for(int l=0; l<nthreads; l++) {
+		w.mmc.seqPairArrayAux[l]      = (SeqPair *) malloc((wsize + MAX_LINE_LEN)* sizeof(SeqPair));
+		w.mmc.seqPairArrayLeft128[l]  = (SeqPair *) malloc((wsize + MAX_LINE_LEN)* sizeof(SeqPair));
+		w.mmc.seqPairArrayRight128[l] = (SeqPair *) malloc((wsize + MAX_LINE_LEN)* sizeof(SeqPair));
+		w.mmc.wsize[l] = wsize;
 
 		assert(w.mmc.seqPairArrayAux[l] != NULL);
 		assert(w.mmc.seqPairArrayLeft128[l] != NULL);
@@ -199,42 +185,29 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int ntid)
 	}	
 
 
-	allocMem = (w.size * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2+
-		(w.size * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads	* 2 +		
-		w.size * sizeof(SeqPair) * opt->n_threads * 3;	
-	fprintf(stderr, "Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
-#if 0
-	w.mmc.matchArray = (SMEM *)_mm_malloc
-		(nthreads * BATCH_MUL * BATCH_SIZE * readLen * sizeof(SMEM), 64);
-	w.mmc.min_intv_ar = (int32_t *) malloc
-		(nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t));
-	w.mmc.query_pos_ar = (int16_t *) malloc
-		(nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int16_t));
-	w.mmc.enc_qdb = (uint8_t *) malloc
-		(nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(uint8_t));
-	w.mmc.rid = (int32_t *) malloc
-		(nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t));
-	w.mmc.lim = (int32_t *) _mm_malloc
-		(nthreads * (BATCH_SIZE + 32) * sizeof(int32_t), 64);
-#else
-	for (int l=0; l<ntid; l++)
+	allocMem = (wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2+
+		(wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads	* 2 +		
+		wsize * sizeof(SeqPair) * opt->n_threads * 3;	
+	fprintf(stderr, "2. Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
+
+	for (int l=0; l<nthreads; l++)
 	{
-		w.mmc.wsize_mem[l] = BATCH_MUL * BATCH_SIZE * readLen;
+		w.mmc.wsize_mem[l]	   = BATCH_MUL * BATCH_SIZE *				readLen;
 		// w.mmc.matchArray[l] = (SMEM *)_mm_malloc(w.mmc.wsize_mem[l] * sizeof(SMEM), 64);
-		w.mmc.matchArray[l] = (SMEM *) malloc(w.mmc.wsize_mem[l] * sizeof(SMEM));
-		w.mmc.min_intv_ar[l] = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
-		w.mmc.query_pos_ar[l] = (int16_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int16_t));
-		w.mmc.enc_qdb[l] = (uint8_t *) malloc(w.mmc.wsize_mem[l] * sizeof(uint8_t));
-		w.mmc.rid[l] = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
-		w.mmc.lim[l] = (int32_t *) _mm_malloc((BATCH_SIZE + 32) * sizeof(int32_t), 64); // candidate not for reallocation, deferred for next round of changes.
+		w.mmc.matchArray[l]	   = (SMEM *) malloc(w.mmc.wsize_mem[l] * sizeof(SMEM));
+		w.mmc.min_intv_ar[l]   = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
+		w.mmc.query_pos_ar[l]  = (int16_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int16_t));
+		w.mmc.enc_qdb[l]	   = (uint8_t *) malloc(w.mmc.wsize_mem[l] * sizeof(uint8_t));
+		w.mmc.rid[l]		   = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
+		w.mmc.lim[l]		   = (int32_t *) _mm_malloc((BATCH_SIZE + 32) *	sizeof(int32_t), 64); // candidate not for reallocation, deferred for next round of changes.
 	}
-#endif
+
 	allocMem = nthreads * BATCH_MUL * BATCH_SIZE * readLen * sizeof(SMEM) +
 		nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t) +
 		nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int16_t) +
 		nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t) +
 		nthreads * (BATCH_SIZE + 32) * sizeof(int32_t);
-	fprintf(stderr, "Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
+	fprintf(stderr, "3. Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
 	fprintf(stderr, "------------------------------------------\n");
 }
 
@@ -245,7 +218,6 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 
 	if (step == 0)
 	{
-		// printf("Thread entering step 0, with task_size: %d, CPU: %d\n", aux->task_size, sched_getcpu());
 		ktp_data_t *ret = (ktp_data_t *) calloc(1, sizeof(ktp_data_t));
 		uint64_t tim = __rdtsc();
 		/* Read "reads" from input file (fread) */
@@ -255,14 +227,13 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 								   aux->ks, aux->ks2,
 								   &sz);
 
-		// *ret = *ret2;
 		tprof[READ_IO][0] += __rdtsc() - tim;
 		tprof[0][0] += sz;  // debug info, for accuracy checks!!
 		tprof[0][2] += ret->n_seqs;
 		// assert(ret->n_seqs <= nreads);
 		
-		fprintf(stderr, "[%.4d] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
-				myrank, aux->task_size, sz, ret->n_seqs);   
+		fprintf(stderr, "[LOG:] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
+				aux->task_size, sz, ret->n_seqs);   
 
 		if (ret->seqs == 0) {
 			free(ret);
@@ -279,27 +250,27 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 			int64_t size = 0;
 			for (int i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
 
-			fprintf(stderr, "\t[%.4d][ M::%s] read %d sequences (%ld bp)...\n",
-					myrank, __func__, ret->n_seqs, (long)size);
+			fprintf(stderr, "\t[LOG][ M::%s] read %d sequences (%ld bp)...\n",
+					__func__, ret->n_seqs, (long)size);
 		}
 				
-		// printf("Threads leaving step 0, CPU: %d\n", sched_getcpu());
 		return ret;
 	} // Step 0			
 	else if (step == 1)  /* Step 2: Main processing-engine */
 	{
 		static int task = 0;
-		// printf("Thread entering step 1, CPU: %d\n", sched_getcpu());
-		if (nreads < ret->n_seqs) {
-			fprintf(stderr, "Reallocating initial memory allocations!!\n");
+		if (w.nreads < ret->n_seqs)
+		{
+			fprintf(stderr, "[LOG:] Reallocating initial memory allocations!!\n");
 			free(w.regs); free(w.chain_ar); free(w.seedBuf);
-			nreads = ret->n_seqs;
-			w.regs = (mem_alnreg_v *) calloc(nreads, sizeof(mem_alnreg_v));
-			w.chain_ar = (mem_chain_v*) malloc (nreads * sizeof(mem_chain_v));
-			w.seedBuf = (mem_seed_t *) calloc(sizeof(mem_seed_t), nreads * AVG_SEEDS_PER_READ);
+			w.nreads = ret->n_seqs;
+			w.regs = (mem_alnreg_v *) calloc(w.nreads, sizeof(mem_alnreg_v));
+			w.chain_ar = (mem_chain_v*) malloc (w.nreads * sizeof(mem_chain_v));
+			w.seedBuf = (mem_seed_t *) calloc(sizeof(mem_seed_t), w.nreads * AVG_SEEDS_PER_READ);
+			assert(w.regs != NULL); assert(w.chain_ar != NULL); assert(w.seedBuf != NULL);
 		}		
 								
-		fprintf(stderr, "[%.4d] 2. Calling mem_process_seqs.., task: %d\n", myrank, task++);
+		fprintf(stderr, "[LOG:] Calling mem_process_seqs.., task: %d\n", task++);
 
 		uint64_t tim = __rdtsc();
 		if (opt->flag & MEM_F_SMARTPE)
@@ -317,15 +288,11 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 				tmp_opt.flag &= ~MEM_F_PE;
 				/* single-end sequences, in the mixture */
 				mem_process_seqs(&tmp_opt,
-								 fmi->idx->bns,
-								 fmi->idx->pac,
 								 aux->n_processed,
 								 n_sep[0],
 								 sep[0],
 								 0,
 								 w);
-				// mem_process_seqs(&tmp_opt, idx->bwt, idx->bns, idx->pac,
-				//				 aux->n_processed, n_sep[0], sep[0], 0);
 				
 				for (int i = 0; i < n_sep[0]; ++i)
 					ret->seqs[sep[0][i].id].sam = sep[0][i].sam;
@@ -334,17 +301,12 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 				tmp_opt.flag |= MEM_F_PE;
 				/* paired-end sequences, in the mixture */
 				mem_process_seqs(&tmp_opt,
-								 fmi->idx->bns,
-								 fmi->idx->pac,
 								 aux->n_processed + n_sep[0],
 								 n_sep[1],
 								 sep[1],
 								 aux->pes0,
 								 w);
-				
-				// mem_process_seqs(&tmp_opt, idx->bwt, idx->bns, idx->pac,
-				// aux->n_processed + n_sep[0], n_sep[1], sep[1], aux->pes0);
-				
+								
 				for (int i = 0; i < n_sep[1]; ++i)
 					ret->seqs[sep[1][i].id].sam = sep[1][i].sam;
 			}
@@ -353,8 +315,6 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		else {
 			/* pure (single/paired-end), reads processing */
 			mem_process_seqs(opt,
-							 fmi->idx->bns,
-							 fmi->idx->pac,
 							 aux->n_processed,
 							 ret->n_seqs,
 							 ret->seqs,
@@ -363,13 +323,11 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		}				
 		tprof[MEM_PROCESS2][0] += __rdtsc() - tim;
 				
-		// printf("Thread leaving step 1, CPU: %d\n", sched_getcpu());
 		return ret;
 	} 			
 	/* Step 3: Write output */
-	else if (step == 2) {
-		// printf("Thread entering step 2, CPU: %d\n", sched_getcpu());
-				
+	else if (step == 2)
+	{
 		aux->n_processed += ret->n_seqs;   //modified!!
 		uint64_t tim = __rdtsc();
 
@@ -386,17 +344,14 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		free(ret->seqs);
 		tprof[SAM_IO][0] += __rdtsc() - tim;
 
-		// printf("Thread leaving step 2, CPU: %d\n", sched_getcpu());
-		// printf("[%0.4d] mem usage: %ld %ld\n", myrank, getCurrentRSS(), getPeakRSS());
 		return 0;
 	} // step 2
 
 	return 0;
 }
 
-static void *ktp_worker(void *data) {
-	
-	// printf("ptid: %d\n", *(int*)ptid);
+static void *ktp_worker(void *data)
+{	
 	ktp_worker_t *w = (ktp_worker_t*) data;
 	ktp_t *p = w->pl;
 	// args_t args = w->args;
@@ -418,7 +373,6 @@ static void *ktp_worker(void *data) {
 		pthread_mutex_unlock(&p->mutex);
 
 		// working on w->step
-		// printf("[%0.4d] Calling pipeline.., step: %d\n", w->i, w->step);
 
 		w->data = kt_pipeline(p->shared, w->step, w->step? w->data : 0, w->opt, *(w->w)); // for the first step, input is NULL
 		// if (w->data == 0) printf("NULL data recv from step %d by thread %d\n", w->step, w->i);
@@ -426,8 +380,6 @@ static void *ktp_worker(void *data) {
 		// update step and let other workers know
 		pthread_mutex_lock(&p->mutex);
 		w->step = w->step == p->n_steps - 1 || w->data? (w->step + 1) % p->n_steps : p->n_steps;
-
-		// printf("Step: %d, %d\n", w->step, w->data? (w->step + 1) % p->n_steps : p->n_steps);
 
 		if (w->step == 0) w->index = p->index++;
 		pthread_cond_broadcast(&p->cv);
@@ -442,7 +394,8 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	worker_t	 w;
 	mem_opt_t	*opt			  = aux->opt;
 
-	nthreads = opt->n_threads; // global variable for profiling!
+	int32_t nthreads = opt->n_threads; // global variable for profiling!
+	w.nthreads = opt->n_threads;
 #if NUMA_ENABLED
 	int  deno = 1;
 	int tc = numa_num_task_cpus();
@@ -530,20 +483,23 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	}
 #endif
 	
-	fprintf(stderr, "\nThreads used (compute): %d\n",
-			nthreads);
-	nreads = aux->actual_chunk_size/ (readLen) + 10;
-	fprintf(stderr, "Info: projected #read in a task: %ld\n", (long)nreads);
+	int32_t nreads = aux->actual_chunk_size/ READ_LEN + 10;
+	// fprintf(stderr, "Info: projected #read in a task: %ld\n", (long)nreads);
 	
 	/* All memory allocation */
-	memoryAlloc(aux, w, nthreads);
+	memoryAlloc(aux, w, nreads, nthreads);
+	fprintf(stderr, "* Threads used (compute): %d\n", nthreads);
 	
 	/* pipeline using pthreads */
 	ktp_t aux_;
 	int p_nt = pipe_threads; // 2;
 	int n_steps = 3;
 	
-	//if (n_threads < 1) n_threads = 1;
+	w.ref_string = aux->ref_string;
+	w.fmi = aux->fmi;
+	w.nreads  = nreads;
+	// w.memSize = nreads;
+	
 	aux_.n_workers = p_nt;
 	aux_.n_steps = n_steps;
 	// aux_.func = process;
@@ -551,7 +507,8 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	aux_.index = 0;
 	pthread_mutex_init(&aux_.mutex, 0);
 	pthread_cond_init(&aux_.cv, 0);
-	fprintf(stderr, "No. of pipeline threads: %d\n", p_nt);
+
+	fprintf(stderr, "* No. of pipeline threads: %d\n\n", p_nt);
 	aux_.workers = (ktp_worker_t*) malloc(p_nt * sizeof(ktp_worker_t));
 	
 	for (int i = 0; i < p_nt; ++i) {
@@ -578,47 +535,26 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	free(aux_.workers);
 	/***** pipeline ends ******/
 	
-	fprintf(stderr, "[%.4d] Computation ends..\n", myrank);
+	fprintf(stderr, "[LOG:] Computation ends..\n");
 	
 	/* Dealloc memory allcoated in the header section */	
 	free(w.chain_ar);
 	free(w.regs);
 	free(w.seedBuf);
 	
-#if 0
-	_mm_free(w.mmc.seqBufLeftRef);
-	_mm_free(w.mmc.seqBufRightRef);
-	_mm_free(w.mmc.seqBufLeftQer);
-	_mm_free(w.mmc.seqBufRightQer);
-#else
 	for(int l=0; l<nthreads; l++) {
 		free(w.mmc.seqBufLeftRef[l]);
 		free(w.mmc.seqBufRightRef[l]);
 		free(w.mmc.seqBufLeftQer[l]);
 		free(w.mmc.seqBufRightQer[l]);
 	}
-#endif
-	
-#if 0
-	_mm_free(w.mmc.seqPairArrayAux);
-	_mm_free(w.mmc.seqPairArrayLeft128);
-	_mm_free(w.mmc.seqPairArrayRight128);
-#else
+
 	for(int l=0; l<nthreads; l++) {
 		free(w.mmc.seqPairArrayAux[l]);
 		free(w.mmc.seqPairArrayLeft128[l]);
 		free(w.mmc.seqPairArrayRight128[l]);
 	}
-#endif
 
-#if 0
-	_mm_free(w.mmc.matchArray);
-	free(w.mmc.min_intv_ar);
-	free(w.mmc.query_pos_ar);
-	free(w.mmc.enc_qdb);
-	free(w.mmc.rid);
-	_mm_free(w.mmc.lim);
-#else
 	for(int l=0; l<nthreads; l++) {
 		free(w.mmc.matchArray[l]);
 		free(w.mmc.min_intv_ar[l]);
@@ -627,7 +563,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 		free(w.mmc.rid[l]);
 		_mm_free(w.mmc.lim[l]);
 	}
-#endif
+
 	return 0;
 }
 
@@ -710,7 +646,8 @@ int main_mem(int argc, char *argv[])
 	ktp_aux_t		 aux;
 	bool			 is_o	   = 0;
 	int64_t			 nread_lim = 0;
-
+	uint8_t          *ref_string;
+	
 	// uint64_t tim = __rdtsc();
 	memset(&aux, 0, sizeof(ktp_aux_t));
 	memset(pes, 0, 4 * sizeof(mem_pestat_t));
@@ -931,48 +868,47 @@ int main_mem(int argc, char *argv[])
 	// tprof[PREPROCESS][0] += __rdtsc() - tim;
 	
 	/* Load bwt2/FMI index */
-	{
-		uint64_t tim = __rdtsc();
-
-		fprintf(stderr, "Ref file: %s\n", argv[optind]);			
-		fmi = new FMI_search(argv[optind]);
-		tprof[FMI][0] += __rdtsc() - tim;
-		
-		// reading ref string from the file
-		tim = __rdtsc();
-		fprintf(stderr, "Reading reference genome..\n");
-		
-		char binary_seq_file[200];
-		sprintf(binary_seq_file, "%s.0123", argv[optind]);
-		
-		fprintf(stderr, "Binary seq file = %s\n", binary_seq_file);
-		FILE *fr = fopen(binary_seq_file, "r");
-		
-		if (fr == NULL) {
-			fprintf(stderr, "Error: can't open %s input file\n", binary_seq_file);
-			exit(EXIT_FAILURE);
-		}
-		
-		int64_t rlen = 0;
-		fseek(fr, 0, SEEK_END); 
-		rlen = ftell(fr);
-		ref_string = (uint8_t*) _mm_malloc(rlen, 64);
-		rewind(fr);
-
-		/* Reading ref. sequence */
-		err_fread_noeof(ref_string, 1, rlen, fr);
-
-		uint64_t timer  = __rdtsc();
-		tprof[REF_IO][0] += timer - tim;
-		
-		fclose(fr);
-		fprintf(stderr, "Reference genome size: %ld bp\n", rlen);
-		fprintf(stderr, "Done readng reference genome !!\n\n");
+	uint64_t tim = __rdtsc();
+	
+	fprintf(stderr, "* Ref file: %s\n", argv[optind]);			
+	aux.fmi = new FMI_search(argv[optind]);
+	tprof[FMI][0] += __rdtsc() - tim;
+	
+	// reading ref string from the file
+	tim = __rdtsc();
+	fprintf(stderr, "* Reading reference genome..\n");
+	
+	char binary_seq_file[200];
+	sprintf(binary_seq_file, "%s.0123", argv[optind]);
+	
+	fprintf(stderr, "* Binary seq file = %s\n", binary_seq_file);
+	FILE *fr = fopen(binary_seq_file, "r");
+	
+	if (fr == NULL) {
+		fprintf(stderr, "Error: can't open %s input file\n", binary_seq_file);
+		exit(EXIT_FAILURE);
 	}
-
+	
+	int64_t rlen = 0;
+	fseek(fr, 0, SEEK_END); 
+	rlen = ftell(fr);
+	ref_string = (uint8_t*) _mm_malloc(rlen, 64);
+	aux.ref_string = ref_string;
+	rewind(fr);
+	
+	/* Reading ref. sequence */
+	err_fread_noeof(ref_string, 1, rlen, fr);
+	
+	uint64_t timer  = __rdtsc();
+	tprof[REF_IO][0] += timer - tim;
+	
+	fclose(fr);
+	fprintf(stderr, "* Reference genome size: %ld bp\n", rlen);
+	fprintf(stderr, "* Done reading reference genome !!\n\n");
+	
 	if (ignore_alt)
-		for (i = 0; i < fmi->idx->bns->n_seqs; ++i)
-			fmi->idx->bns->anns[i].is_alt = 0;
+		for (i = 0; i < aux.fmi->idx->bns->n_seqs; ++i)
+			aux.fmi->idx->bns->anns[i].is_alt = 0;
 
 	/* READS file operations */
 	fp = gzopen(argv[optind + 1], "r");
@@ -1012,10 +948,10 @@ int main_mem(int argc, char *argv[])
 	}
 #endif
 
-	bwa_print_sam_hdr(fmi->idx->bns, hdr_line, aux.fp);
+	bwa_print_sam_hdr(aux.fmi->idx->bns, hdr_line, aux.fp);
 
 	// aux.totEl += ftell(aux.fp);
-	// aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads; // IMP modification
+	// aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads;   // IMP modification
 
 	if (fixed_chunk_size > 0)
 		aux.task_size = fixed_chunk_size;
@@ -1027,12 +963,12 @@ int main_mem(int argc, char *argv[])
 	}
 	tprof[MISC][1] = opt->chunk_size = aux.actual_chunk_size = aux.task_size;
 
-	readLen = READ_LEN;  // for memory pre-allocation // we realloc when required
+	// readLen = READ_LEN;  // for memory pre-allocation // we realloc when required
 	
 	// Major function
-	fprintf(stderr, "[%.4d] 1: Calling process()\n", myrank);
+	// fprintf(stderr, "[LOG:] 1: Calling process()\n");
 
-	uint64_t tim = __rdtsc();
+	tim = __rdtsc();
 	/* Relay process function */
 	process(&aux, fp, fp2, no_mt_io? 1:2);
 	// process(&aux, fp, fp2, 1);
@@ -1058,7 +994,10 @@ int main_mem(int argc, char *argv[])
 	}
 
 	// new bwt/FMI
-	delete(fmi);	
+	delete(aux.fmi);	
+
+	/* Display runtime profiling stats */
+	display_stats(aux.opt->n_threads);
 	
 	return 0;
 }

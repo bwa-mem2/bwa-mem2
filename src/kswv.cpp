@@ -32,7 +32,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <string.h>
 #include <unistd.h>
 #include "kswv.h"
-//#include "bwamem.h"
 #include "limits.h"
 
 
@@ -65,7 +64,7 @@ extern uint64_t prof[10][112], data, SW_cells2;
 
 int spot = 42419;
 int lim = 20;
-uint8_t *query, *target, *query_;
+// uint8_t *query, *target, *query_;
 int len1, len2;
 int iid = 0;
 FILE *fp;

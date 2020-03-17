@@ -52,10 +52,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define MAPPING_BOUND 3.0
 #define MAX_STDDEV    4.0
 
-extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
-extern FILE *fsam, *fsamo;
-extern int rtval;
-int ncnt;
+extern uint64_t tprof[LIM_R][LIM_C];
 
 static inline int mem_infer_dir(int64_t l_pac, int64_t b1, int64_t b2, int64_t *dist)
 {
@@ -80,7 +77,8 @@ static int cal_sub(const mem_opt_t *opt, mem_alnreg_v *r)
 	return j < r->n? r->a[j].score : opt->min_seed_len * opt->a;
 }
 
-void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n, const mem_alnreg_v *regs, mem_pestat_t pes[4])
+void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n,
+				const mem_alnreg_v *regs, mem_pestat_t pes[4])
 {
 	int i, d, max;
 	uint64_v isize[4];
@@ -101,17 +99,17 @@ void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n, const mem_alnreg_v *
 		dir = mem_infer_dir(l_pac, r[0]->a[0].rb, r[1]->a[0].rb, &is);
 		if (is && is <= opt->max_ins) kv_push(uint64_t, isize[dir], is);
 	}
-	if (bwa_verbose >= 3) fprintf(stderr, "[M::%s] # candidate unique pairs for (FF, FR, RF, RR): (%ld, %ld, %ld, %ld)\n", __func__, isize[0].n, isize[1].n, isize[2].n, isize[3].n);
+	if (bwa_verbose >= 3) fprintf(stderr, "[PE::%s] # candidate unique pairs for (FF, FR, RF, RR): (%ld, %ld, %ld, %ld)\n", __func__, isize[0].n, isize[1].n, isize[2].n, isize[3].n);
 	for (d = 0; d < 4; ++d) { // TODO: this block is nearly identical to the one in bwtsw2_pair.c. It would be better to merge these two.
 		mem_pestat_t *r = &pes[d];
 		uint64_v *q = &isize[d];
 		int p25, p50, p75, x;
 		if (q->n < MIN_DIR_CNT) {
-			fprintf(stderr, "[M::%s] skip orientation %c%c as there are not enough pairs\n", __func__, "FR"[d>>1&1], "FR"[d&1]);
+			fprintf(stderr, "[PE::%s] skip orientation %c%c as there are not enough pairs\n", __func__, "FR"[d>>1&1], "FR"[d&1]);
 			r->failed = 1;
 			free(q->a);
 			continue;
-		} else fprintf(stderr, "[M::%s] analyzing insert size distribution for orientation %c%c...\n", __func__, "FR"[d>>1&1], "FR"[d&1]);
+		} else fprintf(stderr, "[PE::%s] analyzing insert size distribution for orientation %c%c...\n", __func__, "FR"[d>>1&1], "FR"[d&1]);
 		ks_introsort_64(q->n, q->a);
 		p25 = q->a[(int)(.25 * q->n + .499)];
 		p50 = q->a[(int)(.50 * q->n + .499)];
@@ -119,8 +117,8 @@ void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n, const mem_alnreg_v *
 		r->low  = (int)(p25 - OUTLIER_BOUND * (p75 - p25) + .499);
 		if (r->low < 1) r->low = 1;
 		r->high = (int)(p75 + OUTLIER_BOUND * (p75 - p25) + .499);
-		fprintf(stderr, "[M::%s] (25, 50, 75) percentile: (%d, %d, %d)\n", __func__, p25, p50, p75);
-		fprintf(stderr, "[M::%s] low and high boundaries for computing mean and std.dev: (%d, %d)\n", __func__, r->low, r->high);
+		fprintf(stderr, "[PE::%s] (25, 50, 75) percentile: (%d, %d, %d)\n", __func__, p25, p50, p75);
+		fprintf(stderr, "[PE::%s] low and high boundaries for computing mean and std.dev: (%d, %d)\n", __func__, r->low, r->high);
 		for (i = x = 0, r->avg = 0; i < q->n; ++i)
 			if (q->a[i] >= r->low && q->a[i] <= r->high)
 				r->avg += q->a[i], ++x;
@@ -130,13 +128,13 @@ void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n, const mem_alnreg_v *
 			if (q->a[i] >= r->low && q->a[i] <= r->high)
 				r->std += (q->a[i] - r->avg) * (q->a[i] - r->avg);
 		r->std = sqrt(r->std / x);
-		fprintf(stderr, "[M::%s] mean and std.dev: (%.2f, %.2f)\n", __func__, r->avg, r->std);
+		fprintf(stderr, "[PE::%s] mean and std.dev: (%.2f, %.2f)\n", __func__, r->avg, r->std);
 		r->low  = (int)(p25 - MAPPING_BOUND * (p75 - p25) + .499);
 		r->high = (int)(p75 + MAPPING_BOUND * (p75 - p25) + .499);
 		if (r->low  > r->avg - MAX_STDDEV * r->std) r->low  = (int)(r->avg - MAX_STDDEV * r->std + .499);
 		if (r->high < r->avg + MAX_STDDEV * r->std) r->high = (int)(r->avg + MAX_STDDEV * r->std + .499);
 		if (r->low < 1) r->low = 1;
-		fprintf(stderr, "[M::%s] low and high boundaries for proper pairs: (%d, %d)\n", __func__, r->low, r->high);
+		fprintf(stderr, "[PE::%s] low and high boundaries for proper pairs: (%d, %d)\n", __func__, r->low, r->high);
 		free(q->a);
 	}
 	for (d = 0, max = 0; d < 4; ++d)
@@ -144,7 +142,7 @@ void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n, const mem_alnreg_v *
 	for (d = 0; d < 4; ++d)
 		if (pes[d].failed == 0 && isize[d].n < max * MIN_DIR_RATIO) {
 			pes[d].failed = 1;
-			fprintf(stderr, "[M::%s] skip orientation %c%c\n", __func__, "FR"[d>>1&1], "FR"[d&1]);
+			fprintf(stderr, "[PE::%s] skip orientation %c%c\n", __func__, "FR"[d>>1&1], "FR"[d&1]);
 		}
 }
 
@@ -338,16 +336,12 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 				if (a[i].a[j].score >= a[i].a[0].score  - opt->pen_unpaired)
 					kv_push(mem_alnreg_t, b[i], a[i].a[j]);
 
-		// static int ncnt = 0;
 		uint64_t tim = __rdtsc();
 		for (i = 0; i < 2; ++i)
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
-				//if (strcmp(s[!i].name, "HK35MCCXX160204:1:1102:5761:21104") == 0) {
-				//	ncnt=-1;
-				//}					
 				int val = mem_matesw(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
 				n += val;
-				ncnt++;
+				// ncnt++;
 			}
 		
 		// tprof[SAM1][tid] += __rdtsc() - tim;
@@ -490,29 +484,17 @@ no_pairing:
 int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
-						 mem_cache *mmc, int64_t offset1, int64_t offset2,
-						 int64_t offset3, int64_t &pcnt, int32_t &gcnt,
+						 mem_cache *mmc, int64_t &pcnt, int32_t &gcnt,
 						 int32_t &maxRefLen, int32_t &maxQerLen,
 						 int tid)
 {
-#if 0
-	uint8_t *seqBufRef = mmc->seqBufLeftRef + offset2;
-	uint8_t *seqBufQer = mmc->seqBufLeftQer + offset3;
-#else
 	uint8_t *seqBufRef = mmc->seqBufLeftRef[tid];
 	uint8_t *seqBufQer = mmc->seqBufLeftQer[tid];
 	// int64_t *wsize_buf = &(mmc->wsize_buf[tid]);
-#endif
-	
-#if 0
-	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
-	// int32_t *gar = (int32_t*) (mmc->seqPairArrayRight128 + offset1);
-	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux + offset1);
-#else
+
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
 	int32_t *gar = (int32_t*) (mmc->seqPairArrayAux[tid]);
 	// int64_t *wsize = &(mmc->wsize[tid]);
-#endif
 	
 	int i, j, n_aa[2];
 	kstring_t str;
@@ -536,19 +518,11 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 		// NEW, batching
 		for (i = 0; i < 2; ++i) {
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
-#if 0
-				int64_t val = mem_matesw_batch_pre(opt, bns, pac, pes, &b[i].a[j],
-												   s[!i].l_seq, (uint8_t*)s[!i].seq,
-												   &a[!i], seqPairArray, seqBufRef,
-												   seqBufQer, pcnt, gcnt, gar, wsize,
-												   wsize_buf, maxRefLen, maxQerLen);
-#else
 				int64_t val = mem_matesw_batch_pre(opt, bns, pac, pes, &b[i].a[j],
 												   s[!i].l_seq, (uint8_t*)s[!i].seq,
 												   &a[!i], mmc, pcnt, gcnt,
 												   maxRefLen, maxQerLen, tid);
 
-#endif
 				pcnt = val;
 				gcnt += 4;
 			}
@@ -567,37 +541,26 @@ static inline void revseq(int l, uint8_t *s)
 }
 
 // This function is equivalent to align2() for axv512 i.e #else part
-int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int64_t offset2,
-					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln,
+int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc,
+					 int64_t &pcnt, int64_t &pcnt8, kswr_t *aln,
 					 int32_t maxRefLen, int32_t maxQerLen, int tid)
 {
-#if 0
-	uint8_t *seqBufRef = mmc->seqBufLeftRef + offset2;
-	uint8_t *seqBufQer = mmc->seqBufLeftQer + offset3;
-#else
 	uint8_t *seqBufRef = mmc->seqBufLeftRef[tid];
 	uint8_t *seqBufQer = mmc->seqBufLeftQer[tid];	
-#endif
-	
-#if 0
-	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
-#else
+
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
 	// int64_t *wsize = &(mmc->wsize[tid]);
-#endif
-	//int32_t *index = (int32_t*) (mmc->seqPairArrayLeft128 + offset1);
-	//int32_t *index = (int32_t*) (mmc->seqPairArrayAux + offset1);
 
-#if 0    // orig function, for debuggin
+#if DEB    // orig function, for debugging
 	uint64_t tim = __rdtsc();	
-	ncnt = 0;
+	// ncnt = 0;
 	SeqPair sp;
 	for (int i=0; i<pcnt; i++) {
 		sp = seqPairArray[i];
 		int xtra = sp.h0;
 		uint8_t *qs = seqBufQer + sp.idq;
 		uint8_t *rs = seqBufRef + sp.idr;
-		ncnt ++;
+		// ncnt ++;
 		aln[i] = ksw_align2(sp.len2, qs, sp.len1, rs, 5,
 							opt->mat, opt->o_del, opt->e_del,
 							opt->o_ins, opt->e_ins, xtra, 0);		
@@ -680,17 +643,16 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int6
 int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
 						  uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
-						  kswr_t **myaln, mem_cache *mmc, int offset1,
-						  int offset2, int offset3,
+						  kswr_t **myaln, mem_cache *mmc, 
 						  int32_t &gcnt, int tid)
 {
 	extern int mem_mark_primary_se(const mem_opt_t *opt, int n, mem_alnreg_t *a, int64_t id);
 	extern int mem_approx_mapq_se(const mem_opt_t *opt, const mem_alnreg_t *a);
-	extern void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m);
-	extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_alnreg_v *a, int l_query, const char *query);
+	extern void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
+							bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m);
+	extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
+							  const mem_alnreg_v *a, int l_query, const char *query);
 
-	// int32_t *gar = (int32_t*) (mmc->seqPairArrayRight128 + offset1);
-	// int32_t *gar = (int32_t*) (mmc->seqPairArrayAux + offset1);
 	int32_t *gar = (int32_t*) mmc->seqPairArrayAux[tid];
 	
 	int n = 0, i, j, z[2], o, subo, n_sub, extra_flag = 1, n_pri[2], n_aa[2];
@@ -723,26 +685,21 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
 				int val = mem_matesw_batch_post(opt, bns, pac, pes, &b[i].a[j],
 												s[!i].l_seq, (uint8_t*)s[!i].seq,
-												&a[!i], myaln, gcnt, gar, mmc,
-												offset1, offset2, offset3);
+												&a[!i], myaln, gcnt, gar, mmc);
 				n += val;
-				ncnt++;
+				// ncnt++;
 				gcnt += 4;
 			}
 		}
 
-		// tprof[SAM3][tid] += __rdtsc() - tim;
 		free(b[0].a); free(b[1].a);
 	}
-	//tprof[SAM1][tid] += __rdtsc() - tim;
 
-	//uint64_t tim1 = __rdtsc();
 	n_pri[0] = mem_mark_primary_se(opt, a[0].n, a[0].a, id<<1|0);
 	n_pri[1] = mem_mark_primary_se(opt, a[1].n, a[1].a, id<<1|1);  
 	if (opt->flag&MEM_F_NOPAIRING) goto no_pairing;
 
 	// pairing single-end hits
-	// printf("n_pro %d %d, z: %d %d, id: %d\n", n_pri[0], n_pri[1], z[0], z[1], id);
 	if (n_pri[0] && n_pri[1] && (o = mem_pair(opt, bns, pac, pes, s, a, id, &subo, &n_sub, z, n_pri)) > 0)
 	{
 		int is_multi[2], q_pe, score_un, q_se[2];
@@ -837,11 +794,9 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			free(XA[i]);
 		}
 	} else goto no_pairing;
-	// tprof[SAM2][tid] += __rdtsc() - tim1;
 	return n;
 
 no_pairing:
-	// tim = __rdtsc();
 	for (i = 0; i < 2; ++i) {
 		int which = -1;
 		if (a[i].n) {
@@ -863,8 +818,6 @@ no_pairing:
 	if (strcmp(s[0].name, s[1].name) != 0)
 		err_fatal(__func__, "paired reads have different names: \"%s\", \"%s\"\n",
 				  s[0].name, s[1].name);
-
-	// tprof[SAM3][tid] += __rdtsc() - tim1;
 	
 	free(h[0].cigar); free(h[1].cigar);
 	return n;
@@ -878,7 +831,8 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 int32_t &maxRefLen, int32_t &maxQerLen, int32_t tid)
 {
 	extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
-									const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
+									const uint8_t *pac, uint8_t *query, int n,
+									mem_alnreg_t *a);
 
 	uint8_t *seqBufRef = mmc->seqBufLeftRef[tid];
 	uint8_t *seqBufQer = mmc->seqBufLeftQer[tid];
@@ -944,10 +898,6 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 			//kswr_t aln;
 			//mem_alnreg_t b;
 			int xtra = KSW_XSUBO | KSW_XSTART | (l_ms * opt->a < 250? KSW_XBYTE : 0) | (opt->min_seed_len * opt->a);
-			//aln = ksw_align2(l_ms, seq, re - rb, ref, 5,
-			//				 opt->mat, opt->o_del, opt->e_del,
-			//				 opt->o_ins, opt->e_ins, xtra, 0);
-			// fprintf(fsam, "In score: %d, qb: %d\n", aln.score, aln.qb);
 			int qerOffset = 0, refOffset = 0;
 			if (pcnt != 0)
 			{
@@ -1034,8 +984,7 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
 						  const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
 						  mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
-						  int32_t *gar,
-						  mem_cache *mmc, int offset1, int offset2, int offset3)
+						  int32_t *gar, mem_cache *mmc)
 {
 	extern int mem_sort_dedup_patch_rev(const mem_opt_t *opt, const bntseq_t *bns,
 										const uint8_t *pac, uint8_t *query, int n,
@@ -1092,11 +1041,6 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			mem_alnreg_t b;
 			int tmp, xtra = KSW_XSUBO | KSW_XSTART | (l_ms * opt->a < 250? KSW_XBYTE : 0) | (opt->min_seed_len * opt->a);
 
-			// uint64_t tim = __rdtsc();
-			//aln = ksw_align2(l_ms, seq, re - rb, ref, 5,
-			//				 opt->mat, opt->o_del, opt->e_del,
-			//				 opt->o_ins, opt->e_ins, xtra, 0);
-
 			//aln = **myaln;
 			//(*myaln)++;
 			int index = gar[gcnt + r];			
@@ -1112,13 +1056,11 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 			else
 				aln = *(*myaln + index);
 
-			// tprof[SAM2][tid] += __rdtsc() - tim;
-
 			memset(&b, 0, sizeof(mem_alnreg_t));
 			if (aln.score >= opt->min_seed_len && aln.qb >= 0) { // something goes wrong if aln.qb < 0
 				b.rid = a->rid;
 				b.is_alt = a->is_alt;
-				b.qb = is_rev? l_ms - (aln.qe + 1) : aln.qb;                                                                                                                                                                              
+				b.qb = is_rev? l_ms - (aln.qe + 1) : aln.qb;
 				b.qe = is_rev? l_ms - aln.qb : aln.qe + 1; 
 				b.rb = is_rev? (l_pac<<1) - (rb + aln.te + 1) : rb + aln.tb;
 				b.re = is_rev? (l_pac<<1) - (rb + aln.tb) : rb + aln.te + 1;
@@ -1126,7 +1068,6 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 				b.csub = aln.score2;
 				b.secondary = -1;
 				b.seedcov = (b.re - b.rb < b.qe - b.qb? b.re - b.rb : b.qe - b.qb) >> 1;
-//				printf("*** %d, [%lld,%lld], %d:%d, (%lld,%lld), (%lld,%lld) == (%lld,%lld)\n", aln.score, rb, re, is_rev, is_larger, a->rb, a->re, ma->a[0].rb, ma->a[0].re, b.rb, b.re);
 
 				kv_push(mem_alnreg_t, *ma, b); // make room for a new element
 

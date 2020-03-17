@@ -31,10 +31,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "macro.h"
 #include <stdint.h>
 
-
 extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
-extern int nthreads;
-extern int myrank, num_ranks;
 
 int find_opt(uint64_t *a, int len, uint64_t *max, uint64_t *min, double *avg)
 {
@@ -54,7 +51,7 @@ int find_opt(uint64_t *a, int len, uint64_t *max, uint64_t *min, double *avg)
 	return 1;
 }
 
-int display_stats()
+int display_stats(int nthreads)
 {
 	uint64_t max, min;
 	double avg;
@@ -159,8 +156,11 @@ int display_stats()
 		agg2 += tprof[PE12][i];
 		agg3 += tprof[PE13][i];
 	}
-	fprintf(stderr, "\n\tTotal allocs: %d = %d out total requests: %d, Rate: %0.2f\n",
-			agg1, agg3, agg2, agg1*1.0/agg2);
+	if (agg1 != agg3) 
+		fprintf(stderr, "There is a discrepancy re-allocs, plz rectify!!\n");
+
+	fprintf(stderr, "\n\tTotal re-allocs: %d out of total requests: %d, Rate: %0.2f\n",
+			agg1, agg2, agg1*1.0/agg2);
 
 #if HIDE
 	fprintf(stderr, "\n BSW Perf.:\n");

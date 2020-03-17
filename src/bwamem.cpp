@@ -32,13 +32,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "FMI_search.h"
 
 //----------------
-extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
-extern int nthreads;
-extern int num_ranks, myrank;
-extern FMI_search *fmi;
-extern uint8_t *ref_string;       //defined in fastmap.cpp
-extern int readLen;
-extern int64_t nreads, memSize;
+extern uint64_t tprof[LIM_R][LIM_C];
 //----------------
 #include "kbtree.h"
 
@@ -85,12 +79,12 @@ static inline int cal_max_gap(const mem_opt_t *opt, int qlen)
 static smem_aux_t *smem_aux_init()
 {
 	smem_aux_t *a;
-	if ((a = (smem_aux_t *) calloc(BATCH_SIZE, sizeof(smem_aux_t))) == NULL) { fprintf(stderr, "ERROR: out of memory %s\n", __func__); exit(1); }
+	if ((a = (smem_aux_t *) calloc(BATCH_SIZE, sizeof(smem_aux_t))) == NULL) { fprintf(stderr, "ERROR: out of memory %s\n", __func__); exit(EXIT_FAILURE); }
 	for (int i=0; i<BATCH_SIZE; i++)
 	{
 		a[i].tmpv[0] = (bwtintv_v *) calloc(1, sizeof(bwtintv_v));
 		a[i].tmpv[1] = (bwtintv_v *) calloc(1, sizeof(bwtintv_v));
-		if (!a[i].tmpv[0] || !a[i].tmpv[1]) { fprintf(stderr, "ERROR: out of memory %s\n", __func__); exit(1); }
+		if (!a[i].tmpv[0] || !a[i].tmpv[1]) { fprintf(stderr, "ERROR: out of memory %s\n", __func__); exit(EXIT_FAILURE); }
 	}
 	return a;
 }
@@ -292,77 +286,6 @@ int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
 	return m;
 }
 
-int mem_sort_dedup_patch_rev(const mem_opt_t *opt, const bntseq_t *bns,
-							 const uint8_t *pac, uint8_t *query, int n,
-							 mem_alnreg_t *a)
-{
-	int m, i, j;
-	if (n <= 1) return n;
-	ks_introsort(mem_ars2, n, a); // sort by the END position, not START!
-	
-	for (i = 0; i < n; ++i) a[i].n_comp = 1;
-	for (i = 1; i < n; ++i)
-	{
-		mem_alnreg_t *p = &a[i];
-		if (p->rid != a[i-1].rid || p->rb >= a[i-1].re + opt->max_chain_gap)
-			continue; // then no need to go into the loop below
-		
-		for (j = i - 1; j >= 0 && p->rid == a[j].rid && p->rb < a[j].re + opt->max_chain_gap; --j) {
-			mem_alnreg_t *q = &a[j];
-			int64_t or_, oq, mr, mq;
-			int score, w;
-			if (q->qe == q->qb) continue; // a[j] has been excluded
-			or_ = q->re - p->rb; // overlap length on the reference
-			oq = q->qb < p->qb? q->qe - p->qb : p->qe - q->qb; // overlap length on the query
-			mr = q->re - q->rb < p->re - p->rb? q->re - q->rb : p->re - p->rb; // min ref len in alignment
-			mq = q->qe - q->qb < p->qe - p->qb? q->qe - q->qb : p->qe - p->qb; // min qry len in alignment
-			if (or_ > opt->mask_level_redun * mr && oq > opt->mask_level_redun * mq) { // one of the hits is redundant
-				if (p->score < q->score)
-				{
-					p->qe = p->qb;
-					break;
-				}
-				else q->qe = q->qb;
-			}
-			else if (q->rb < p->rb && (score = mem_patch_reg(opt, bns, pac, query, q, p, &w)) > 0) { // then merge q into p
-				p->n_comp += q->n_comp + 1;
-				p->seedcov = p->seedcov > q->seedcov? p->seedcov : q->seedcov;
-				p->sub = p->sub > q->sub? p->sub : q->sub;
-				p->csub = p->csub > q->csub? p->csub : q->csub;
-				p->qb = q->qb, p->rb = q->rb;
-				p->truesc = p->score = score;
-				p->w = w;
-				q->qb = q->qe;
-			}
-		}
-	}
-	for (i = 0, m = 0; i < n; ++i) // exclude identical hits
-		if (a[i].qe > a[i].qb) {
-			if (m != i) a[m++] = a[i];
-			else ++m;
-		}
-	n = m;
-	ks_introsort(mem_ars, n, a);
-	for (i = 1; i < n; ++i) { // mark identical hits
-		if (a[i].score == a[i-1].score && a[i].rb == a[i-1].rb && a[i].qb == a[i-1].qb) {
-			if (a[i].flg  != a[i-1].flg)
-			{
-				if (a[i].flg == 1)
-					a[i].qe = a[i].qb;
-				else
-					a[i-1].qe = a[i-1].qb;
-			}
-			else
-				a[i].qe = a[i].qb;
-		}
-	}
-	for (i = 1, m = 1; i < n; ++i) // exclude identical hits
-		if (a[i].qe > a[i].qb) {
-			if (m != i) a[m++] = a[i];
-			else ++m;
-		}
-	return m;
-}
 
 // return 1 if the seed is merged into the chain
 static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
@@ -634,7 +557,7 @@ int mem_chain_flt(const mem_opt_t *opt, int n_chn_, mem_chain_t *a_, int tid)
 	return n_numc;
 }
 
-SMEM *mem_collect_smem(const mem_opt_t *opt,
+SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
 					   const bseq1_t *seq_,
 					   int nseq,
 					   SMEM *matchArray,
@@ -741,7 +664,7 @@ SMEM *mem_collect_smem(const mem_opt_t *opt,
 }
 
 /** NEW ONE **/
-void mem_chain_seeds(const mem_opt_t *opt,
+void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
 					 const bntseq_t *bns,
 					 const bseq1_t *seq_,
 					 int nseq,
@@ -846,16 +769,6 @@ void mem_chain_seeds(const mem_opt_t *opt,
 					tmp.n = 1; tmp.m = SEEDS_PER_CHAIN;
                     if((seedBufCount + tmp.m) > seedBufSize)
                     {
-                        // fprintf(stderr, "ERROR! seedBuf count exceeds size. count = %ld, "
-						// 	   "tmp.m = %d, size = %ld\n",
-						// 	   seedBufCount, tmp.m, seedBufSize);
-						// fprintf(stderr, "Reserved memory allocated for storing seeds has "
-						// 		"falling short!!!\n");
-						// fprintf(stderr, "Please increase the value of macros: "
-						// 	   "AVG_SEEDS_PER_READ & AVG_AUX_SEEDS_PER_READ, "
-						// 	   "in src/macro.h, re-compile and re-run.\n");
-                        // exit(0);
-						// tmp.m <<= 1;
 						tmp.m += 1;
 						// fprintf(stderr, "[%0.4d] Callocing new seed..\n", tid);
 						tmp.seeds = (mem_seed_t *)calloc (tmp.m, sizeof(mem_seed_t));
@@ -898,9 +811,8 @@ void mem_chain_seeds(const mem_opt_t *opt,
 	_mm_free(sa_coord);
 }
 
-int mem_kernel1_core(const mem_opt_t *opt,
-					 const bntseq_t *bns,
-					 const uint8_t *pac,
+int mem_kernel1_core(FMI_search *fmi,
+					 const mem_opt_t *opt,
 					 bseq1_t *seq_,
 					 int nseq,
 					 mem_chain_v *chain_ar,
@@ -914,13 +826,13 @@ int mem_kernel1_core(const mem_opt_t *opt,
 	int16_t *query_pos_ar = mmc->query_pos_ar[tid];
 	uint8_t *enc_qdb = mmc->enc_qdb[tid];
 	int32_t *rid = mmc->rid[tid];
+	int64_t wsize_mem = mmc->wsize_mem[tid];
 	
 	int i;
 	int64_t num_smem = 0;
  	mem_chain_v *chn;
 	
 	uint64_t tim;
-	// tim = __rdtsc();
 	/* convert to 2-bit encoding if we have not done so */
 	for (int l=0; l<nseq; l++)
 	{
@@ -931,12 +843,12 @@ int mem_kernel1_core(const mem_opt_t *opt,
 		for (i = 0; i < len; ++i)
 			seq[i] = seq[i] < 4? seq[i] : nst_nt4_table[(int)seq[i]]; //nst_nt4??		
 	}
-	// tprof[MEM_ALN_M2][tid] += __rdtsc() - tim;
+
 	tim = __rdtsc();	
 	/********************** Kernel 1: FM+SMEMs *************************/
 	printf_(VER, "6. Calling mem_collect_smem.., tid: %d\n", tid);
 	//SMEM *matchArray = mem_collect_smem(opt, seq_, nseq, num_smem);
-	mem_collect_smem(opt,
+	mem_collect_smem(fmi, opt,
 					 seq_,
 					 nseq,
 					 matchArray,
@@ -946,9 +858,9 @@ int mem_kernel1_core(const mem_opt_t *opt,
 					 rid,
 					 num_smem);
 
-	if (num_smem >= BATCH_MUL * BATCH_SIZE * readLen){
+	if (num_smem >= wsize_mem){
 		fprintf(stderr, "num_smem: %ld\n", num_smem);
-		assert(num_smem < BATCH_MUL * BATCH_SIZE * readLen);
+		assert(num_smem < wsize_mem);
 	}
 	printf_(VER, "6. Done! mem_collect_smem, num_smem: %ld\n", num_smem);
 	tprof[MEM_COLLECT][tid] += __rdtsc() - tim;	
@@ -957,7 +869,7 @@ int mem_kernel1_core(const mem_opt_t *opt,
 	/********************* Kernel 1.1: SA2REF **********************/
 	printf_(VER, "6.1. Calling mem_chain..\n");
 	//mem_chain_seeds(opt, bwt, bns, seq_, neseq, aux, tid, chain_ar);
-	mem_chain_seeds(opt, fmi->idx->bns,
+	mem_chain_seeds(fmi, opt, fmi->idx->bns,
 					seq_, nseq, tid,
 					chain_ar,
                     seedBuf,
@@ -993,17 +905,14 @@ int mem_kernel1_core(const mem_opt_t *opt,
 	return 1;
 }
 
-int mem_kernel2_core(const mem_opt_t *opt,
-					 const bntseq_t *bns,
-					 const uint8_t *pac,
+int mem_kernel2_core(FMI_search *fmi,
+					 const mem_opt_t *opt,
 					 bseq1_t *seq_,
 					 mem_alnreg_v *regs,
 					 int nseq,
 					 mem_chain_v *chain_ar,
 					 mem_cache *mmc,
-					 int64_t offset1,
-					 int64_t offset2,
-					 int64_t offset3,
+					 uint8_t *ref_string, 
 					 int tid)
 {
 	int i;
@@ -1022,9 +931,7 @@ int mem_kernel2_core(const mem_opt_t *opt,
 								  chain_ar,
 								  regs,
 								  mmc,
-								  offset1,
-								  offset2,
-								  offset3,
+								  ref_string,
 								  tid);
 
 	printf_(VER, "9. Done mem_chain2aln...\n\n");
@@ -1033,9 +940,11 @@ int mem_kernel2_core(const mem_opt_t *opt,
 	// tim = __rdtsc();
 	for (int l=0; l<nseq; l++) {
 		mem_chain_v *chain = &chain_ar[l];
-		for (int i = 0; i < chain->n; ++i) {
+		for (int i = 0; i < chain->n; ++i)
+		{
 			mem_chain_t chn = chain->a[i];
-			if (chn.m > SEEDS_PER_CHAIN) {
+			if (chn.m > SEEDS_PER_CHAIN)
+			{
 				tprof[PE11][tid] ++;
 				free(chn.seeds);
 			}
@@ -1082,18 +991,15 @@ static void worker_aln(void *data, int seq_id, int batch_size, int tid)
 {
 	worker_t *w = (worker_t*) data;
 	
-	printf_(VER, "11. Calling mem_kernel2_core..\n");
-	int64_t sizeA = (w->size) *tid;
-	int64_t sizeB = (w->size * MAX_SEQ_LEN_REF + MAX_LINE_LEN) * tid;
-	int64_t sizeC = (w->size * MAX_SEQ_LEN_QER + MAX_LINE_LEN) * tid;
-	
-	mem_kernel2_core(w->opt, w->bns, w->pac,
-							   w->seqs + seq_id,
-							   w->regs + seq_id,
-							   batch_size,
-							   w->chain_ar + seq_id,
-							   &w->mmc, sizeA, sizeB, 
-							   sizeC, tid);
+	printf_(VER, "11. Calling mem_kernel2_core..\n");	
+	mem_kernel2_core(w->fmi, w->opt, 
+					 w->seqs + seq_id,
+					 w->regs + seq_id,
+					 batch_size,
+					 w->chain_ar + seq_id,
+					 &w->mmc,
+					 w->ref_string,
+					 tid);
 	printf_(VER, "11. Done mem_kernel2_core....\n");
 
 }
@@ -1103,15 +1009,15 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
 {
 	worker_t *w = (worker_t*) data;
 	printf_(VER, "4. Calling mem_kernel1_core..%d %d\n", seq_id, tid);
-	// uint64_t offset = BATCH_SIZE * readLen * tid * BATCH_MUL;
 	int seedBufSz = w->seedBufSize;
 
+	int memSize = w->nreads; 
 	if (batch_size < BATCH_SIZE) {
-		seedBufSz = memSize - seq_id;
+		seedBufSz = (memSize - seq_id) * AVG_SEEDS_PER_READ;
 		// fprintf(stderr, "[%0.4d] Info: adjusted seedBufSz %d\n", tid, seedBufSz);
 	}
 
-	mem_kernel1_core(w->opt, w->bns, w->pac,
+	mem_kernel1_core(w->fmi, w->opt,
 					 w->seqs + seq_id,
 					 batch_size,
 					 w->chain_ar + seq_id,
@@ -1122,17 +1028,12 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
 	printf_(VER, "4. Done mem_kernel1_core....\n");
 }
 
-int64_t sort_classify(mem_cache *mmc, int offset1, int64_t pcnt, int tid)
+int64_t sort_classify(mem_cache *mmc, int64_t pcnt, int tid)
 {
 
-#if 0
-	SeqPair *seqPairArray = mmc->seqPairArrayLeft128 + offset1;
-	// SeqPair *seqPairArrayAux = mmc->seqPairArrayAux + offset1;
-#else
 	SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
 	// SeqPair *seqPairArrayAux = mmc->seqPairArrayAux[tid];
 	SeqPair *seqPairArrayAux = mmc->seqPairArrayRight128[tid];
-#endif
 
 	int64_t pos8 = 0, pos16 = 0;
 	for (int i=0; i<pcnt; i++) {
@@ -1158,9 +1059,6 @@ int64_t sort_classify(mem_cache *mmc, int offset1, int64_t pcnt, int tid)
 static void worker_sam(void *data, int seqid, int batch_size, int tid)
 {
 	worker_t *w = (worker_t*) data;
-	int64_t sizeA = (w->size) *tid;
-	int64_t sizeB = (w->size * MAX_SEQ_LEN_REF + MAX_LINE_LEN) * tid;
-	int64_t sizeC = (w->size * MAX_SEQ_LEN_QER + MAX_LINE_LEN) * tid;
 	
 	if (w->opt->flag & MEM_F_PE)
 	{
@@ -1173,8 +1071,8 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 		for (int i=start; i< end; i+=2)
 		{
 			// orig mem_sam_pe() function
-			mem_sam_pe(w->opt, w->bns,
-					   w->pac, w->pes,
+			mem_sam_pe(w->opt, w->fmi->idx->bns,
+					   w->fmi->idx->pac, w->pes,
 					   (w->n_processed >> 1) + pos++,   // check!
 					   &w->seqs[i],
 					   &w->regs[i]);
@@ -1189,12 +1087,12 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 		int32_t gcnt = 0;
 		for (int i=start; i< end; i+=2)
 		{
-			mem_sam_pe_batch_pre(w->opt, w->bns,
-								 w->pac, w->pes,
+			mem_sam_pe_batch_pre(w->opt, w->fmi->idx->bns,
+								 w->fmi->idx->pac, w->pes,
 								 (w->n_processed >> 1) + pos++,   // check!
 								 &w->seqs[i],
 								 &w->regs[i],
-								 &w->mmc, sizeA, sizeB, sizeC,
+								 &w->mmc, 
 								 pcnt, gcnt,
 								 maxRefLen,
 								 maxQerLen,
@@ -1202,15 +1100,13 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 		}
 		
 		// tprof[SAM1][tid] += __rdtsc() - tim;
-		int64_t pcnt8 = sort_classify(&w->mmc, sizeA, pcnt, tid);
+		int64_t pcnt8 = sort_classify(&w->mmc, pcnt, tid);
 
 		kswr_t *aln = (kswr_t *) _mm_malloc ((pcnt + SIMD_WIDTH8) * sizeof(kswr_t), 64);
 		assert(aln != NULL);
 
 		// processing
-		mem_sam_pe_batch(w->opt, &w->mmc, sizeA, sizeB, sizeC,
-						 pcnt, pcnt8, aln, maxRefLen, maxQerLen,
-						 tid);		
+		mem_sam_pe_batch(w->opt, &w->mmc, pcnt, pcnt8, aln, maxRefLen, maxQerLen, tid);		
 
 		// post-processing
 		// tim = __rdtsc();
@@ -1219,13 +1115,13 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 		kswr_t *myaln = aln;
 		for (int i=start; i< end; i+=2)
 		{
-			mem_sam_pe_batch_post(w->opt, w->bns,
-								  w->pac, w->pes,
+			mem_sam_pe_batch_post(w->opt, w->fmi->idx->bns,
+								  w->fmi->idx->pac, w->pes,
 								  (w->n_processed >> 1) + pos++,   // check!
 								  &w->seqs[i],
 								  &w->regs[i],
 								  &myaln,
-								  &w->mmc, sizeA, sizeB, sizeC,
+								  &w->mmc,
 								  gcnt,
 								  tid);
 
@@ -1244,7 +1140,7 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 								w->regs[i].a,
 								w->n_processed + i);
 			
-			mem_reg2sam(w->opt, w->bns, w->pac, &w->seqs[i],
+			mem_reg2sam(w->opt, w->fmi->idx->bns, w->fmi->idx->pac, &w->seqs[i],
 						&w->regs[i], 0, 0);
 			free(w->regs[i].a);
 		}
@@ -1252,8 +1148,6 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
 }
 
 void mem_process_seqs(mem_opt_t *opt,
-					  const bntseq_t *bns,
-					  const uint8_t *pac,
 					  int64_t n_processed,
 					  int n,
 					  bseq1_t *seqs,
@@ -1267,8 +1161,8 @@ void mem_process_seqs(mem_opt_t *opt,
 	ctime = cputime(); rtime = realtime();
 	// global_bns = bns;
 	w.opt = opt;
-	//w.bwt = bwt;
-	w.bns = bns; w.pac = pac;
+	// w.bwt = bwt;
+	// w.bns = bns; w.pac = pac;
 	w.seqs = seqs; w.n_processed = n_processed;
 	w.pes = &pes[0];
 
@@ -1276,11 +1170,11 @@ void mem_process_seqs(mem_opt_t *opt,
 	int n_ = n;
 	
 	uint64_t tim = __rdtsc();	
-	fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_bwt\n", myrank);
+	fprintf(stderr, "[LOG:] 1. Calling kt_for - worker_bwt\n");
 	
 	kt_for(worker_bwt, &w, n_); // SMEMs (+SAL)
 
-	fprintf(stderr, "[%0.4d] 3. Calling kt_for - worker_aln\n", myrank);
+	fprintf(stderr, "[LOG:] 2. Calling kt_for - worker_aln\n");
 	
 	kt_for(worker_aln, &w, n_); // BSW
 	tprof[WORKER10][0] += __rdtsc() - tim;		
@@ -1292,21 +1186,22 @@ void mem_process_seqs(mem_opt_t *opt,
 			memcpy(pes, pes0, 4 * sizeof(mem_pestat_t)); // if pes0 != NULL, set the insert-size
 		                                                 // distribution as pes0
 		else {
-			fprintf(stderr, "Inferring insert size distribution from data, l_pac: %ld, n: %d\n", bns->l_pac, n);
-			mem_pestat(opt, bns->l_pac, n, w.regs, pes); // otherwise, infer the insert size
+			fprintf(stderr, "[LOG:] Inferring insert size distribution of PE reads from data, "
+					"l_pac: %ld, n: %d\n", w.fmi->idx->bns->l_pac, n);
+			mem_pestat(opt, w.fmi->idx->bns->l_pac, n, w.regs, pes); // otherwise, infer the insert size
 		                                                 // distribution from data
 		}
 	}
 #endif
 	
 	tim = __rdtsc();
-	fprintf(stderr, "[%0.4d] 10. Calling kt_for - worker_sam\n", myrank);
+	fprintf(stderr, "[LOG:] 3. Calling kt_for - worker_sam\n");
 	
 	kt_for(worker_sam, &w,  n_);   // SAM	
   	tprof[WORKER20][0] += __rdtsc() - tim;
 
-	fprintf(stderr, "\t[%0.4d][ M::%s] Processed %d reads in %.3f "
-			"CPU sec, %.3f real sec\n", myrank,
+	fprintf(stderr, "\t[LOG:][ M::%s] Processed %d reads in %.3f "
+			"CPU sec, %.3f real sec\n",
 			__func__, n, cputime() - ctime, realtime() - rtime);
 
 }
@@ -1715,7 +1610,8 @@ static inline int get_rlen(int n_cigar, const uint32_t *cigar)
 // NOTE: shift these new version of functions from bntseq.cpp to bntseq.cpp,
 // once they are incorporated in the code.
 
-uint8_t *bns_get_seq_v2(int64_t l_pac, const uint8_t *pac, int64_t beg, int64_t end, int64_t *len, uint8_t *seqb)
+uint8_t *bns_get_seq_v2(int64_t l_pac, const uint8_t *pac, int64_t beg, int64_t end,
+						int64_t *len,  uint8_t *ref_string, uint8_t *seqb)
 {
 	uint8_t *seq = 0;
 	if (end < beg) end ^= beg, beg ^= end, end ^= beg; // if end is smaller, swap
@@ -1756,7 +1652,7 @@ uint8_t *bns_get_seq_v2(int64_t l_pac, const uint8_t *pac, int64_t beg, int64_t 
 
 uint8_t *bns_fetch_seq_v2(const bntseq_t *bns, const uint8_t *pac,
 						  int64_t *beg, int64_t mid, int64_t *end, int *rid,
-						  uint8_t *seqb)
+						  uint8_t *ref_string, uint8_t *seqb)
 {
 	int64_t far_beg, far_end, len;
 	int is_rev;
@@ -1778,7 +1674,7 @@ uint8_t *bns_fetch_seq_v2(const bntseq_t *bns, const uint8_t *pac,
 	*beg = *beg > far_beg? *beg : far_beg;
 	*end = *end < far_end? *end : far_end;
 
-	seq = bns_get_seq_v2(bns->l_pac, pac, *beg, *end, &len, seqb);
+	seq = bns_get_seq_v2(bns->l_pac, pac, *beg, *end, &len, ref_string, seqb);
 	
 	if (seq == 0 || *end - *beg != len) {
 		fprintf(stderr, "[E::%s] begin=%ld, mid=%ld, end=%ld, len=%ld, seq=%p, rid=%d, far_beg=%ld, far_end=%ld\n",
@@ -1812,9 +1708,6 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 		SeqPair sp = pairArray[i];
 		int val = max_(sp.len1, sp.len2);
 		int minval = sp.h0 + min_(sp.len1, sp.len2);
-		//int maxval = sp.len1;
-		//if (maxval < sp.len2) maxval = sp.len2;
-		//int minval = sp.h0 + maxval;
 		
 		if (val < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8)
 			hist[minval]++;
@@ -1847,9 +1740,6 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 		SeqPair sp = pairArray[i];
 		int val = max_(sp.len1, sp.len2);
 		int minval = sp.h0 + min_(sp.len1, sp.len2);
-		//int maxval = sp.len1;
-		//if (maxval < sp.len2) maxval = sp.len2;
-		//int minval = sp.h0 + maxval;
 		
 		if (val < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8)
 		{
@@ -1859,8 +1749,9 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 			numPairs128 ++;
 			if (arr[pos] != 0)
 			{
-				fprintf(stderr, "Error 1: repreat, pos: %d, arr: %d, minval: %d, (%d %d)\n",
-					   pos, arr[pos], minval, sp.len1, sp.len2);
+				fprintf(stderr, "[%s] Error log: repeat, pos: %d, arr: %d, minval: %d, (%d %d)\n",
+						__func__, pos, arr[pos], minval, sp.len1, sp.len2);
+				exit(EXIT_FAILURE);				
 			}
 			arr[pos] = 1;
 		}
@@ -1872,10 +1763,11 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 			if (arr[pos] != 0)
 			{
 				SeqPair spt = pairArray[arr[pos]-1];
-				fprintf(stderr, "Error XX: repeat, "
-					   "i: %d, pos: %d, arr: %d, hist2: %d, minval: %d, (%d %d %d) (%d %d %d)\n",
-					   i, pos, arr[pos], hist2[minval],  minval, sp.h0, sp.len1, sp.len2,
-					   spt.h0, spt.len1, spt.len2);
+				fprintf(stderr, "[%s] Error log: repeat, "
+						"i: %d, pos: %d, arr: %d, hist2: %d, minval: %d, (%d %d %d) (%d %d %d)\n",
+						__func__, i, pos, arr[pos], hist2[minval],  minval, sp.h0, sp.len1, sp.len2,
+						spt.h0, spt.len1, spt.len2);
+				exit(EXIT_FAILURE);				
 			}			
 			arr[pos] = i + 1;
 		}
@@ -1893,18 +1785,6 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
 	}
 
 	free(arr);
-
-#if 1  // DEB
-	for(i = 0; i < numPairs128; i++) {
-		if (pairArray[i].len1 >= 128 || pairArray[i].len2 >= 128 || pairArray[i].h0 >= 128)
-			fprintf(stderr, "Error: Not matching..1 %d %d %d\n",
-					pairArray[i].len1, pairArray[i].len2, pairArray[i].h0);
-	}
-	for(i = numPairs128; i < numPairs16; i++) {
-		if (pairArray[i].len1 >= MAX_SEQ_LEN16 || pairArray[i].len2 >= MAX_SEQ_LEN16 || pairArray[i].h0 >= MAX_SEQ_LEN16)
-			fprintf(stderr, "Error: Not matching..2\n");
-	}
-#endif
 }
 
 inline void sortPairsLen(SeqPair *pairArray, int32_t count, SeqPair *tempArray, int32_t *hist)
@@ -1955,34 +1835,19 @@ inline void sortPairsLen(SeqPair *pairArray, int32_t count, SeqPair *tempArray, 
 void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 								   const uint8_t *pac, bseq1_t *seq_, int nseq,
 								   mem_chain_v* chain_ar, mem_alnreg_v *av_v,
-								   mem_cache *mmc, int64_t offset1, int64_t offset2,
-								   int64_t offset3, int tid)
+								   mem_cache *mmc, uint8_t *ref_string, int tid)
 {
-#if 0
-	SeqPair *seqPairArrayAux	  = mmc->seqPairArrayAux + offset1;
-	SeqPair *seqPairArrayLeft128  = mmc->seqPairArrayLeft128 + offset1;
-	SeqPair *seqPairArrayRight128 = mmc->seqPairArrayRight128 + offset1;
-#else
 	SeqPair *seqPairArrayAux	  = mmc->seqPairArrayAux[tid];
 	SeqPair *seqPairArrayLeft128  = mmc->seqPairArrayLeft128[tid];
 	SeqPair *seqPairArrayRight128 = mmc->seqPairArrayRight128[tid];
 	int64_t *wsize_pair = &(mmc->wsize[tid]);
-	// fprintf(stderr, "wsize: %d\n", *wsize);
-#endif
 
-#if 0
-	uint8_t *seqBufLeftRef	= mmc->seqBufLeftRef + offset2;
-	uint8_t *seqBufRightRef = mmc->seqBufRightRef + offset2;
-	uint8_t *seqBufLeftQer	= mmc->seqBufLeftQer + offset3;
-	uint8_t *seqBufRightQer = mmc->seqBufRightQer + offset3;
-#else
 	uint8_t *seqBufLeftRef	= mmc->seqBufLeftRef[tid]; 
 	uint8_t *seqBufRightRef = mmc->seqBufRightRef[tid];
 	uint8_t *seqBufLeftQer	= mmc->seqBufLeftQer[tid]; 
 	uint8_t *seqBufRightQer = mmc->seqBufRightQer[tid];
 	int64_t *wsize_buf_ref = &(mmc->wsize_buf_ref[tid]);
 	int64_t *wsize_buf_qer = &(mmc->wsize_buf_qer[tid]);
-#endif
 	
  	// int32_t *lim_g = mmc->lim + (BATCH_SIZE + 32) * tid;
 	int32_t *lim_g = mmc->lim[tid];
@@ -2072,7 +1937,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 				// free rseq
 				rseq = bns_fetch_seq_v2(bns, pac, &rmax[0],
 										c->seeds[0].rbeg,
-										&rmax[1], &rid,
+										&rmax[1], &rid, ref_string,
 										(uint8_t*) seqPairArrayAux);
 				assert(c->rid == rid);
 			}
@@ -2137,7 +2002,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 						
 					// assert(numPairsLeft < BATCH_SIZE * SEEDS_PER_READ);
 					if (numPairsLeft >= *wsize_pair) {
-						fprintf(stderr, "[LOG][%0.4d] Re-allocating seqPairArrays, in Left\n", tid);
+						fprintf(stderr, "[LOG:][%0.4d] Re-allocating seqPairArrays, in Left\n", tid);
 						*wsize_pair += 1000;
 						seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
 															  (*wsize_pair + MAX_LINE_LEN)
@@ -2233,7 +2098,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
 					// assert(numPairsRight < BATCH_SIZE * SEEDS_PER_READ);
 					if (numPairsRight >= *wsize_pair) {
-						fprintf(stderr, "[LOG] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
+						fprintf(stderr, "[LOG:] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
 						*wsize_pair += 1000;
 						seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
 															  (*wsize_pair + MAX_LINE_LEN)

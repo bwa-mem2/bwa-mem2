@@ -32,6 +32,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 indexEle::indexEle()
 {
 	idx = (bwaidx_fm_t*) calloc(1, sizeof(bwaidx_fm_t));
+	assert(idx != NULL);
 }
 
 indexEle::~indexEle()
@@ -51,29 +52,24 @@ indexEle::~indexEle()
 void indexEle::bwa_idx_load_ele(const char *hint, int which)
 {
 	char *prefix;
-	//prefix = bwa_idx_infer_prefix(hint);
-	//if (prefix == 0) {
-	//	printf("[E::%s] fail to locate the index files\n", __func__);
-	//	return;
-	//}
 	int l_hint = strlen(hint);
 	prefix = (char *) malloc(l_hint + 3 + 4 + 1);
 	strcpy(prefix, hint);
 
-	fprintf(stderr, "prefix: %s\n", prefix);
+	fprintf(stderr, "* Index prefix: %s\n", prefix);
 	
 	// idx = (bwaidx_fm_t*) calloc(1, sizeof(bwaidx_fm_t));
 	if (which & BWA_IDX_BNS) {
 		int i, c;
 		idx->bns = bns_restore(prefix);
-		//if (idx->bns == 0) {
-		//	printf("Error: read_index_ele:38, bns is NULL!!\n");
-		//	exit(0);
-		//}
+		if (idx->bns == 0) {
+			printf("Error!! : [%s] bns is NULL!!\n", __func__);
+			exit(EXIT_FAILURE);
+		}
 		for (i = c = 0; i < idx->bns->n_seqs; ++i)
 			if (idx->bns->anns[i].is_alt) ++c;
 		
-		fprintf(stderr, "[M::%s] read %d ALT contigs\n", __func__, c);
+		fprintf(stderr, "* Read %d ALT contigs\n", c);
 		
 		if (which & BWA_IDX_PAC)
 		{

@@ -38,11 +38,7 @@ Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@
 
 // ----------------------------------
 uint64_t proc_freq, tprof[LIM_R][LIM_C], prof[LIM_R];
-int nthreads;
-int num_ranks = 1, myrank = 0;
-int64_t reference_seq_len;
 // ----------------------------------
-
 
 int usage()
 {
@@ -110,10 +106,7 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "ERROR: unknown command '%s'\n", argv[1]);
 		return 1;
 	}
-	
-	/* Display runtime profiling stats */
-	display_stats();
-	
+		
 	fprintf(stderr, "\nImportant parameter settings: \n");
 	fprintf(stderr, "\tBATCH_SIZE: %d\n", BATCH_SIZE);
 	fprintf(stderr, "\tMAX_SEQ_LEN_REF: %d\n", MAX_SEQ_LEN_REF);

@@ -111,15 +111,16 @@ typedef struct abc {
 		rbeg = qbeg = len = score = aln = 0;
 	}
 	int64_t rbeg;
-	int32_t qbeg, len;
-	int score;
+	int32_t qbeg;
+	int32_t len;
+	int32_t score;
 	int8_t done;
 	int aln;
 } mem_seed_t; // unaligned memory
 
 typedef struct {
-	int seqid, cseed;
-	int n, m, first, rid;
+	int32_t seqid, cseed;
+	int32_t n, m, first, rid;
 	uint32_t w:29, kept:2, is_alt:1;
 	float frac_rep;
 	int64_t pos;
@@ -176,21 +177,8 @@ typedef struct {
 	bwtintv_v mem, mem1, *tmpv[2];
 } smem_aux_t;
 
-typedef struct {
-	//SeqPair *seqPairArrayLeft;
-	// SeqPair *seqPairArrayRight;
-	// SeqPair *seqPairArrayAux128;
-#if 0
-	SeqPair *seqPairArrayAux;
-	SeqPair *seqPairArrayLeft128;
-	SeqPair *seqPairArrayRight128;
-	uint8_t *seqBufLeftRef, *seqBufRightRef;
-	uint8_t *seqBufLeftQer, *seqBufRightQer;
-	SMEM *matchArray;
-	int32_t *min_intv_ar, *rid, *lim;
-	int16_t *query_pos_ar;
-	uint8_t *enc_qdb;	
-#else
+typedef struct
+{
 	SeqPair *seqPairArrayAux[MAX_THREADS];
 	SeqPair *seqPairArrayLeft128[MAX_THREADS];
 	SeqPair *seqPairArrayRight128[MAX_THREADS];
@@ -212,26 +200,28 @@ typedef struct {
 	uint8_t *enc_qdb[MAX_THREADS];
 	
 	int64_t wsize_mem[MAX_THREADS];
-#endif
 } mem_cache;
 
 // chain moved to .h
 typedef struct worker_t {
-	const mem_opt_t *opt;
-	const bntseq_t *bns;
-	const uint8_t *pac;
-	const mem_pestat_t *pes;
-	smem_aux_t **aux;
-	bseq1_t *seqs;
-	mem_alnreg_v *regs;
-	int64_t n_processed;
-	mem_chain_v *chain_ar;
-	mem_cache mmc;
-	int64_t size;
-    mem_seed_t *seedBuf;
-    int64_t seedBufSize;
-    mem_seed_t *auxSeedBuf;
-    int64_t auxSeedBufSize;
+	const mem_opt_t		 *opt;
+	//const bntseq_t		 *bns;
+	// const uint8_t		 *pac;
+	const mem_pestat_t	 *pes;
+	smem_aux_t		**aux;
+	bseq1_t			 *seqs;
+	mem_alnreg_v	 *regs;
+	int64_t			  n_processed;
+	mem_chain_v		 *chain_ar;
+	mem_cache		  mmc;
+    mem_seed_t		 *seedBuf;
+    int64_t			  seedBufSize;
+    mem_seed_t		 *auxSeedBuf;
+    int64_t			  auxSeedBufSize;
+	uint8_t			 *ref_string;
+	int16_t           nthreads;
+	int32_t           nreads;
+	FMI_search       *fmi;	
 } worker_t;
 
 
@@ -263,40 +253,23 @@ void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq
 static inline int get_rlen(int n_cigar, const uint32_t *cigar);
 static inline int infer_bw(int l1, int l2, int score, int a, int q, int r);
 
-int mem_kernel1_core(const mem_opt_t *opt,
-					 const bntseq_t *bns,
-					 const uint8_t *pac,
+int mem_kernel1_core(FMI_search *fmi, const mem_opt_t *opt,
 					 bseq1_t *seq_,
 					 int nseq,
 					 mem_chain_v *chain_ar,
 					 mem_cache *mmc,
 					 int tid);
 
-void mem_chain2aln_across_reads(const mem_opt_t *opt, const bntseq_t *bns,
-								const uint8_t *pac, bseq1_t *seq_, int nseq,
-								mem_chain_v* chain_ar, mem_alnreg_v *av_v,
-								mem_cache *mmc, int offset1, int offset2,
-								int tid);
-
 void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 								   const uint8_t *pac, bseq1_t *seq_, int nseq,
 								   mem_chain_v* chain_ar, mem_alnreg_v *av_v,
-								   mem_cache *mmc, int64_t offset1, int64_t offset2,
-								   int64_t offset3, int tid);
+								   mem_cache *mmc, uint8_t *ref_string, int tid);
 
 int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
 						 uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
-						 mem_cache *mmc, int64_t offset1, int64_t offset2,
-						 int64_t offset3, int64_t &pcnt, int32_t &gcnt,
+						 mem_cache *mmc,  int64_t &pcnt, int32_t &gcnt,
 						 int32_t&, int32_t&, int tid);
-
-int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
-						  const uint8_t *pac, const mem_pestat_t pes[4],
-						  uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
-						  kswr_t **myaln, mem_cache *mmc, int offset1, int, int,
-						  int32_t &gcnt, int tid);
-
 
 int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 const uint8_t *pac, const mem_pestat_t pes[4],
@@ -304,78 +277,79 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 						 mem_alnreg_v *ma, mem_cache *mmc, int pcnt, int32_t gcnt,
 						 int32_t &maxRefLen, int32_t &maxQerLen, int32_t tid);
 
-
-int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc, int64_t offset1, int64_t offset2,
-					 int64_t offset3, int64_t &pcnt, int64_t &pcnt8, kswr_t *aln,
+int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc,
+					 int64_t &pcnt, int64_t &pcnt8, kswr_t *aln,
 					 int32_t, int32_t, int tid);
+
+int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
+						  const uint8_t *pac, const mem_pestat_t pes[4],
+						  uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
+						  kswr_t **myaln, mem_cache *mmc,
+						  int32_t &gcnt, int tid);
 
 int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  const uint8_t *pac, const mem_pestat_t pes[4],
 						  const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
 						  mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
-						  int32_t *gar, mem_cache *mmc, int , int, int);
+						  int32_t *gar, mem_cache *mmc);
 
-int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
-			   const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2],
-			   mem_alnreg_v a[2]);
-
-	/**
-	 * Align a batch of sequences and generate the alignments in the SAM format
-	 *
-	 * This routine requires $seqs[i].{l_seq,seq,name} and write $seqs[i].sam.
-	 * Note that $seqs[i].sam may consist of several SAM lines if the
-	 * corresponding sequence has multiple primary hits.
-	 *
-	 * In the paired-end mode (i.e. MEM_F_PE is set in $opt->flag), query
-	 * sequences must be interleaved: $n must be an even number and the 2i-th
-	 * sequence and the (2i+1)-th sequence constitute a read pair. In this
-	 * mode, there should be enough (typically >50) unique pairs for the
-	 * routine to infer the orientation and insert size.
-	 *
-	 * @param opt    alignment parameters
-	 * @param bwt    FM-index of the reference sequence
-	 * @param bns    Information of the reference
-	 * @param pac    2-bit encoded reference
-	 * @param n      number of query sequences
-	 * @param seqs   query sequences; $seqs[i].seq/sam to be modified after the call
-	 * @param pes0   insert-size info; if NULL, infer from data; if not NULL, it should be an array with 4 elements,
-	 *               corresponding to each FF, FR, RF and RR orientation. See mem_pestat() for more info.
-	 */
-     void mem_process_seqs(mem_opt_t *opt, const bntseq_t *bns,
-						   const uint8_t *pac, int64_t n_processed,
-						   int n, bseq1_t *seqs, const mem_pestat_t *pes0,
-						   worker_t &w);
+/**
+ * Align a batch of sequences and generate the alignments in the SAM format
+ *
+ * This routine requires $seqs[i].{l_seq,seq,name} and write $seqs[i].sam.
+ * Note that $seqs[i].sam may consist of several SAM lines if the
+ * corresponding sequence has multiple primary hits.
+ *
+ * In the paired-end mode (i.e. MEM_F_PE is set in $opt->flag), query
+ * sequences must be interleaved: $n must be an even number and the 2i-th
+ * sequence and the (2i+1)-th sequence constitute a read pair. In this
+ * mode, there should be enough (typically >50) unique pairs for the
+ * routine to infer the orientation and insert size.
+ *
+ * @param opt    alignment parameters
+ * @param bwt    FM-index of the reference sequence
+ * @param bns    Information of the reference
+ * @param pac    2-bit encoded reference
+ * @param n      number of query sequences
+ * @param seqs   query sequences; $seqs[i].seq/sam to be modified after the call
+ * @param pes0   insert-size info; if NULL, infer from data; if not NULL, it should be an array with 4 elements,
+ *               corresponding to each FF, FR, RF and RR orientation. See mem_pestat() for more info.
+ */
+void mem_process_seqs(mem_opt_t *opt, int64_t n_processed,
+					  int n, bseq1_t *seqs, const mem_pestat_t *pes0,
+					  worker_t &w);
 
 
-	/**
-	 * Generate CIGAR and forward-strand position from alignment region
-	 *
-	 * @param opt    alignment parameters
-	 * @param bns    Information of the reference
-	 * @param pac    2-bit encoded reference
-	 * @param l_seq  length of query sequence
-	 * @param seq    query sequence
-	 * @param ar     one alignment region
-	 *
-	 * @return       CIGAR, strand, mapping quality and forward-strand position
-	 */
-	mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, int l_seq, const char *seq, const mem_alnreg_t *ar);
+/**
+ * Generate CIGAR and forward-strand position from alignment region
+ *
+ * @param opt    alignment parameters
+ * @param bns    Information of the reference
+ * @param pac    2-bit encoded reference
+ * @param l_seq  length of query sequence
+ * @param seq    query sequence
+ * @param ar     one alignment region
+ *
+ * @return       CIGAR, strand, mapping quality and forward-strand position
+ */
+mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
+					  int l_seq, const char *seq, const mem_alnreg_t *ar);
 
-	mem_aln_t mem_reg2aln2(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, int l_seq, const char *seq, const mem_alnreg_t *ar, const char *name);
 
-	/**
-	 * Infer the insert size distribution from interleaved alignment regions
-	 *
-	 * This function can be called after mem_align1(), as long as paired-end
-	 * reads are properly interleaved.
-	 *
-	 * @param opt    alignment parameters
-	 * @param l_pac  length of concatenated reference sequence
-	 * @param n      number of query sequences; must be an even number
-	 * @param regs   region array of size $n; 2i-th and (2i+1)-th elements constitute a pair
-	 * @param pes    inferred insert size distribution (output)
-	 */
-	void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n, const mem_alnreg_v *regs, mem_pestat_t pes[4]);
+/**
+ * Infer the insert size distribution from interleaved alignment regions
+ *
+ * This function can be called after mem_align1(), as long as paired-end
+ * reads are properly interleaved.
+ *
+ * @param opt    alignment parameters
+ * @param l_pac  length of concatenated reference sequence
+ * @param n      number of query sequences; must be an even number
+ * @param regs   region array of size $n; 2i-th and (2i+1)-th elements constitute a pair
+ * @param pes    inferred insert size distribution (output)
+ */
+void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n, const mem_alnreg_v *regs,
+				mem_pestat_t pes[4]);
 
 
 #endif
