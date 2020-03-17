@@ -40,7 +40,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 // ------------------------------------------------------------------------------------
 // MACROs for vector code
-extern uint64_t prof[10][112], data, SW_cells2;
+extern uint64_t prof[10][112];
 #define AMBIG 4
 #define DUMMY1 99
 #define DUMMY2 100
@@ -52,7 +52,6 @@ BandedPairWiseSW::BandedPairWiseSW(const int o_del, const int e_del, const int o
 								   const int end_bonus, const int8_t *mat_,
 								   int8_t w_match, int8_t w_mismatch, int numThreads)
 {
-	SW_cells = 0;
 	mat = mat_;
 	this->m = 5;
 	//this->end_bonus = 5;
@@ -197,7 +196,7 @@ int BandedPairWiseSW::scalarBandedSWA(int qlen, const uint8_t *query,
 			t = t > 0? t : 0;
 			f -= e_ins;
 			f = f > t? f : t;   // computed F(i,j+1)
-			SW_cells++;
+			// SW_cells++;
 		}
 		eh[end].h = h1; eh[end].e = 0;
 		if (j == qlen) {
@@ -269,16 +268,6 @@ void BandedPairWiseSW::scalarBandedSWAWrapper(SeqPair *seqPairArray,
 //------------------------------------------------------------------------------
 // MACROs
 // ------------------------ vec-8 ---------------------------------------------
-#define MAX_INSDEL8(qlen256, eb256, band256, band256_)					\
-	{																	\
-	__m256i max_ins256 = _mm256_add_epi8(qlen256, eb_ins256);			\
-	__m256i cmp256 = _mm256_cmpgt_epi8(max_ins256, zero256);			\
-	max_ins256 = _mm256_blendv_epi8(zero256, max_ins256, cmp256);		\
-	cmp256 = _mm256_cmpgt_epi8(max_ins256, band256_);					\
-	max_ins256 = _mm256_blendv_epi8(max_ins256, band256, cmp256);		\
-	_mm256_store_si256((__m256i *) qlen, max_ins256);					\
-	}
-
 #define ZSCORE8(i4_256, y4_256)											\
 	{																	\
 		__m256i tmpi = _mm256_sub_epi8(i4_256, x256);					\
@@ -321,16 +310,6 @@ void BandedPairWiseSW::scalarBandedSWAWrapper(SeqPair *seqPairArray,
 #define _mm256_blendv_epi16(a,b,c)				\
 		_mm256_blendv_epi8(a, b, c);			
 
-
-#define MAX_INSDEL16(qlen256, eb256, band256, band256_)					\
-	{																	\
-		__m256i max_ins256 = _mm256_add_epi16(qlen256, eb_ins256);		\
-		__m256i cmp256 = _mm256_cmpgt_epi16(max_ins256, zero256);			\
-		max_ins256 = _mm256_blendv_epi16(zero256, max_ins256, cmp256);	\
-		cmp256 = _mm256_cmpgt_epi16(max_ins256, band256_);				\
-		max_ins256 = _mm256_blendv_epi16(max_ins256, band256, cmp256);	\
-		_mm256_store_si256((__m256i *) qlen, max_ins256);				\
-    }
 
 #define ZSCORE16(i4_256, y4_256)											\
 	{																	\
@@ -457,11 +436,6 @@ void BandedPairWiseSW::getScores8(SeqPair *pairArray,
 	
 }
 
-/***
-	# Notes: Version 2.0 of the function. I've added some functionality to version 1.0 here.
-	# Use this function for practice.
- ***/
-
 void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 												  uint8_t *seqBufRef,
 												  uint8_t *seqBufQer,
@@ -477,10 +451,11 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
     uint8_t *seq2SoA = NULL;
 	seq2SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
 	
-	if (seq1SoA == NULL || seq2SoA == NULL)
-		printf("Mem not allocated!!!\n");
+	if (seq1SoA == NULL || seq2SoA == NULL) {
+		fprintf(stderr, "Error! Mem not allocated!!!\n");
+		exit(EXIT_FAILURE);
+	}
 	
-
     int32_t ii;
     int32_t roundNumPairs = ((numPairs + SIMD_WIDTH8 - 1)/SIMD_WIDTH8 ) * SIMD_WIDTH8;
 	// assert(roundNumPairs < BATCH_SIZE * SEEDS_PER_READ);
@@ -533,9 +508,11 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 		uint16_t tid = 0;
         uint8_t *mySeq1SoA = NULL;
 		mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN8 * SIMD_WIDTH8;
-        uint8_t *mySeq2SoA = NULL;
+
+		uint8_t *mySeq2SoA = NULL;
 		mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN8 * SIMD_WIDTH8;
-		assert(mySeq1SoA != NULL && mySeq2SoA != NULL);		
+		assert(mySeq1SoA != NULL && mySeq2SoA != NULL);
+		
         uint8_t *seq1;
         uint8_t *seq2;
 		uint8_t h0[SIMD_WIDTH8]   __attribute__((aligned(64)));
@@ -565,27 +542,21 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 //#pragma omp for schedule(dynamic, 128)
 		for(i = nstart; i < nend; i+=SIMD_WIDTH8)
 		{
-			// prof[4][0]++;
             int32_t j, k;
             uint8_t maxLen1 = 0;
             uint8_t maxLen2 = 0;
-            //uint8_t minLen1 = MAX_SEQ_LEN8 + 1;
-            //uint8_t minLen2 = MAX_SEQ_LEN8 + 1;
-			//bsize = 100;
 			bsize = w;
 			
 			uint64_t tim;
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
 				{ // prefetch block
-					SeqPair spf = pairArray[i + j + PFD];
+					// SeqPair spf = pairArray[i + j + PFD];
 					//_mm_prefetch((const char*) seqBufRef +  (int64_t)spf.id * MAX_SEQ_LEN_REF, _MM_HINT_NTA);
 					//_mm_prefetch((const char*) seqBufRef +  (int64_t)spf.id * MAX_SEQ_LEN_REF + 64, _MM_HINT_NTA);
 				}
                 SeqPair sp = pairArray[i + j];
 				h0[j] = sp.h0;
-                //seq1 = seqBuf + 2 * (int64_t)sp.id * MAX_SEQ_LEN;
-				// seq1 = seqBufRef + (int64_t)sp.id * MAX_SEQ_LEN_REF;
 				seq1 = seqBufRef + (int64_t)sp.idr;
 
                 for(k = 0; k < sp.len1; k++)
@@ -623,17 +594,15 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
 				{ // prefetch block
-					SeqPair spf = pairArray[i + j + PFD];
+					// SeqPair spf = pairArray[i + j + PFD];
 					//_mm_prefetch((const char*) seqBufQer + (int64_t)spf.id * MAX_SEQ_LEN_QER, _MM_HINT_NTA);
 					//_mm_prefetch((const char*) seqBufQer + (int64_t)spf.id * MAX_SEQ_LEN_QER + 64, _MM_HINT_NTA);
 				}
 				
                 SeqPair sp = pairArray[i + j];
-
-				// seq2 = seqBufQer + (int64_t)sp.id * MAX_SEQ_LEN_QER;
 				seq2 = seqBufQer + (int64_t)sp.idq;
 				
-				if (sp.len2 > MAX_SEQ_LEN8) printf("Error: %d %d\n", sp.id, sp.len2);
+				if (sp.len2 > MAX_SEQ_LEN8) fprintf(stderr, "Error !! : %d %d\n", sp.id, sp.len2);
 				assert(sp.len2 < MAX_SEQ_LEN8);
 				
                 for(k = 0; k < sp.len2; k++)
@@ -765,11 +734,7 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 										  uint8_t w,
 										  uint8_t qlen[],
 										  uint8_t myband[])
-{
-	
-	static int cntr = 0;
-	cntr++;
-	
+{	
 	__m256i match256	 = _mm256_set1_epi8(this->w_match);
     __m256i mismatch256	 = _mm256_set1_epi8(this->w_mismatch);
     __m256i gapOpen256	 = _mm256_set1_epi8(this->w_open);
@@ -795,7 +760,7 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 	uint8_t tail[SIMD_WIDTH8] __attribute((aligned(64)));
 	uint8_t head[SIMD_WIDTH8] __attribute((aligned(64)));
 	
-	int minq = 1000;
+	int32_t minq = 10000000;
 	for (int l=0; l<SIMD_WIDTH8; l++) {
 		tlen[l] = p[l].len1;
 		qlen[l] = p[l].len2;
@@ -1034,7 +999,8 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
         /* Narrowing of the band */
 		/* From beg */
 		int l;
- 		for (l = beg; l < end; l++) {
+ 		for (l = beg; l < end; l++)
+		{
 			__m256i f256 = _mm256_load_si256((__m256i *)(F + l * SIMD_WIDTH8));
 			__m256i h256 = _mm256_load_si256((__m256i *)(H_h + l * SIMD_WIDTH8));
 			__m256i tmp = _mm256_or_si256(f256, h256);
@@ -1047,7 +1013,8 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 		
 		/* From end */
 		bool flg = 1;
-		for (l = end; l >= beg; l--) {
+		for (l = end; l >= beg; l--)
+		{
 			__m256i f256 = _mm256_load_si256((__m256i *)(F + l * SIMD_WIDTH8));
 			__m256i h256 = _mm256_load_si256((__m256i *)(H_h + l * SIMD_WIDTH8));
 			__m256i tmp = _mm256_or_si256(f256, h256);
@@ -1064,7 +1031,8 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
 		
 		__m256i exit1 = _mm256_xor_si256(exit0, ff256);
 		__m256i l256 = _mm256_set1_epi8(beg);
-		for (l = beg; l < end; l++) {
+		for (l = beg; l < end; l++)
+		{
 			__m256i f256 = _mm256_load_si256((__m256i *)(F + l * SIMD_WIDTH8));
 			__m256i h256 = _mm256_load_si256((__m256i *)(H_h + l * SIMD_WIDTH8));
 			
@@ -1192,6 +1160,11 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
     uint16_t *seq1SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
     uint16_t *seq2SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
 
+	if (seq1SoA == NULL || seq2SoA == NULL) {
+		fprintf(stderr, "Error! Mem not allocated!!!\n");
+		exit(EXIT_FAILURE);
+	}
+	
     int32_t ii;
     int32_t roundNumPairs = ((numPairs + SIMD_WIDTH16 - 1)/SIMD_WIDTH16 ) * SIMD_WIDTH16;
     for(ii = numPairs; ii < roundNumPairs; ii++)
@@ -1271,13 +1244,9 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 //#pragma omp for schedule(dynamic, 128)
 		for(i = nstart; i < nend; i+=SIMD_WIDTH16)
 		{
-			// prof[4][0]++;
             int32_t j, k;
             uint16_t maxLen1 = 0;
             uint16_t maxLen2 = 0;
-            //uint16_t minLen1 = MAX_SEQ_LEN16 + 1;
-            //uint16_t minLen2 = MAX_SEQ_LEN16 + 1;
-			//bsize = 100;
 			bsize = w;
 
 			uint64_t tim;
@@ -1285,8 +1254,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
             {
 				{ // prefetch block
 					SeqPair spf = pairArray[i + j + PFD];
-					//_mm_prefetch((const char*) seqBufRef + (int64_t)spf.id * MAX_SEQ_LEN_REF, _MM_HINT_NTA);
-					//_mm_prefetch((const char*) seqBufRef + (int64_t)spf.id * MAX_SEQ_LEN_REF + 64, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufRef + (int64_t)spf.idr, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufRef + (int64_t)spf.idr + 64, _MM_HINT_NTA);
 				}
@@ -1329,8 +1296,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
             {
 				{ // prefetch block
 					SeqPair spf = pairArray[i + j + PFD];
-					//_mm_prefetch((const char*) seqBufQer + (int64_t)spf.id * MAX_SEQ_LEN_QER, _MM_HINT_NTA);
-					//_mm_prefetch((const char*) seqBufQer + (int64_t)spf.id * MAX_SEQ_LEN_QER + 64, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufQer + (int64_t)spf.idq, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufQer + (int64_t)spf.idq + 64, _MM_HINT_NTA);
 				}
@@ -1463,7 +1428,6 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 										   uint16_t qlen[],
 										   uint16_t myband[])
 {
-
     __m256i match256	 = _mm256_set1_epi16(this->w_match);
     __m256i mismatch256	 = _mm256_set1_epi16(this->w_mismatch);
     __m256i gapOpen256	 = _mm256_set1_epi16(this->w_open);
@@ -1489,7 +1453,7 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 	uint16_t tail[SIMD_WIDTH16] __attribute((aligned(64)));
 	uint16_t head[SIMD_WIDTH16] __attribute((aligned(64)));
 	
-	int minq = 1000;
+	int32_t minq = 10000000;
 	for (int l=0; l<SIMD_WIDTH16; l++) {
 		tlen[l] = p[l].len1;
 		qlen[l] = p[l].len2;
@@ -1853,6 +1817,8 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
 
 #endif // AVX2
 
+
+
 #if __AVX512BW__
 
 // ----------------------------------------------------------------------------------
@@ -2142,8 +2108,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
             {
 				{ // prefetch block
 					SeqPair spf = pairArray[i + j + PFD8];
-					//_mm_prefetch((const char*) seqBufRef + (int64_t)spf.id * MAX_SEQ_LEN_REF, _MM_HINT_NTA);
-					//_mm_prefetch((const char*) seqBufRef + (int64_t)spf.id * MAX_SEQ_LEN_REF + 64, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufRef + (int64_t)spf.idr, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufRef + (int64_t)spf.idr + 64, _MM_HINT_NTA);
 				}
@@ -2185,8 +2149,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
             {
 				{ // prefetch block
 					SeqPair spf = pairArray[i + j + PFD8];
-					//_mm_prefetch((const char*) seqBufQer + (int64_t)spf.id * MAX_SEQ_LEN_QER, _MM_HINT_NTA);
-					//_mm_prefetch((const char*) seqBufQer + (int64_t)spf.id * MAX_SEQ_LEN_QER + 64, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufQer + (int64_t)spf.idq, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufQer + (int64_t)spf.idq + 64, _MM_HINT_NTA);
 				}
@@ -2344,7 +2306,7 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
 	uint8_t tail[SIMD_WIDTH8] __attribute((aligned(64)));
 	uint8_t head[SIMD_WIDTH8] __attribute((aligned(64)));
 	
-	int minq = 1000;
+	int32_t minq = 10000000;
 	for (int l=0; l<SIMD_WIDTH8; l++) {
 		tlen[l] = p[l].len1;
 		qlen[l] = p[l].len2;
@@ -2741,6 +2703,11 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
     uint16_t *seq1SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
     uint16_t *seq2SoA = (uint16_t *)_mm_malloc(MAX_SEQ_LEN16 * SIMD_WIDTH16 * numThreads * sizeof(uint16_t), 64);
 
+	if (seq1SoA == NULL || seq2SoA == NULL) {
+		fprintf(stderr, "Error! Mem not allocated!!!\n");
+		exit(EXIT_FAILURE);
+	}
+		
     int32_t ii;
     int32_t roundNumPairs = ((numPairs + SIMD_WIDTH16 - 1)/SIMD_WIDTH16 ) * SIMD_WIDTH16;
     for(ii = numPairs; ii < roundNumPairs; ii++)
@@ -2832,8 +2799,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
             {
 				{ // prefetch block
 					SeqPair spf = pairArray[i + j + PFD16];
-					//_mm_prefetch((const char*) seqBufRef + (int64_t)spf.id * MAX_SEQ_LEN_REF, _MM_HINT_NTA);
-					//_mm_prefetch((const char*) seqBufRef + (int64_t)spf.id * MAX_SEQ_LEN_REF + 64, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufRef + (int64_t)spf.idr, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufRef + (int64_t)spf.idr + 64, _MM_HINT_NTA);
 				}
@@ -2877,8 +2842,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
             {
 				{ // prefetch block
 					SeqPair spf = pairArray[i + j + PFD16];
-					//_mm_prefetch((const char*) seqBufQer + (int64_t)spf.id * MAX_SEQ_LEN_QER, _MM_HINT_NTA);
-					//_mm_prefetch((const char*) seqBufQer + (int64_t)spf.id * MAX_SEQ_LEN_QER + 64, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufQer + (int64_t)spf.idq, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufQer + (int64_t)spf.idq + 64, _MM_HINT_NTA);
 				}
@@ -3035,7 +2998,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 	uint16_t tail[SIMD_WIDTH16] __attribute((aligned(64)));
 	uint16_t head[SIMD_WIDTH16] __attribute((aligned(64)));
 	
-	int minq = 1000;
+	int32_t minq = 10000000;
 	for (int l=0; l<SIMD_WIDTH16; l++) {
 		tlen[l] = p[l].len1;
 		qlen[l] = p[l].len2;
@@ -3210,8 +3173,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
 			_mm512_store_si512((__m512i *)(H_h + j * SIMD_WIDTH16), h10);
 
 			h10 = h11;
-			
-			
+						
 			/* gscore calculations */
 			if (j >= minq)
 			{
@@ -3388,6 +3350,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
     return;
 }
 #endif  //avx512
+
 
 /**************** SSE2 code ******************/
 #if ((!__AVX512BW__) && (!__AVX2__) && (__SSE2__))
@@ -3672,8 +3635,6 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
             {
 				{ // prefetch block
 					SeqPair spf = pairArray[i + j + PFD];
-					//_mm_prefetch((const char*) seqBuf + (2 * (int64_t)spf.id + 1) * MAX_SEQ_LEN, _MM_HINT_NTA);
-					//_mm_prefetch((const char*) seqBuf + (2 * (int64_t)spf.id + 1) * MAX_SEQ_LEN + 64, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufQer + (int64_t)spf.idq, _MM_HINT_NTA);
 					_mm_prefetch((const char*) seqBufQer + (int64_t)spf.idq + 64, _MM_HINT_NTA);
 				}
@@ -3834,7 +3795,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 	uint16_t tail[SIMD_WIDTH16] __attribute((aligned(64)));
 	uint16_t head[SIMD_WIDTH16] __attribute((aligned(64)));
 	
-	int minq = 10000000;
+	int32_t minq = 10000000;
 	for (int l=0; l<SIMD_WIDTH16; l++) {
 		tlen[l] = p[l].len1;
 		qlen[l] = p[l].len2;
@@ -4304,9 +4265,12 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
     // st1 = ___rdtsc();
     uint8_t *seq1SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
     uint8_t *seq2SoA = (uint8_t *)_mm_malloc(MAX_SEQ_LEN8 * SIMD_WIDTH8 * numThreads * sizeof(uint8_t), 64);
-	if (seq1SoA == NULL || seq2SoA == NULL)
-		printf("Mem not allocated!!!\n");
 
+	if (seq1SoA == NULL || seq2SoA == NULL) {
+		fprintf(stderr, "Error! Mem not allocated!!!\n");
+		exit(EXIT_FAILURE);
+	}
+	
     int32_t ii;
     int32_t roundNumPairs = ((numPairs + SIMD_WIDTH8 - 1)/SIMD_WIDTH8 ) * SIMD_WIDTH8;
 	// assert(roundNumPairs < BATCH_SIZE * SEEDS_PER_READ);
@@ -4399,7 +4363,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
 				{ // prefetch block
-					SeqPair spf = pairArray[i + j + PFD];
+					// SeqPair spf = pairArray[i + j + PFD];
 					// _mm_prefetch((const char*) seqBuf + 2 * (int64_t)spf.id * MAX_SEQ_LEN, _MM_HINT_NTA);
 					// _mm_prefetch((const char*) seqBuf + 2 * (int64_t)spf.id * MAX_SEQ_LEN + 64, _MM_HINT_NTA);
 				}
@@ -4442,7 +4406,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
 				{ // prefetch block
-					SeqPair spf = pairArray[i + j + PFD];
+					// SeqPair spf = pairArray[i + j + PFD];
 					//_mm_prefetch((const char*) seqBuf + (2 * (int64_t)spf.id + 1) * MAX_SEQ_LEN, _MM_HINT_NTA);
 					//_mm_prefetch((const char*) seqBuf + (2 * (int64_t)spf.id + 1) * MAX_SEQ_LEN + 64, _MM_HINT_NTA);
 				}
@@ -4520,8 +4484,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 							   zdrop,
 							   bsize,
 							   qlen,
-							   myband);
-			
+							   myband);			
         }
     }
 	
@@ -4601,7 +4564,7 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 	uint8_t tail[SIMD_WIDTH8] __attribute((aligned(64)));
 	uint8_t head[SIMD_WIDTH8] __attribute((aligned(64)));
 	
-	int minq = 1000;
+	int32_t minq = 10000000;
 	for (int l=0; l<SIMD_WIDTH8; l++) {
 		tlen[l] = p[l].len1;
 		qlen[l] = p[l].len2;
@@ -4718,7 +4681,6 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 			_mm_store_si128((__m128i *)(F + l * SIMD_WIDTH8), f128);
 			_mm_store_si128((__m128i *)(H_h + l * SIMD_WIDTH8), h128);
 		}
-
 
 #if RDT
 		prof[DP3][0] += __rdtsc() - tim1;

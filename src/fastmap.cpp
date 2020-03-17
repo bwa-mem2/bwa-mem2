@@ -232,7 +232,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		tprof[0][2] += ret->n_seqs;
 		// assert(ret->n_seqs <= nreads);
 		
-		fprintf(stderr, "[LOG:] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
+		fprintf(stderr, "[0000] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
 				aux->task_size, sz, ret->n_seqs);   
 
 		if (ret->seqs == 0) {
@@ -250,7 +250,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 			int64_t size = 0;
 			for (int i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
 
-			fprintf(stderr, "\t[LOG][ M::%s] read %d sequences (%ld bp)...\n",
+			fprintf(stderr, "\t[0000][ M::%s] read %d sequences (%ld bp)...\n",
 					__func__, ret->n_seqs, (long)size);
 		}
 				
@@ -261,7 +261,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 		static int task = 0;
 		if (w.nreads < ret->n_seqs)
 		{
-			fprintf(stderr, "[LOG:] Reallocating initial memory allocations!!\n");
+			fprintf(stderr, "[0000] Reallocating initial memory allocations!!\n");
 			free(w.regs); free(w.chain_ar); free(w.seedBuf);
 			w.nreads = ret->n_seqs;
 			w.regs = (mem_alnreg_v *) calloc(w.nreads, sizeof(mem_alnreg_v));
@@ -270,7 +270,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 			assert(w.regs != NULL); assert(w.chain_ar != NULL); assert(w.seedBuf != NULL);
 		}		
 								
-		fprintf(stderr, "[LOG:] Calling mem_process_seqs.., task: %d\n", task++);
+		fprintf(stderr, "[0000] Calling mem_process_seqs.., task: %d\n", task++);
 
 		uint64_t tim = __rdtsc();
 		if (opt->flag & MEM_F_SMARTPE)
@@ -535,7 +535,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
 	free(aux_.workers);
 	/***** pipeline ends ******/
 	
-	fprintf(stderr, "[LOG:] Computation ends..\n");
+	fprintf(stderr, "[0000] Computation ends..\n");
 	
 	/* Dealloc memory allcoated in the header section */	
 	free(w.chain_ar);
@@ -922,7 +922,7 @@ int main_mem(int argc, char *argv[])
 	}
 	aux.ks = kseq_init(fp);
 	
-#if PAIRED_END
+	// PAIRED_END
 	/* Handling Paired-end reads */
 	aux.ks2 = 0;
 	if (optind + 2 < argc) {
@@ -946,12 +946,8 @@ int main_mem(int argc, char *argv[])
 			assert(aux.ks2 != 0);
 		}
 	}
-#endif
 
 	bwa_print_sam_hdr(aux.fmi->idx->bns, hdr_line, aux.fp);
-
-	// aux.totEl += ftell(aux.fp);
-	// aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads;   // IMP modification
 
 	if (fixed_chunk_size > 0)
 		aux.task_size = fixed_chunk_size;
@@ -963,10 +959,9 @@ int main_mem(int argc, char *argv[])
 	}
 	tprof[MISC][1] = opt->chunk_size = aux.actual_chunk_size = aux.task_size;
 
-	// readLen = READ_LEN;  // for memory pre-allocation // we realloc when required
-	
+	// readLen = READ_LEN;  // for memory pre-allocation // we realloc when required	
 	// Major function
-	// fprintf(stderr, "[LOG:] 1: Calling process()\n");
+	// fprintf(stderr, "[0000] 1: Calling process()\n");
 
 	tim = __rdtsc();
 	/* Relay process function */
@@ -982,12 +977,11 @@ int main_mem(int argc, char *argv[])
 	kseq_destroy(aux.ks);	
 	err_gzclose(fp);
 
-#if PAIRED_END
+	// PAIRED_END
 	if (aux.ks2) {
 		kseq_destroy(aux.ks2);
 		err_gzclose(fp2);
 	}
-#endif
 	
 	if (is_o) {
 		fclose(aux.fp);
@@ -997,6 +991,7 @@ int main_mem(int argc, char *argv[])
 	delete(aux.fmi);	
 
 	/* Display runtime profiling stats */
+	tprof[MEM][0] = __rdtsc() - tprof[MEM][0];
 	display_stats(aux.opt->n_threads);
 	
 	return 0;

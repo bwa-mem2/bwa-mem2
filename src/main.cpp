@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
 	}
 	else if (strcmp(argv[1], "mem") == 0)
 	{
-		uint64_t tim = __rdtsc();
+		tprof[MEM][0] = __rdtsc();
 		kstring_t pg = {0,0,0};
 		extern char *bwa_pg;
 
@@ -95,7 +95,9 @@ int main(int argc, char* argv[])
 		bwa_pg = pg.s;
 		ret = main_mem(argc-1, argv+1);
 		free(bwa_pg);
-		tprof[MEM][0] = __rdtsc() - tim;
+		
+		// tprof[MEM][0] = __rdtsc() - tim; 
+		
 		//return ret;
 	}
 	else if (strcmp(argv[1], "version") == 0)

@@ -59,7 +59,7 @@ int display_stats(int nthreads)
 	fprintf(stderr, "Processor is runnig @%lf MHz\n", proc_freq*1.0/1e6);
 	fprintf(stderr, "Runtime profile:\n");
 
-	fprintf(stderr, "\n\t Time taken for main_mem function: %0.2lf Sec\n\n",
+	fprintf(stderr, "\n\tTime taken for main_mem function: %0.2lf sec\n\n",
 			tprof[MEM][0]*1.0/proc_freq);
 
 	fprintf(stderr, "\tIO times (sec) :\n");

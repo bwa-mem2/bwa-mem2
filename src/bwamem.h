@@ -293,6 +293,9 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 						  mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
 						  int32_t *gar, mem_cache *mmc);
 
+int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
+			   const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2],
+			   mem_alnreg_v a[2]);
 /**
  * Align a batch of sequences and generate the alignments in the SAM format
  *

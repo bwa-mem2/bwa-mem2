@@ -51,13 +51,13 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 #define READ_LEN 151
 
-#define SEQ_LEN8 128
+#define SEQ_LEN8 128   // redundant??
+
 #define MAX_LINE_LEN 256
 
 #define MAX_THREADS 256
 
 
-#define ROOT_ (myrank == 0)
 #define LIM_R 128
 #define LIM_C 128
 

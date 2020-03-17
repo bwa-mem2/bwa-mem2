@@ -1159,10 +1159,7 @@ void mem_process_seqs(mem_opt_t *opt,
 	double ctime, rtime;
 	
 	ctime = cputime(); rtime = realtime();
-	// global_bns = bns;
 	w.opt = opt;
-	// w.bwt = bwt;
-	// w.bns = bns; w.pac = pac;
 	w.seqs = seqs; w.n_processed = n_processed;
 	w.pes = &pes[0];
 
@@ -1170,37 +1167,36 @@ void mem_process_seqs(mem_opt_t *opt,
 	int n_ = n;
 	
 	uint64_t tim = __rdtsc();	
-	fprintf(stderr, "[LOG:] 1. Calling kt_for - worker_bwt\n");
+	fprintf(stderr, "[0000] 1. Calling kt_for - worker_bwt\n");
 	
 	kt_for(worker_bwt, &w, n_); // SMEMs (+SAL)
 
-	fprintf(stderr, "[LOG:] 2. Calling kt_for - worker_aln\n");
+	fprintf(stderr, "[0000] 2. Calling kt_for - worker_aln\n");
 	
 	kt_for(worker_aln, &w, n_); // BSW
 	tprof[WORKER10][0] += __rdtsc() - tim;		
 
 
-#if PAIRED_END
+	// PAIRED_END
 	if (opt->flag & MEM_F_PE) { // infer insert sizes if not provided
 		if (pes0)
 			memcpy(pes, pes0, 4 * sizeof(mem_pestat_t)); // if pes0 != NULL, set the insert-size
 		                                                 // distribution as pes0
 		else {
-			fprintf(stderr, "[LOG:] Inferring insert size distribution of PE reads from data, "
+			fprintf(stderr, "[0000] Inferring insert size distribution of PE reads from data, "
 					"l_pac: %ld, n: %d\n", w.fmi->idx->bns->l_pac, n);
 			mem_pestat(opt, w.fmi->idx->bns->l_pac, n, w.regs, pes); // otherwise, infer the insert size
 		                                                 // distribution from data
 		}
 	}
-#endif
 	
 	tim = __rdtsc();
-	fprintf(stderr, "[LOG:] 3. Calling kt_for - worker_sam\n");
+	fprintf(stderr, "[0000] 3. Calling kt_for - worker_sam\n");
 	
 	kt_for(worker_sam, &w,  n_);   // SAM	
   	tprof[WORKER20][0] += __rdtsc() - tim;
 
-	fprintf(stderr, "\t[LOG:][ M::%s] Processed %d reads in %.3f "
+	fprintf(stderr, "\t[0000][ M::%s] Processed %d reads in %.3f "
 			"CPU sec, %.3f real sec\n",
 			__func__, n, cputime() - ctime, realtime() - rtime);
 
@@ -2002,7 +1998,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 						
 					// assert(numPairsLeft < BATCH_SIZE * SEEDS_PER_READ);
 					if (numPairsLeft >= *wsize_pair) {
-						fprintf(stderr, "[LOG:][%0.4d] Re-allocating seqPairArrays, in Left\n", tid);
+						fprintf(stderr, "[0000][%0.4d] Re-allocating seqPairArrays, in Left\n", tid);
 						*wsize_pair += 1000;
 						seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
 															  (*wsize_pair + MAX_LINE_LEN)
@@ -2030,10 +2026,10 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 						fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufQers in %s (left)\n",
 								tid, __func__);
 						*wsize_buf_qer *= 2;
-						uint8_t *seqBufQer_ = realloc(mmc->seqBufLeftQer[tid], *wsize_buf_qer);
+						uint8_t *seqBufQer_ = (uint8_t*) realloc(mmc->seqBufLeftQer[tid], *wsize_buf_qer);
 						mmc->seqBufLeftQer[tid] = seqBufLeftQer = seqBufQer_;
 						
-						seqBufQer_ = realloc(mmc->seqBufRightQer[tid], *wsize_buf_qer);
+						seqBufQer_ = (uint8_t*) realloc(mmc->seqBufRightQer[tid], *wsize_buf_qer);
 						mmc->seqBufRightQer[tid] = seqBufRightQer = seqBufQer_;		
 					}
 					
@@ -2047,10 +2043,10 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 						fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s (left)\n",
 								tid, __func__);
 						*wsize_buf_ref *= 2;
-						uint8_t *seqBufRef_ = realloc(mmc->seqBufLeftRef[tid], *wsize_buf_ref);
+						uint8_t *seqBufRef_ = (uint8_t*) realloc(mmc->seqBufLeftRef[tid], *wsize_buf_ref);
 						mmc->seqBufLeftRef[tid] = seqBufLeftRef = seqBufRef_;
 						
-						seqBufRef_ = realloc(mmc->seqBufRightRef[tid], *wsize_buf_ref);
+						seqBufRef_ = (uint8_t*) realloc(mmc->seqBufRightRef[tid], *wsize_buf_ref);
 						mmc->seqBufRightRef[tid] = seqBufRightRef = seqBufRef_;				
 					}
 					
@@ -2060,15 +2056,12 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 					sp.len2 = s->qbeg;
 					sp.len1 = tmp;
 					int minval = sp.h0 + max_(sp.len1, sp.len2);
-					// int minval = sp.h0 +  min_(sp.len1, sp.len2);
-					//fprintf(fsam, "%d %d %d %d n128: %d n16: %d\n",
-					//		sp.len1, sp.len2, minval, MAX_SEQ_LEN8, numPairsLeft128, numPairsLeft16);
 
 					//if (max_(sp.len1, sp.len2) < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
 					if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
 						numPairsLeft128++;
 					}
-					else if (minval < MAX_SEQ_LEN16) {
+					else if (sp.len1 < MAX_SEQ_LEN16 && sp.len2 < MAX_SEQ_LEN16 && minval < MAX_SEQ_LEN16){
 						numPairsLeft16++;
 					}
 					else {							
@@ -2098,7 +2091,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
 					// assert(numPairsRight < BATCH_SIZE * SEEDS_PER_READ);
 					if (numPairsRight >= *wsize_pair) {
-						fprintf(stderr, "[LOG:] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
+						fprintf(stderr, "[0000] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
 						*wsize_pair += 1000;
 						seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
 															  (*wsize_pair + MAX_LINE_LEN)
@@ -2125,27 +2118,29 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 					
 					rightQerOffset += sp.len2;
 					// assert(rightQerOffset < MAX_SEQ_LEN_QER * BATCH_SIZE * SEEDS_PER_READ);
-					if (rightQerOffset >= *wsize_buf_qer) {
+					if (rightQerOffset >= *wsize_buf_qer)
+					{
 						fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufQers in %s (right)\n",
 								tid, __func__);
 						*wsize_buf_qer *= 2;
-						uint8_t *seqBufQer_ = realloc(mmc->seqBufLeftQer[tid], *wsize_buf_qer);
+						uint8_t *seqBufQer_ = (uint8_t*) realloc(mmc->seqBufLeftQer[tid], *wsize_buf_qer);
 						mmc->seqBufLeftQer[tid] = seqBufLeftQer = seqBufQer_;
 						
-						seqBufQer_ = realloc(mmc->seqBufRightQer[tid], *wsize_buf_qer);
+						seqBufQer_ = (uint8_t*) realloc(mmc->seqBufRightQer[tid], *wsize_buf_qer);
 						mmc->seqBufRightQer[tid] = seqBufRightQer = seqBufQer_;		
 					}
 
 					rightRefOffset += sp.len1;
 					// assert(rightRefOffset < MAX_SEQ_LEN_REF * BATCH_SIZE * SEEDS_PER_READ);
-					if (rightRefOffset >= *wsize_buf_ref) {
+					if (rightRefOffset >= *wsize_buf_ref)
+					{
 						fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s (right)\n",
 								tid, __func__);
 						*wsize_buf_ref *= 2;
-						uint8_t *seqBufRef_ = realloc(mmc->seqBufLeftRef[tid], *wsize_buf_ref);
+						uint8_t *seqBufRef_ = (uint8_t*) realloc(mmc->seqBufLeftRef[tid], *wsize_buf_ref);
 						mmc->seqBufLeftRef[tid] = seqBufLeftRef = seqBufRef_;
 						
-						seqBufRef_ = realloc(mmc->seqBufRightRef[tid], *wsize_buf_ref);
+						seqBufRef_ = (uint8_t*) realloc(mmc->seqBufRightRef[tid], *wsize_buf_ref);
 						mmc->seqBufRightRef[tid] = seqBufRightRef = seqBufRef_;				
 					}
 					
@@ -2158,12 +2153,10 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
 
 					int minval = sp.h0 + max_(sp.len1, sp.len2);
-					// int minval = sp.h0 +  min_(sp.len1, sp.len2);					
-					// if (max_(sp.len1, sp.len2) < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
-					if (minval < MAX_SEQ_LEN8) {
+					if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
 						numPairsRight128++;
 					}
-					else if(minval < MAX_SEQ_LEN16) {
+					else if(sp.len1 < MAX_SEQ_LEN16 && sp.len2 < MAX_SEQ_LEN16 && minval < MAX_SEQ_LEN16) {
 						numPairsRight16++;
 					}
 					else {
