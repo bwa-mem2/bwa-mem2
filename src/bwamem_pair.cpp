@@ -431,6 +431,7 @@ int mem_pair(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, cons
 }
 
 void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m);
+void mem_reorder_primary5(int T, mem_alnreg_v *a);
 
 #define raw_mapq(diff, a) ((int)(6.02 * (diff) / (a) + .499))
 
@@ -507,6 +508,10 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
 	uint64_t tim1 = __rdtsc();
 	n_pri[0] = mem_mark_primary_se(opt, a[0].n, a[0].a, id<<1|0);
 	n_pri[1] = mem_mark_primary_se(opt, a[1].n, a[1].a, id<<1|1);  
+	if (opt->flag & MEM_F_PRIMARY5) {
+		mem_reorder_primary5(opt->T, &a[0]);
+		mem_reorder_primary5(opt->T, &a[1]);
+	}
 	if (opt->flag&MEM_F_NOPAIRING) goto no_pairing;
 
 	// pairing single-end hits
@@ -875,6 +880,10 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
 	//uint64_t tim1 = __rdtsc();
 	n_pri[0] = mem_mark_primary_se(opt, a[0].n, a[0].a, id<<1|0);
 	n_pri[1] = mem_mark_primary_se(opt, a[1].n, a[1].a, id<<1|1);  
+	if (opt->flag & MEM_F_PRIMARY5) {
+		mem_reorder_primary5(opt->T, &a[0]);
+		mem_reorder_primary5(opt->T, &a[1]);
+	}
 	if (opt->flag&MEM_F_NOPAIRING) goto no_pairing;
 
 	// pairing single-end hits

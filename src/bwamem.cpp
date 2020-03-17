@@ -1531,6 +1531,7 @@ static void worker_sam(void *data, long seqid, long batch_size, int tid)
 								w->regs[i].a,
 								w->n_processed + i);
 			
+			if (w->opt->flag & MEM_F_PRIMARY5) mem_reorder_primary5(w->opt->T, &w->regs[i]);
 			mem_reg2sam(w->opt, w->bns, w->pac, &w->seqs[i],
 						&w->regs[i], 0, 0);
 			free(w->regs[i].a);
@@ -1707,6 +1708,30 @@ int mem_approx_mapq_se(const mem_opt_t *opt, const mem_alnreg_t *a)
 	return mapq;
 }
 
+void mem_reorder_primary5(int T, mem_alnreg_v *a)
+{
+	int k, n_pri = 0, left_st = INT_MAX, left_k = -1;
+	mem_alnreg_t t;
+	for (k = 0; k < a->n; ++k)
+		if (a->a[k].secondary < 0 && !a->a[k].is_alt && a->a[k].score >= T) ++n_pri;
+	if (n_pri <= 1) return; // only one alignment
+	for (k = 0; k < a->n; ++k) {
+		mem_alnreg_t *p = &a->a[k];
+		if (p->secondary >= 0 || p->is_alt || p->score < T) continue;
+		if (p->qb < left_st) left_st = p->qb, left_k = k;
+	}
+	assert(a->a[0].secondary < 0);
+	if (left_k == 0) return; // no need to reorder
+	t = a->a[0], a->a[0] = a->a[left_k], a->a[left_k] = t;
+	for (k = 1; k < a->n; ++k) { // update secondary and secondary_all
+		mem_alnreg_t *p = &a->a[k];
+		if (p->secondary == 0) p->secondary = left_k;
+		else if (p->secondary == left_k) p->secondary = 0;
+		if (p->secondary_all == 0) p->secondary_all = left_k;
+		else if (p->secondary_all == left_k) p->secondary_all = 0;
+	}
+}
+
 // TODO (future plan): group hits into a uint64_t[] array. This will be cleaner and more flexible
 void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 				 bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m)
@@ -1740,7 +1765,8 @@ void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 		if (p->secondary >= 0) q->sub = -1; // don't output sub-optimal score
 		if (l && p->secondary < 0) // if supplementary
 			q->flag |= (opt->flag&MEM_F_NO_MULTI)? 0x10000 : 0x800;
-		if (l && !p->is_alt && q->mapq > aa.a[0].mapq) q->mapq = aa.a[0].mapq;
+		if (!(opt->flag & MEM_F_KEEP_SUPP_MAPQ) && l && !p->is_alt && q->mapq > aa.a[0].mapq)
+			q->mapq = aa.a[0].mapq; // lower mapq for supplementary mappings, unless -5 or -q is applied
 		++l;
 	}
 	if (aa.n == 0) { // no alignments good enough; then write an unaligned record
@@ -1880,7 +1906,10 @@ void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str,
 			ksprintf(str, "\tpa:f:%.3f", (double)p->score / p->alt_sc);
 	}
 #if 1
-	if (p->XA) { kputsn("\tXA:Z:", 6, str); kputs(p->XA, str); }
+	if (p->XA) {
+		kputsn((opt->flag&MEM_F_XB)? "\tXB:Z:" : "\tXA:Z:", 6, str);
+		kputs(p->XA, str);
+	}
 #else
 	//if (p->XA) { kputsn("\tXA:Z:", 6, str); kputs(p->XA, str);
 	//	// printf("%d %s\n", strlen(p->XA), p->XA);

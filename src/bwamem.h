@@ -69,6 +69,9 @@ typedef struct __smem_i smem_i;
 #define MEM_F_REF_HDR	0x100
 #define MEM_F_SOFTCLIP  0x200
 #define MEM_F_SMARTPE   0x400
+#define MEM_F_PRIMARY5  0x800
+#define MEM_F_KEEP_SUPP_MAPQ 0x1000
+#define MEM_F_XB        0x2000
 
 typedef struct mem_opt_t {
 	int a, b;               // match score and mismatch penalty
@@ -242,6 +245,8 @@ int mem_approx_mapq_se(const mem_opt_t *opt, const mem_alnreg_t *a)	;
 int mem_mark_primary_se(const mem_opt_t *opt, int n, mem_alnreg_t *a, int64_t id);
 
 static void mem_mark_primary_se_core(const mem_opt_t *opt, int n, mem_alnreg_t *a, int_v *z);
+
+void mem_reorder_primary5(int T, mem_alnreg_v *a);
 
 char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 				   const mem_alnreg_v *a, int l_query, const char *query); // ONLY work after mem_mark_primary_se()
