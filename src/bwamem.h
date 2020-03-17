@@ -68,6 +68,11 @@ typedef struct __smem_i smem_i;
 #define MEM_F_SOFTCLIP  0x200
 #define MEM_F_SMARTPE   0x400
 
+// V17
+#define MEM_F_PRIMARY5  0x800
+#define MEM_F_KEEP_SUPP_MAPQ 0x1000
+
+
 typedef struct mem_opt_t {
 	int a, b;               // match score and mismatch penalty
 	int o_del, e_del;
@@ -354,5 +359,6 @@ mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *
 void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n, const mem_alnreg_v *regs,
 				mem_pestat_t pes[4]);
 
+void mem_reorder_primary5(int T, mem_alnreg_v *a);
 
 #endif

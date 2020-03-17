@@ -32,7 +32,7 @@ EXE=		bwa-mem2
 #CXX=		icpc
 ARCH_FLAGS=	-msse4.1
 MEM_FLAGS=	-DSAIS=1
-CPPFLAGS=	-DENABLE_PREFETCH $(MEM_FLAGS)
+CPPFLAGS=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
 LIBS=		-lpthread -lm -lz -L. -lbwa ##-lnuma
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o src/bandedSWA.o \
