@@ -46,6 +46,18 @@ diff <output_mem.sam> <output_ert.sam>
 * BWA-Mich has been tested for read lengths up to 151 bp. For larger read lengths, please update READ_LEN in src/macro.h and rebuild the index
 * BWA-Mich requires atleast 70 GB RAM. For WGS runs on human genome (>32 threads), it is recommended to have 128-192 GB RAM.
 
+## Performance Results
+
+<p align="center">
+<img src="https://github.com/arun-sub/bwa-mem2/blob/master/images/BWA-MEM2-ERT-Performance.png" height="400"/a></br>
+</p>
+
+## Citation
+
+If you use BWA-Mich, please cite the following [paper][https://github.com/arun-sub/bwa-mem2/blob/master/pdf/PaperDraft-Enumerated-Radix-Trees.pdf]
+
+>Arun Subramaniyan, Jack Wadden, Kush Goliya, Nathan Ozog, Xiao Wu, Satish Narayanasamy, David Blaauw, Reetuparna Das. Accelerating Maximal-Exact-Match Seeding with Enumerated Radix Trees. BIORXIV/2020/003897
+
 
 ### BWA-MEM2 (old)
 ## Important Information
