@@ -1,5 +1,9 @@
 ### BWA-Mich
 
+BWA-Mich builds upon BWA-MEM2 and includes performance improvements to the seeding and mate-rescue steps. 
+It uses the Enumerated Radix Tree (ERT) index which is ~60 GB for the human genome.
+BWA-Mich produces identical results as BWA-MEM2 and is 1.2-1.4x faster. 
+
 ## Getting Started
 ```sh
 # Compile from source
@@ -48,13 +52,16 @@ diff <output_mem.sam> <output_ert.sam>
 
 ## Performance Results
 
+* Evaluation performed on 25 publicly available whole human genome paired-end datasets from Illumina Platinum Genomes, Illumina BaseSpaceHub and 1000 Genomes Project-Phase3.
+* Human reference genome was downloaded from [here](ihttps://storage.googleapis.com/genomics-public-data/references/hg38/v0/Homo_sapiens_assembly38.fasta}.
+
 <p align="center">
 <img src="https://github.com/arun-sub/bwa-mem2/blob/master/images/BWA-MEM2-ERT-Performance.png" height="400"/a></br>
 </p>
 
 ## Citation
 
-If you use BWA-Mich, please cite the following [paper](https://github.com/arun-sub/bwa-mem2/blob/master/doc/PaperDraft-Enumerated-Radix-Trees.pdf)
+If you use BWA-Mich, please cite the following [paper](https://github.com/arun-sub/bwa-mem2/blob/master/doc/PaperDraft-Enumerated-Radix-Trees.pdf):
 
 >Arun Subramaniyan, Jack Wadden, Kush Goliya, Nathan Ozog, Xiao Wu, Satish Narayanasamy, David Blaauw, Reetuparna Das. Accelerating Maximal-Exact-Match Seeding with Enumerated Radix Trees. BIORXIV/2020/003897
 
