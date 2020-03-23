@@ -47,7 +47,8 @@ diff <output_mem.sam> <output_ert.sam>
 
 ## Notes
 
-* BWA-Mich has been tested for read lengths up to 151 bp. For larger read lengths, please update READ_LEN in src/macro.h and rebuild the index
+* BWA-Mich has been tested for read lengths up to 251 bp. For larger read lengths, please update READ_LEN (default = 151) in src/macro.h and rebuild the index. Note that variable read-lengths
+  in the input data are supported, so READ_LEN can be conservatively set higher, and the index need not be rebuilt every time read length is changed.
 * BWA-Mich requires atleast 70 GB RAM. For WGS runs on human genome (>32 threads), it is recommended to have 128-192 GB RAM.
 
 ## Performance Results
