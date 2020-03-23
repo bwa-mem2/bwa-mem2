@@ -53,7 +53,7 @@ diff <output_mem.sam> <output_ert.sam>
 ## Performance Results
 
 * Evaluation performed on 25 publicly available whole human genome paired-end datasets from Illumina Platinum Genomes, Illumina BaseSpaceHub and 1000 Genomes Project-Phase3.
-* Human reference genome was downloaded from [here](ihttps://storage.googleapis.com/genomics-public-data/references/hg38/v0/Homo_sapiens_assembly38.fasta}.
+* Human reference genome was downloaded from [here](https://storage.googleapis.com/genomics-public-data/references/hg38/v0/Homo_sapiens_assembly38.fasta).
 
 <p align="center">
 <img src="https://github.com/arun-sub/bwa-mem2/blob/master/images/BWA-MEM2-ERT-Performance.png" height="400"/a></br>
