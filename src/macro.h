@@ -54,6 +54,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define SEQ_LEN8 128   // redundant??
 
 #define MAX_LINE_LEN 256
+#define CACHE_LINE 1  //16 x 4 Bytes // setting it 1, instead of 16, for now
 
 #define MAX_THREADS 256
 

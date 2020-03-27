@@ -33,11 +33,10 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
-// #include <emmintrin.h>
 #include "macro.h"
+
 #if !MAINY
 #include "ksw.h"
-// #include "bwamem.h"
 #include "bandedSWA.h"
 #else
 #include <immintrin.h>
@@ -53,7 +52,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 
 #define MAX_SEQ_LEN_REF_SAM 2048
-// #define MAX_SEQ_LEN_QER_SAM 256
 #define MAX_SEQ_LEN_QER_SAM 512
 
 #if MAINY
@@ -62,14 +60,10 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define KSW_XSUBO  0x40000
 #define KSW_XSTART 0x80000
 
-// extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
-
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
 #endif
 
-
-// #define MAX_SEQ_LEN8 256
 
 #define MAX_SEQ_LEN_EXT 256
 
@@ -92,8 +86,6 @@ typedef struct dnaSeqPair
 	int32_t len1, len2;
 	int32_t h0;
 	int seqid, regid;
-	// int32_t score, tle, gtle, qle;
-	// int32_t gscore, max_off;
 	int score; // best score
 	int te, qe; // target end and query end
 	int score2, te2; // second best score and ending position on the target
@@ -129,19 +121,7 @@ const kswr_t g_defr = { 0, -1, -1, -1, -1, -1, -1 };
 #define DP2 8
 #define DP3 9
 
-#else
-
-//extern struct _kswq_t;
-extern const kswr_t g_defr;
-
 #endif
-
-// typedef struct {
-// 	int qlen, slen;
-// 	uint8_t shift, mdiff, max, size;
-// 	__m512i *qp, *H0, *H1, *E, *Hmax;
-// } kswqi_t;
-
 
 class kswv {
 public:
@@ -177,21 +157,6 @@ public:
 						  int nthreads);
 
 	kswq_t* ksw_qinit(int size, int qlen, uint8_t *query, int m, const int8_t *mat);
-	// kswqi_t* ksw_qinit_intra(int size, int qlen, uint8_t *query, int m, const int8_t *mat);
-	// void kswvBatchWrapper16_intra(SeqPair *pairArray,
-	// 							  uint8_t *seqBufRef,
-	// 							  uint8_t *seqBufQer,
-	// 							  int32_t numPairs,
-	// 							  uint16_t numThreads);
-	// 
-	// kswr_t kswv512_16_intra(uint8_t seq1SoA[],
-	// 						kswqi_t *q,
-	// 						int16_t nrow,
-	// 						int16_t ncol,
-	// 						SeqPair *p,
-	// 						uint16_t tid,
-	// 						int32_t numPairs,
-	// 						int &maxi);
 	
 private:
 #if __AVX512BW__
@@ -278,7 +243,6 @@ private:
 	
 	int16_t *F16;
 	int16_t *H16_0, *H16_max, *H16_1;
-	// int16_t *qp16;
 	int16_t *rowMax16;
 	int32_t maxRefLen, maxQerLen;
 	
