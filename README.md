@@ -62,9 +62,9 @@ diff <output_mem.sam> <output_ert.sam>
 
 ## Citation
 
-If you use BWA-Mich, please cite the following [paper](https://github.com/arun-sub/bwa-mem2/blob/master/doc/PaperDraft-Enumerated-Radix-Trees.pdf):
+If you use BWA-Mich, please cite the following [paper](https://biorxiv.org/cgi/content/short/2020.03.23.003897v1):
 
->Arun Subramaniyan, Jack Wadden, Kush Goliya, Nathan Ozog, Xiao Wu, Satish Narayanasamy, David Blaauw, Reetuparna Das. Accelerating Maximal-Exact-Match Seeding with Enumerated Radix Trees. BIORXIV/2020/003897
+>Arun Subramaniyan, Jack Wadden, Kush Goliya, Nathan Ozog, Xiao Wu, Satish Narayanasamy, David Blaauw, Reetuparna Das. Accelerating Maximal-Exact-Match Seeding with Enumerated Radix Trees. https://doi.org/10.1101/2020.03.23.003897
 
 
 ### BWA-MEM2 (old)
