@@ -2,6 +2,9 @@
 
 ***Index structure has changed since commit 6743183. Rebuild the Index if you are using a later commit.***
 
+***Added MC flag in the output sam file in commit a591e22. Output should match original bwa-mem version 0.7.17.***
+
+
 ## Getting Started
 ```sh
 # Use precompiled binaries (recommended)

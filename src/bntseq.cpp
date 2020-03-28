@@ -102,7 +102,7 @@ void bns_dump(const bntseq_t *bns, const char *prefix)
 
 bntseq_t *bns_restore_core(const char *ann_filename, const char* amb_filename, const char* pac_filename)
 {
-	char str[8192];
+	char str[8193];
 	FILE *fp;
 	const char *fname;
 	bntseq_t *bns;
@@ -303,6 +303,7 @@ int64_t bns_fasta2bntseq(gzFile fp_fa, const char *prefix, int for_only)
 	bns->anns = (bntann1_t*)calloc(m_seqs, sizeof(bntann1_t));
 	bns->ambs = (bntamb1_t*)calloc(m_holes, sizeof(bntamb1_t));
 	pac = (uint8_t*) calloc(m_pac/4, 1);
+	if (pac == NULL) { perror("Allocation of pac failed"); exit(EXIT_FAILURE); }
 	q = bns->ambs;
 	assert(strlen(prefix) + 4 < 1024);
 	strcpy(name, prefix); strcat(name, ".pac");
@@ -312,6 +313,7 @@ int64_t bns_fasta2bntseq(gzFile fp_fa, const char *prefix, int for_only)
 	if (!for_only) { // add the reverse complemented sequence
 		m_pac = (bns->l_pac * 2 + 3) / 4 * 4;
 		pac = (uint8_t*) realloc(pac, m_pac/4);
+		if (pac == NULL) { perror("Reallocation of pac failed"); exit(EXIT_FAILURE); }
 		memset(pac + (bns->l_pac+3)/4, 0, (m_pac - (bns->l_pac+3)/4*4) / 4);
 		for (l = bns->l_pac - 1; l >= 0; --l, ++bns->l_pac)
 			_set_pac(pac, bns->l_pac, 3-_get_pac(pac, l));

@@ -33,9 +33,7 @@
 #include "ksw.h"
 #include "macro.h"
 
-extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
-extern FILE *fsam, *fsamo;
-extern int ncnt;
+extern uint64_t tprof[LIM_R][LIM_C];
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -189,10 +187,7 @@ kswr_t ksw_u8(kswq_t *q, int tlen, const uint8_t *target,
 			}
 		}
 end_loop16:
-		//int k;for (k=0;k<16;++k)printf("%d ", ((uint8_t*)&max)[k]);printf("\n");
 		__max_16(imax, max); // imax is the maximum number in max
-		// if (ncnt == 157)
-		// printf("%d %d \t tlen: %d\n", i, imax, tlen);
 
 		if (imax >= minsc) { // write the b array; this condition adds branching unfornately
 			if (n_b == 0 || (int32_t)b[n_b-1] + 1 != i) { // then append
@@ -300,8 +295,6 @@ kswr_t ksw_i16(kswq_t *q, int tlen, const uint8_t *target, int _o_del, int _e_de
 		}
 end_loop8:
 		__max_8(imax, max);
-		// if (ncnt == 157)
-		//	printf("%d %d \t tlen: %d\n", i, imax, tlen);
 
 		if (imax >= minsc) {
 			if (n_b == 0 || (int32_t)b[n_b-1] + 1 != i) {
