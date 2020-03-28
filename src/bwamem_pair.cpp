@@ -824,8 +824,8 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
     int32_t *gar = (int32_t*) (mmc->seqPairArrayAux[tid]);
 
     int64_t *wsize_pair = &(mmc->wsize[tid]);
-    int64_t *wsize_buf_ref = &(mmc->wsize_buf_ref[tid]);
-    int64_t *wsize_buf_qer = &(mmc->wsize_buf_qer[tid]);
+    int64_t *wsize_buf_ref = &(mmc->wsize_buf_ref[tid*CACHE_LINE]);
+    int64_t *wsize_buf_qer = &(mmc->wsize_buf_qer[tid*CACHE_LINE]);
     
     int64_t l_pac = bns->l_pac;
     int i, r, skip[4], rid = -1;
@@ -906,23 +906,37 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
             // assert(refOffset + sp.len1 < MAX_SEQ_LEN_REF * *wsize_buf);
             if (refOffset + sp.len1 >= *wsize_buf_ref)
             {
-                fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s\n", tid, __func__);
+                fprintf(stderr, "[0000][%0.4d] Re-allocating (doubling) seqBufRefs in %s\n",
+                        tid, __func__);
+                int64_t tmp = *wsize_buf_ref;
                 *wsize_buf_ref *= 2;
-                uint8_t *seqBufRef_ = (uint8_t*) realloc(mmc->seqBufLeftRef[tid*CACHE_LINE], *wsize_buf_ref);
+                uint8_t *seqBufRef_ = (uint8_t*)
+                    _mm_realloc(seqBufRef, tmp, *wsize_buf_ref, sizeof(uint8_t)); 
+                    // realloc(mmc->seqBufLeftRef[tid*CACHE_LINE], *wsize_buf_ref);
                 mmc->seqBufLeftRef[tid*CACHE_LINE] = seqBufRef = seqBufRef_;
 
-                seqBufRef_ = (uint8_t*) realloc(mmc->seqBufRightRef[tid*CACHE_LINE], *wsize_buf_ref);
+                seqBufRef_ = (uint8_t*)
+                    _mm_realloc(mmc->seqBufRightRef[tid*CACHE_LINE], tmp,
+                                *wsize_buf_ref, sizeof(uint8_t)); 
+                    // realloc(mmc->seqBufRightRef[tid*CACHE_LINE], *wsize_buf_ref);
                 mmc->seqBufRightRef[tid*CACHE_LINE] = seqBufRef_;               
             }
             
             // assert(qerOffset + sp.len2 < *wsize_buf_qer);
             if (qerOffset + sp.len2 >= *wsize_buf_qer) {
-                fprintf(stderr, "[0000][%0.4d] Re-allocating (doubling) seqBufQers in %s\n", tid, __func__);
+                fprintf(stderr, "[0000][%0.4d] Re-allocating (doubling) seqBufQers in %s\n",
+                        tid, __func__);
+                int64_t tmp = *wsize_buf_qer;
                 *wsize_buf_qer *= 2;
-                uint8_t *seqBufQer_ = (uint8_t*) realloc(mmc->seqBufLeftQer[tid*CACHE_LINE], *wsize_buf_qer);
+                uint8_t *seqBufQer_ = (uint8_t*)
+                    _mm_realloc(seqBufQer, tmp, *wsize_buf_qer, sizeof(uint8_t)); 
+                    // realloc(mmc->seqBufLeftQer[tid*CACHE_LINE], *wsize_buf_qer);
                 mmc->seqBufLeftQer[tid*CACHE_LINE] = seqBufQer = seqBufQer_;
 
-                seqBufQer_ = (uint8_t*) realloc(mmc->seqBufRightQer[tid*CACHE_LINE], *wsize_buf_qer);
+                seqBufQer_ = (uint8_t*)
+                    _mm_realloc(mmc->seqBufRightQer[tid*CACHE_LINE], tmp,
+                                *wsize_buf_qer, sizeof(uint8_t)); 
+                    // realloc(mmc->seqBufRightQer[tid*CACHE_LINE], *wsize_buf_qer);
                 mmc->seqBufRightQer[tid*CACHE_LINE] = seqBufQer_;               
             }
             

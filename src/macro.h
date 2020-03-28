@@ -44,7 +44,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define H0_ -99
 #define SEEDS_PER_READ 500           /* Avg seeds per read */
 #define MAX_SEEDS_PER_READ 500       /* Max seeds per read */
-#define AVG_SEEDS_PER_READ 64       /* Used for storing seeds in chains*/
+#define AVG_SEEDS_PER_READ 64        /* Used for storing seeds in chains*/
 #define BATCH_SIZE 512               /* Block of reads alloacted to a thread for processing*/
 #define BATCH_MUL 20
 #define SEEDS_PER_CHAIN 1
@@ -54,7 +54,8 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define SEQ_LEN8 128   // redundant??
 
 #define MAX_LINE_LEN 256
-#define CACHE_LINE 1  //16 x 4 Bytes // setting it 1, instead of 16, for now
+#define CACHE_LINE 16        // 16 INT32
+#define ALIGN_OFF 1
 
 #define MAX_THREADS 256
 

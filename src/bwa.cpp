@@ -68,7 +68,6 @@ static inline void kseq2bseq1(const kseq_t *ks, bseq1_t *s)
 }
 
 /* Customized for MPI processing */
-//bseq1_t *bseq_read(int chunk_size, int *n_, void *ks1_, void *ks2_)
 bseq1_t *bseq_read(int64_t chunk_size, int *n_, void *ks1_, void *ks2_,
                    FILE* fpp, int len, int64_t *s)
 {

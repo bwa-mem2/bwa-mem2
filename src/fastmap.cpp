@@ -126,22 +126,24 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
     
     /* SWA mem allocation */
     int64_t wsize = BATCH_SIZE * SEEDS_PER_READ;
-    for(int l=0; l<nthreads; l++) {
+    for(int l=0; l<nthreads; l++)
+    {
         w.mmc.seqBufLeftRef[l*CACHE_LINE]  = (uint8_t *)
-            malloc(wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+            _mm_malloc(wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN, 64);
         w.mmc.seqBufLeftQer[l*CACHE_LINE]  = (uint8_t *)
-            malloc(wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);          
+            _mm_malloc(wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN, 64);
         w.mmc.seqBufRightRef[l*CACHE_LINE] = (uint8_t *)
-            malloc(wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN);
+            _mm_malloc(wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN, 64);
         w.mmc.seqBufRightQer[l*CACHE_LINE] = (uint8_t *)
-            malloc(wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN);
-        w.mmc.wsize_buf_ref[l] = wsize * MAX_SEQ_LEN_REF;
-        w.mmc.wsize_buf_qer[l] = wsize * MAX_SEQ_LEN_QER;
+            _mm_malloc(wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN, 64);
         
-        assert(w.mmc.seqBufLeftRef[l*CACHE_LINE] != NULL);
-        assert(w.mmc.seqBufLeftQer[l*CACHE_LINE] != NULL);
+        w.mmc.wsize_buf_ref[l*CACHE_LINE] = wsize * MAX_SEQ_LEN_REF;
+        w.mmc.wsize_buf_qer[l*CACHE_LINE] = wsize * MAX_SEQ_LEN_QER;
+        
+        assert(w.mmc.seqBufLeftRef[l*CACHE_LINE]  != NULL);
+        assert(w.mmc.seqBufLeftQer[l*CACHE_LINE]  != NULL);
         assert(w.mmc.seqBufRightRef[l*CACHE_LINE] != NULL);
-        assert(w.mmc.seqBufRightQer[l*CACHE_LINE] != NULL);     
+        assert(w.mmc.seqBufRightQer[l*CACHE_LINE] != NULL);
     }
     
     for(int l=0; l<nthreads; l++) {
@@ -164,7 +166,7 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
     for (int l=0; l<nthreads; l++)
     {
         w.mmc.wsize_mem[l]     = BATCH_MUL * BATCH_SIZE *               readLen;
-        w.mmc.matchArray[l]    = (SMEM *) malloc(w.mmc.wsize_mem[l] * sizeof(SMEM));   // changed from _mm_malloc to malloc for future reallocs 
+        w.mmc.matchArray[l]    = (SMEM *) _mm_malloc(w.mmc.wsize_mem[l] * sizeof(SMEM), 64);
         w.mmc.min_intv_ar[l]   = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
         w.mmc.query_pos_ar[l]  = (int16_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int16_t));
         w.mmc.enc_qdb[l]       = (uint8_t *) malloc(w.mmc.wsize_mem[l] * sizeof(uint8_t));
@@ -500,10 +502,10 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     free(w.seedBuf);
     
     for(int l=0; l<nthreads; l++) {
-        free(w.mmc.seqBufLeftRef[l*CACHE_LINE]);
-        free(w.mmc.seqBufRightRef[l*CACHE_LINE]);
-        free(w.mmc.seqBufLeftQer[l*CACHE_LINE]);
-        free(w.mmc.seqBufRightQer[l*CACHE_LINE]);
+        _mm_free(w.mmc.seqBufLeftRef[l*CACHE_LINE]);
+        _mm_free(w.mmc.seqBufRightRef[l*CACHE_LINE]);
+        _mm_free(w.mmc.seqBufLeftQer[l*CACHE_LINE]);
+        _mm_free(w.mmc.seqBufRightQer[l*CACHE_LINE]);
     }
 
     for(int l=0; l<nthreads; l++) {
@@ -513,7 +515,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     }
 
     for(int l=0; l<nthreads; l++) {
-        free(w.mmc.matchArray[l]);
+        _mm_free(w.mmc.matchArray[l]);
         free(w.mmc.min_intv_ar[l]);
         free(w.mmc.query_pos_ar[l]);
         free(w.mmc.enc_qdb[l]);

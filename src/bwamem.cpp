@@ -834,13 +834,15 @@ int mem_kernel1_core(FMI_search *fmi,
             seq[i] = seq[i] < 4? seq[i] : nst_nt4_table[(int)seq[i]]; //nst_nt4??       
     }
 
-    // This covers enc_qdb reallocs
+    // This covers enc_qdb/SMEM reallocs
     if (tot_len >= mmc->wsize_mem[tid])
     {
         fprintf(stderr, "[%0.4d] Re-allocating SMEM data structures due to enc_qdb\n", tid);
+        int64_t tmp = mmc->wsize_mem[tid];
         mmc->wsize_mem[tid] *= 2;
-        mmc->matchArray[tid]   = (SMEM *)  realloc(mmc->matchArray[tid],
-                                                    mmc->wsize_mem[tid] *   sizeof(SMEM));
+        mmc->matchArray[tid]   = (SMEM *) _mm_realloc(mmc->matchArray[tid],
+                                                      tmp, mmc->wsize_mem[tid], sizeof(SMEM));
+            //realloc(mmc->matchArray[tid], mmc->wsize_mem[tid] *   sizeof(SMEM));
         mmc->min_intv_ar[tid]  = (int32_t *) realloc(mmc->min_intv_ar[tid],
                                                      mmc->wsize_mem[tid] *  sizeof(int32_t));
         mmc->query_pos_ar[tid] = (int16_t *) realloc(mmc->query_pos_ar[tid],
@@ -1655,6 +1657,19 @@ static inline int get_rlen(int n_cigar, const uint32_t *cigar)
 /************************ New functions, version2*****************************************/
 #define _get_pac(pac, l) ((pac)[(l)>>2]>>((~(l)&3)<<1)&3)
 
+void* _mm_realloc(void *ptr, int64_t csize, int64_t nsize, int16_t dsize) {
+    if (nsize <= csize)
+    {
+        fprintf(stderr, "Shringking not supported yet.\n");
+        return ptr;
+    }
+    void *nptr = _mm_malloc(nsize * dsize, 64);
+    memcpy(nptr, ptr, csize);
+    _mm_free(ptr);
+    
+    return nptr;
+}
+
 // NOTE: shift these new version of functions from bntseq.cpp to bntseq.cpp,
 // once they are incorporated in the code.
 
@@ -1893,8 +1908,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     uint8_t *seqBufRightRef = mmc->seqBufRightRef[tid*CACHE_LINE];
     uint8_t *seqBufLeftQer  = mmc->seqBufLeftQer[tid*CACHE_LINE]; 
     uint8_t *seqBufRightQer = mmc->seqBufRightQer[tid*CACHE_LINE];
-    int64_t *wsize_buf_ref = &(mmc->wsize_buf_ref[tid]);
-    int64_t *wsize_buf_qer = &(mmc->wsize_buf_qer[tid]);
+    int64_t *wsize_buf_ref = &(mmc->wsize_buf_ref[tid*CACHE_LINE]);
+    int64_t *wsize_buf_qer = &(mmc->wsize_buf_qer[tid*CACHE_LINE]);
     
     // int32_t *lim_g = mmc->lim + (BATCH_SIZE + 32) * tid;
     int32_t *lim_g = mmc->lim[tid];
@@ -2050,7 +2065,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     // assert(numPairsLeft < BATCH_SIZE * SEEDS_PER_READ);
                     if (numPairsLeft >= *wsize_pair) {
                         fprintf(stderr, "[0000][%0.4d] Re-allocating seqPairArrays, in Left\n", tid);
-                        *wsize_pair += 1000;
+                        *wsize_pair += 1024;
                         seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
                                                               (*wsize_pair + MAX_LINE_LEN)
                                                               * sizeof(SeqPair));
@@ -2076,11 +2091,16 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     if (leftQerOffset >= *wsize_buf_qer) {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufQers in %s (left)\n",
                                 tid, __func__);
+                        int64_t tmp = *wsize_buf_qer;
                         *wsize_buf_qer *= 2;
-                        uint8_t *seqBufQer_ = (uint8_t*) realloc(mmc->seqBufLeftQer[tid*CACHE_LINE], *wsize_buf_qer);
+                        uint8_t *seqBufQer_ = (uint8_t*)
+                            _mm_realloc(seqBufLeftQer, tmp, *wsize_buf_qer, sizeof(uint8_t)); 
+                            // realloc(mmc->seqBufLeftQer[tid*CACHE_LINE], *wsize_buf_qer);
                         mmc->seqBufLeftQer[tid*CACHE_LINE] = seqBufLeftQer = seqBufQer_;
                         
-                        seqBufQer_ = (uint8_t*) realloc(mmc->seqBufRightQer[tid*CACHE_LINE], *wsize_buf_qer);
+                        seqBufQer_ = (uint8_t*)
+                            _mm_realloc(seqBufRightQer, tmp, *wsize_buf_qer, sizeof(uint8_t)); 
+                            // realloc(mmc->seqBufRightQer[tid*CACHE_LINE], *wsize_buf_qer);
                         mmc->seqBufRightQer[tid*CACHE_LINE] = seqBufRightQer = seqBufQer_;      
                     }
                     
@@ -2093,11 +2113,16 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     if (leftRefOffset >= *wsize_buf_ref) {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s (left)\n",
                                 tid, __func__);
+                        int64_t tmp = *wsize_buf_ref;
                         *wsize_buf_ref *= 2;
-                        uint8_t *seqBufRef_ = (uint8_t*) realloc(mmc->seqBufLeftRef[tid*CACHE_LINE], *wsize_buf_ref);
+                        uint8_t *seqBufRef_ = (uint8_t*)
+                            _mm_realloc(seqBufLeftRef, tmp, *wsize_buf_ref, sizeof(uint8_t)); 
+                            // realloc(mmc->seqBufLeftRef[tid*CACHE_LINE], *wsize_buf_ref);
                         mmc->seqBufLeftRef[tid*CACHE_LINE] = seqBufLeftRef = seqBufRef_;
                         
-                        seqBufRef_ = (uint8_t*) realloc(mmc->seqBufRightRef[tid*CACHE_LINE], *wsize_buf_ref);
+                        seqBufRef_ = (uint8_t*)
+                            _mm_realloc(seqBufRightRef, tmp, *wsize_buf_ref, sizeof(uint8_t)); 
+                            // realloc(mmc->seqBufRightRef[tid*CACHE_LINE], *wsize_buf_ref);
                         mmc->seqBufRightRef[tid*CACHE_LINE] = seqBufRightRef = seqBufRef_;              
                     }
                     
@@ -2143,7 +2168,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     // assert(numPairsRight < BATCH_SIZE * SEEDS_PER_READ);
                     if (numPairsRight >= *wsize_pair) {
                         fprintf(stderr, "[0000] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
-                        *wsize_pair += 1000;
+                        *wsize_pair += 1024;
                         seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
                                                               (*wsize_pair + MAX_LINE_LEN)
                                                               * sizeof(SeqPair));
@@ -2173,11 +2198,16 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufQers in %s (right)\n",
                                 tid, __func__);
+                        int64_t tmp = *wsize_buf_qer;
                         *wsize_buf_qer *= 2;
-                        uint8_t *seqBufQer_ = (uint8_t*) realloc(mmc->seqBufLeftQer[tid*CACHE_LINE], *wsize_buf_qer);
+                        uint8_t *seqBufQer_ = (uint8_t*)
+                            _mm_realloc(seqBufLeftQer, tmp, *wsize_buf_qer, sizeof(uint8_t)); 
+                        // realloc(mmc->seqBufLeftQer[tid*CACHE_LINE], *wsize_buf_qer);
                         mmc->seqBufLeftQer[tid*CACHE_LINE] = seqBufLeftQer = seqBufQer_;
                         
-                        seqBufQer_ = (uint8_t*) realloc(mmc->seqBufRightQer[tid*CACHE_LINE], *wsize_buf_qer);
+                        seqBufQer_ = (uint8_t*)
+                            _mm_realloc(seqBufRightQer, tmp, *wsize_buf_qer, sizeof(uint8_t)); 
+                            // realloc(mmc->seqBufRightQer[tid*CACHE_LINE], *wsize_buf_qer);
                         mmc->seqBufRightQer[tid*CACHE_LINE] = seqBufRightQer = seqBufQer_;      
                     }
 
@@ -2187,11 +2217,16 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s (right)\n",
                                 tid, __func__);
+                        int64_t tmp = *wsize_buf_ref;
                         *wsize_buf_ref *= 2;
-                        uint8_t *seqBufRef_ = (uint8_t*) realloc(mmc->seqBufLeftRef[tid*CACHE_LINE], *wsize_buf_ref);
+                        uint8_t *seqBufRef_ = (uint8_t*)
+                            _mm_realloc(seqBufLeftRef, tmp, *wsize_buf_ref, sizeof(uint8_t)); 
+                            // realloc(mmc->seqBufLeftRef[tid*CACHE_LINE], *wsize_buf_ref);
                         mmc->seqBufLeftRef[tid*CACHE_LINE] = seqBufLeftRef = seqBufRef_;
                         
-                        seqBufRef_ = (uint8_t*) realloc(mmc->seqBufRightRef[tid*CACHE_LINE], *wsize_buf_ref);
+                        seqBufRef_ = (uint8_t*)
+                            _mm_realloc(seqBufRightRef, tmp, *wsize_buf_ref, sizeof(uint8_t)); 
+                            // realloc(mmc->seqBufRightRef[tid*CACHE_LINE], *wsize_buf_ref);
                         mmc->seqBufRightRef[tid*CACHE_LINE] = seqBufRightRef = seqBufRef_;              
                     }
                     

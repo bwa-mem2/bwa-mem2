@@ -189,8 +189,9 @@ typedef struct
     SeqPair *seqPairArrayRight128[MAX_THREADS];
     
     int64_t wsize[MAX_THREADS];
-    int64_t wsize_buf_ref[MAX_THREADS]; 
-    int64_t wsize_buf_qer[MAX_THREADS];
+
+    int64_t wsize_buf_ref[MAX_THREADS*CACHE_LINE]; 
+    int64_t wsize_buf_qer[MAX_THREADS*CACHE_LINE];
 
     uint8_t *seqBufLeftRef[MAX_THREADS*CACHE_LINE];
     uint8_t *seqBufRightRef[MAX_THREADS*CACHE_LINE];
@@ -264,6 +265,8 @@ int mem_kernel1_core(FMI_search *fmi, const mem_opt_t *opt,
                      mem_chain_v *chain_ar,
                      mem_cache *mmc,
                      int tid);
+
+void* _mm_realloc(void *ptr, int64_t csize, int64_t nsize, int16_t dsize);
 
 void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                                    const uint8_t *pac, bseq1_t *seq_, int nseq,
