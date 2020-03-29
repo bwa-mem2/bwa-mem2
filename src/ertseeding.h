@@ -72,6 +72,7 @@ typedef struct {
 	const bwt_t* bwt;           // FM-index
 	const bntseq_t* bns;        // Input reads sequences
 	const uint8_t* pac;         // Reference genome (2-bit encoded)
+  uint8_t* ref_string;
 } index_aux_t;
 
 /**

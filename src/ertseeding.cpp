@@ -440,6 +440,27 @@ inline uint32_t getHashKey (const uint8_t *str, const int keysize, int index, in
 	return key;
 }
 
+uint8_t *get_seq(int64_t l_pac, const uint8_t *pac, int64_t beg, int64_t end,
+                        int64_t *len,  uint8_t *ref_string, uint8_t *seqb)
+{
+    uint8_t *seq = 0;
+    if (end < beg) end ^= beg, beg ^= end, end ^= beg; // if end is smaller, swap
+    if (end > l_pac<<1) end = l_pac<<1;
+    if (beg < 0) beg = 0;
+    if (beg >= l_pac || end <= l_pac) {
+        int64_t k, l = 0;
+        *len = end - beg;
+        if (beg >= l_pac) { // reverse strand
+            seq = ref_string + beg;
+        } else { // forward strand
+            seq = ref_string + beg;
+        }
+
+    } else *len = 0; // if bridging the forward-reverse boundary, return nothing
+    return seq;
+}
+
+
 /**
  * Compute offset to child and return address of child node
  *
@@ -2615,7 +2636,7 @@ int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t*
 		int64_t start_ref_pos = hits->a[mem->hitbeg] - mem->rc_start;
 		int64_t end_ref_pos = hits->a[mem->hitbeg];
 		// Fetch reference to check for extra matching bps on the right
-		uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
+		uint8_t* rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0); 
 		int m, numMatchingBP = 0;
 		for (m = 1; m <= len; ++m) {
 			if (rseq[mem->rc_start - m] == raux->read_buf[mem->rc_start - m]) {
@@ -2632,7 +2653,7 @@ int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t*
 		end_ref_pos = start_ref_pos + mem->start;
 
 		// Fetch reference to check for extra matching bps on the left
-		rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
+		rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0); 
 		numMatchingBP = 0;
 		for (m = 0; m < len; ++m) {
 			if (rseq[m] == raux->read_buf[mem->rc_end + m]) {
@@ -2671,7 +2692,7 @@ int check_and_add_smem_prefix_reseed(index_aux_t* iaux, read_aux_t* raux, mem_t*
 				int64_t start_ref_pos = hits->a[mem->hitbeg] + rmemLen;
 				int64_t end_ref_pos = hits->a[mem->hitbeg] + raux->l_seq - mem->start;
 				/// Fetch reference
-				uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
+				uint8_t* rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0); 
 				int m;
 				int numMatchingBP = 0;
 				/// Check for matching bases
@@ -2732,7 +2753,7 @@ int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, s
 		int64_t start_ref_pos = hits->a[mem->hitbeg] - mem->rc_start;
 		int64_t end_ref_pos = hits->a[mem->hitbeg];
 		// Fetch reference to check for extra matching bps
-		uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
+		uint8_t* rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0); 
 		int m, numMatchingBP = 0;
 		for (m = 1; m <= len; ++m) {
 			if (rseq[mem->rc_start - m] == raux->read_buf[mem->rc_start - m]) {
@@ -2748,7 +2769,7 @@ int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, s
 		start_ref_pos = hits->a[mem->hitbeg] + lmemLen;
 		end_ref_pos = start_ref_pos + mem->start;
 		// Fetch reference to check for extra matching bps
-		rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
+		rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0); 
 		numMatchingBP = 0;
 		for (m = 0; m < len; ++m) {
 			if (rseq[m] == raux->read_buf[mem->rc_end + m]) {
@@ -2786,7 +2807,7 @@ int check_and_add_smem_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, s
 			int64_t start_ref_pos = hits->a[mem->hitbeg] + rmemLen;
 			int64_t end_ref_pos = hits->a[mem->hitbeg] + raux->l_seq - mem->start;
 			/// Fetch reference
-			uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0); 
+			uint8_t* rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0); 
 			int m;
 			int numMatchingBP = 0;
 			/// Check for matching bases
@@ -2843,7 +2864,7 @@ void check_and_add_smem(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_he
 		int64_t start_ref_pos = hits->a[mem->hitbeg] + lmemLen;
 		int64_t end_ref_pos = start_ref_pos + mem->start;
 		// Fetch reference to check for extra matching bps
-		uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0);
+		uint8_t* rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0);
 		int m, numMatchingBP = 0;
 		for (m = 0; m < len; ++m) {
 			if (rseq[m] == raux->read_buf[mem->rc_end + m]) {
@@ -2917,7 +2938,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
 			int64_t start_ref_pos = hits->a[rm.hitbeg] + i - rm.start;
 			int64_t end_ref_pos = hits->a[rm.hitbeg] + raux->l_seq - rm.start;
 			// Fetch reference
-			uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0);
+			uint8_t* rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0);
 			int m;
 			int numMatchingBP = 0;
 			// Check for matching bases
@@ -3054,7 +3075,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
 			int64_t start_ref_pos = hits->a[rm.hitbeg] + i - rm.start;
 			int64_t end_ref_pos = hits->a[rm.hitbeg] + raux->l_seq - rm.start;
 			// Fetch reference
-			uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0);
+			uint8_t* rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0);
 			int m;
 			int numMatchingBP = 0;
 			// Check for matching bases
@@ -3191,7 +3212,7 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start,
 		int64_t start_ref_pos = hits->a[rm.hitbeg] + i - rm.start;
 		int64_t end_ref_pos = hits->a[rm.hitbeg] + raux->l_seq - rm.start;
 		// Fetch reference
-		uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0);
+		uint8_t* rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0);
 		int m;
 		int numMatchingBP = 0;
 		// Check for matching bases
@@ -3304,7 +3325,7 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int li
 		int64_t start_ref_pos = hits->a[rm.hitbeg] + i - rm.start;
 		int64_t end_ref_pos = hits->a[rm.hitbeg] + raux->l_seq - rm.start;
 		// Fetch reference
-		uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0);
+		uint8_t* rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0);
 		int m;
 		int numMatchingBP = 0;
 		// Check for matching bases
@@ -3409,7 +3430,7 @@ void last(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int limit, u64v* hi
 			int64_t start_ref_pos = hits->a[rm.hitbeg] + i - rm.start;
 			int64_t end_ref_pos = hits->a[rm.hitbeg] + raux->l_seq - rm.start;
 			// Fetch reference
-			uint8_t* rseq = bns_get_seq_v2(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, 0);
+			uint8_t* rseq = get_seq(iaux->bns->l_pac, iaux->pac, start_ref_pos, end_ref_pos, &len, iaux->ref_string, 0);
 			int m, numMatchingBP = 0;
 			// Check for matching bases
 			for (m = 0; m < len; ++m) {

@@ -44,7 +44,6 @@ struct ktp_t;
 struct mem_opt_t;
 struct worker_t;
 
-
 typedef struct {
 	struct ktp_t *pl;
 	int64_t index;

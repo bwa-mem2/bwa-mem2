@@ -89,251 +89,251 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 typedef struct dnaSeqPair
 {
-	int32_t idr, idq, id;
-	int32_t len1, len2;
-	int32_t h0;
-	int seqid, regid;
-	int32_t score, tle, gtle, qle;
-	int32_t gscore, max_off;
+    int32_t idr, idq, id;
+    int32_t len1, len2;
+    int32_t h0;
+    int seqid, regid;
+    int32_t score, tle, gtle, qle;
+    int32_t gscore, max_off;
 
 }SeqPair;
 
 
 typedef struct dnaOutScore
 {
-	int32_t score, tle, gtle, qle;
-	int32_t gscore, max_off;
+    int32_t score, tle, gtle, qle;
+    int32_t gscore, max_off;
 } OutScore;
 
 typedef struct {
-	int32_t h, e;
+    int32_t h, e;
 } eh_t;
 
 
 class BandedPairWiseSW {
-	
+    
 public:
-	uint64_t SW_cells;
+    uint64_t SW_cells;
 
-	BandedPairWiseSW(const int o_del, const int e_del, const int o_ins,
-					 const int e_ins, const int zdrop,
-					 const int end_bonus, const int8_t *mat_,
-					 int8_t w_match, int8_t w_mismatch, int numThreads);
-	~BandedPairWiseSW();
-	// Scalar code section
-	int scalarBandedSWA(int qlen, const uint8_t *query, int tlen,
-						const uint8_t *target, int w,
-						int h0, int *_qle, int *_tle,
-						int *_gtle, int *_gscore,
-						int *_max_off);
+    BandedPairWiseSW(const int o_del, const int e_del, const int o_ins,
+                     const int e_ins, const int zdrop,
+                     const int end_bonus, const int8_t *mat_,
+                     int8_t w_match, int8_t w_mismatch, int numThreads);
+    ~BandedPairWiseSW();
+    // Scalar code section
+    int scalarBandedSWA(int qlen, const uint8_t *query, int tlen,
+                        const uint8_t *target, int w,
+                        int h0, int *_qle, int *_tle,
+                        int *_gtle, int *_gscore,
+                        int *_max_off);
 
-	void scalarBandedSWAWrapper(SeqPair *seqPairArray,
-								uint8_t *seqBufRef,
-								uint8_t *seqBufQer,
-								int numPairs,
-								int nthreads,
-								int w);
+    void scalarBandedSWAWrapper(SeqPair *seqPairArray,
+                                uint8_t *seqBufRef,
+                                uint8_t *seqBufQer,
+                                int numPairs,
+                                int nthreads,
+                                int w);
 
 #if ((!__AVX512BW__) & (!__AVX2__) & (__SSE2__))
-	// AVX256 is not updated for banding and separate ins/del in the inner loop.
-	// 8 bit vector code section	
-	void getScores8(SeqPair *pairArray,
-					uint8_t *seqBufRef,
-					uint8_t *seqBufQer,
-					int32_t numPairs,
-					uint16_t numThreads,
-					int8_t w);
+    // AVX256 is not updated for banding and separate ins/del in the inner loop.
+    // 8 bit vector code section    
+    void getScores8(SeqPair *pairArray,
+                    uint8_t *seqBufRef,
+                    uint8_t *seqBufQer,
+                    int32_t numPairs,
+                    uint16_t numThreads,
+                    int8_t w);
 
-	void smithWatermanBatchWrapper8(SeqPair *pairArray,
-								   uint8_t *seqBufRef,
-								   uint8_t *seqBufQer,
-								   int32_t numPairs,
-								   uint16_t numThreads,
-								   int8_t w);
+    void smithWatermanBatchWrapper8(SeqPair *pairArray,
+                                   uint8_t *seqBufRef,
+                                   uint8_t *seqBufQer,
+                                   int32_t numPairs,
+                                   uint16_t numThreads,
+                                   int8_t w);
 
-	void smithWaterman128_8(uint8_t seq1SoA[],
-							uint8_t seq2SoA[],
-							uint8_t nrow,
-							uint8_t ncol,
-							SeqPair *p,
-							uint8_t h0[],
-							uint16_t tid,
-							int32_t numPairs,
-							int zdrop,
-							uint8_t w,
-							uint8_t qlen[],
-							uint8_t myband[]);
-	// 16 bit vector code section
-	void getScores16(SeqPair *pairArray,
-					 uint8_t *seqBufRef,
-					 uint8_t *seqBufQer,
-					 int32_t numPairs,
-					 uint16_t numThreads,
-					 int8_t w);
+    void smithWaterman128_8(uint8_t seq1SoA[],
+                            uint8_t seq2SoA[],
+                            uint8_t nrow,
+                            uint8_t ncol,
+                            SeqPair *p,
+                            uint8_t h0[],
+                            uint16_t tid,
+                            int32_t numPairs,
+                            int zdrop,
+                            uint8_t w,
+                            uint8_t qlen[],
+                            uint8_t myband[]);
+    // 16 bit vector code section
+    void getScores16(SeqPair *pairArray,
+                     uint8_t *seqBufRef,
+                     uint8_t *seqBufQer,
+                     int32_t numPairs,
+                     uint16_t numThreads,
+                     int8_t w);
 
-	void smithWatermanBatchWrapper16(SeqPair *pairArray,
-									 uint8_t *seqBufRef,
-									 uint8_t *seqBufQer,
-									 int32_t numPairs,
-									 uint16_t numThreads,
-									 int8_t w);
-	
-	void smithWaterman128_16(uint16_t seq1SoA[],
-							 uint16_t seq2SoA[],
-							 uint16_t nrow,
-							 uint16_t ncol,
-							 SeqPair *p,
-							 uint16_t h0[],
-							 uint16_t tid,
-							 int32_t numPairs,
-							 int zdrop,
-							 uint16_t w,
-							 uint16_t qlen[],
-							 uint16_t myband[]);
-	
+    void smithWatermanBatchWrapper16(SeqPair *pairArray,
+                                     uint8_t *seqBufRef,
+                                     uint8_t *seqBufQer,
+                                     int32_t numPairs,
+                                     uint16_t numThreads,
+                                     int8_t w);
+    
+    void smithWaterman128_16(uint16_t seq1SoA[],
+                             uint16_t seq2SoA[],
+                             uint16_t nrow,
+                             uint16_t ncol,
+                             SeqPair *p,
+                             uint16_t h0[],
+                             uint16_t tid,
+                             int32_t numPairs,
+                             int zdrop,
+                             uint16_t w,
+                             uint16_t qlen[],
+                             uint16_t myband[]);
+    
 #endif  //SSE2
 
 #if ((!__AVX512BW__) & (__AVX2__))
-	// AVX256 is not updated for banding and separate ins/del in the inner loop.
-	// 8 bit vector code section	
-	void getScores8(SeqPair *pairArray,
-					uint8_t *seqBufRef,
-					uint8_t *seqBufQer,
-					int32_t numPairs,
-					uint16_t numThreads,
-					int8_t w);
+    // AVX256 is not updated for banding and separate ins/del in the inner loop.
+    // 8 bit vector code section    
+    void getScores8(SeqPair *pairArray,
+                    uint8_t *seqBufRef,
+                    uint8_t *seqBufQer,
+                    int32_t numPairs,
+                    uint16_t numThreads,
+                    int8_t w);
 
-	void smithWatermanBatchWrapper8(SeqPair *pairArray,
-								   uint8_t *seqBufRef,
-								   uint8_t *seqBufQer,
-								   int32_t numPairs,
-								   uint16_t numThreads,
-								   int8_t w);
+    void smithWatermanBatchWrapper8(SeqPair *pairArray,
+                                   uint8_t *seqBufRef,
+                                   uint8_t *seqBufQer,
+                                   int32_t numPairs,
+                                   uint16_t numThreads,
+                                   int8_t w);
 
-	void smithWaterman256_8(uint8_t seq1SoA[],
-							uint8_t seq2SoA[],
-							uint8_t nrow,
-							uint8_t ncol,
-							SeqPair *p,
-							uint8_t h0[],
-							uint16_t tid,
-							int32_t numPairs,
-							int zdrop,
-							uint8_t w,
-							uint8_t qlen[],
-							uint8_t myband[]);
-	// 16 bit vector code section
-	void getScores16(SeqPair *pairArray,
-					 uint8_t *seqBufRef,
-					 uint8_t *seqBufQer,
-					 int32_t numPairs,
-					 uint16_t numThreads,
-					 int8_t w);
+    void smithWaterman256_8(uint8_t seq1SoA[],
+                            uint8_t seq2SoA[],
+                            uint8_t nrow,
+                            uint8_t ncol,
+                            SeqPair *p,
+                            uint8_t h0[],
+                            uint16_t tid,
+                            int32_t numPairs,
+                            int zdrop,
+                            uint8_t w,
+                            uint8_t qlen[],
+                            uint8_t myband[]);
+    // 16 bit vector code section
+    void getScores16(SeqPair *pairArray,
+                     uint8_t *seqBufRef,
+                     uint8_t *seqBufQer,
+                     int32_t numPairs,
+                     uint16_t numThreads,
+                     int8_t w);
 
-	void smithWatermanBatchWrapper16(SeqPair *pairArray,
-									 uint8_t *seqBufRef,
-									 uint8_t *seqBufQer,
-									 int32_t numPairs,
-									 uint16_t numThreads,
-									 int8_t w);
-	
-	void smithWaterman256_16(uint16_t seq1SoA[],
-							 uint16_t seq2SoA[],
-							 uint16_t nrow,
-							 uint16_t ncol,
-							 SeqPair *p,
-							 uint16_t h0[],
-							 uint16_t tid,
-							 int32_t numPairs,
-							 int zdrop,
-							 uint16_t w,
-							 uint16_t qlen[],
-							 uint16_t myband[]);
-	
+    void smithWatermanBatchWrapper16(SeqPair *pairArray,
+                                     uint8_t *seqBufRef,
+                                     uint8_t *seqBufQer,
+                                     int32_t numPairs,
+                                     uint16_t numThreads,
+                                     int8_t w);
+    
+    void smithWaterman256_16(uint16_t seq1SoA[],
+                             uint16_t seq2SoA[],
+                             uint16_t nrow,
+                             uint16_t ncol,
+                             SeqPair *p,
+                             uint16_t h0[],
+                             uint16_t tid,
+                             int32_t numPairs,
+                             int zdrop,
+                             uint16_t w,
+                             uint16_t qlen[],
+                             uint16_t myband[]);
+    
 #endif  //axv2
 
 #if __AVX512BW__
-	// 8 bit vector code section	
-	void getScores8(SeqPair *pairArray,
-					uint8_t *seqBufRef,
-					uint8_t *seqBufQer,
-					int32_t numPairs,
-					uint16_t numThreads,
-					int8_t w);
+    // 8 bit vector code section    
+    void getScores8(SeqPair *pairArray,
+                    uint8_t *seqBufRef,
+                    uint8_t *seqBufQer,
+                    int32_t numPairs,
+                    uint16_t numThreads,
+                    int8_t w);
 
-	void smithWatermanBatchWrapper8(SeqPair *pairArray,
-								   uint8_t *seqBufRef,
-								   uint8_t *seqBufQer,
-								   int32_t numPairs,
-								   uint16_t numThreads,
-								   int8_t w);
+    void smithWatermanBatchWrapper8(SeqPair *pairArray,
+                                   uint8_t *seqBufRef,
+                                   uint8_t *seqBufQer,
+                                   int32_t numPairs,
+                                   uint16_t numThreads,
+                                   int8_t w);
 
-	void smithWaterman512_8(uint8_t seq1SoA[],
-							uint8_t seq2SoA[],
-							uint8_t nrow,
-							uint8_t ncol,
-							SeqPair *p,
-							uint8_t h0[],
-							uint16_t tid,
-							int32_t numPairs,
-							int zdrop,
-							uint8_t w,
-							uint8_t qlen[],
-							uint8_t myband[]);
+    void smithWaterman512_8(uint8_t seq1SoA[],
+                            uint8_t seq2SoA[],
+                            uint8_t nrow,
+                            uint8_t ncol,
+                            SeqPair *p,
+                            uint8_t h0[],
+                            uint16_t tid,
+                            int32_t numPairs,
+                            int zdrop,
+                            uint8_t w,
+                            uint8_t qlen[],
+                            uint8_t myband[]);
 
-	// 16 bit vector code section
-	void getScores16(SeqPair *pairArray,
-					 uint8_t *seqBufRef,
-					 uint8_t *seqBufQer,
-					 int32_t numPairs,
-					 uint16_t numThreads,
-					 int8_t w);
+    // 16 bit vector code section
+    void getScores16(SeqPair *pairArray,
+                     uint8_t *seqBufRef,
+                     uint8_t *seqBufQer,
+                     int32_t numPairs,
+                     uint16_t numThreads,
+                     int8_t w);
 
-	void smithWatermanBatchWrapper16(SeqPair *pairArray,
-									 uint8_t *seqBufRef,
-									 uint8_t *seqBufQer,
-									 int32_t numPairs,
-									 uint16_t numThreads,
-									 int8_t w);
-	
-	void smithWaterman512_16(uint16_t seq1SoA[],
-							 uint16_t seq2SoA[],
-							 uint16_t nrow,
-							 uint16_t ncol,
-							 SeqPair *p,
-							 uint16_t h0[],
-							 uint16_t tid,
-							 int32_t numPairs,
-							 int zdrop,
-							 uint16_t w,
-							 uint16_t qlen[],
-							 uint16_t myband[]);
+    void smithWatermanBatchWrapper16(SeqPair *pairArray,
+                                     uint8_t *seqBufRef,
+                                     uint8_t *seqBufQer,
+                                     int32_t numPairs,
+                                     uint16_t numThreads,
+                                     int8_t w);
+    
+    void smithWaterman512_16(uint16_t seq1SoA[],
+                             uint16_t seq2SoA[],
+                             uint16_t nrow,
+                             uint16_t ncol,
+                             SeqPair *p,
+                             uint16_t h0[],
+                             uint16_t tid,
+                             int32_t numPairs,
+                             int zdrop,
+                             uint16_t w,
+                             uint16_t qlen[],
+                             uint16_t myband[]);
 #endif
 
-	int64_t getTicks();
-	
+    int64_t getTicks();
+    
 private:
-	int m;
-	int end_bonus, zdrop;
-	int o_del, o_ins, e_del, e_ins;
-	const int8_t *mat;
+    int m;
+    int end_bonus, zdrop;
+    int o_del, o_ins, e_del, e_ins;
+    const int8_t *mat;
 
-	int8_t w;  //band size
-	int8_t w_match;
-	int8_t w_mismatch;
-	int8_t w_open;
-	int8_t w_extend;
-	int8_t w_ambig;
-	int8_t *F8_;
-	int8_t *H8_, *H8__;
-	
-	int16_t *F16_;
-	int16_t *H16_, *H16__;
+    int8_t w;  //band size
+    int8_t w_match;
+    int8_t w_mismatch;
+    int8_t w_open;
+    int8_t w_extend;
+    int8_t w_ambig;
+    int8_t *F8_;
+    int8_t *H8_, *H8__;
+    
+    int16_t *F16_;
+    int16_t *H16_, *H16__;
 
-	int64_t sort1Ticks;
-	int64_t setupTicks;
-	int64_t swTicks;
-	int64_t sort2Ticks;
+    int64_t sort1Ticks;
+    int64_t setupTicks;
+    int64_t swTicks;
+    int64_t sort2Ticks;
 };
 
 
