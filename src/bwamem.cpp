@@ -1768,16 +1768,14 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
     for(i = 0; i < count; i++)
     {
         SeqPair sp = pairArray[i];
-        int val = max_(sp.len1, sp.len2);
-        int minval = sp.h0 + min_(sp.len1, sp.len2);
-        
-        if (val < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8)
+        int minval = sp.h0 + max_(sp.len1, sp.len2);
+        if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) 
             hist[minval]++;
-        else if (val < MAX_SEQ_LEN16 && minval < MAX_SEQ_LEN16)
+        else if(sp.len1 < MAX_SEQ_LEN16 && sp.len2 < MAX_SEQ_LEN16 && minval < MAX_SEQ_LEN16)
             hist2[minval] ++;
         else
             hist3[0] ++;
-
+        
         arr[i] = 0;
     }
     
@@ -1796,14 +1794,12 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
     }
     hist3[0] = cumulSum;
 
-
     for(i = 0; i < count; i++)
     {
         SeqPair sp = pairArray[i];
-        int val = max_(sp.len1, sp.len2);
-        int minval = sp.h0 + min_(sp.len1, sp.len2);
+        int minval = sp.h0 + max_(sp.len1, sp.len2);
         
-        if (val < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8)
+        if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) 
         {
             int32_t pos = hist[minval];
             tempArray[pos] = sp;
@@ -1817,7 +1813,7 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
             }
             arr[pos] = 1;
         }
-        else if (val < MAX_SEQ_LEN16 && minval < MAX_SEQ_LEN16) {
+        else if (sp.len1 < MAX_SEQ_LEN16 && sp.len2 < MAX_SEQ_LEN16 && minval < MAX_SEQ_LEN16) {
             int32_t pos = hist2[minval];
             tempArray[pos] = sp;
             hist2[minval]++;
@@ -2049,7 +2045,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                 a->seedlen0 = s->len;
                 a->c = c; //ptr
                 a->rb = a->qb = a->re = a->qe = H0_;
-                // a->secondary_all = 0;
                 
                 tprof[PE19][tid] ++;
                 
@@ -2062,7 +2057,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     sp.seqid = c->seqid;
                     sp.regid = av->n - 1;
                         
-                    // assert(numPairsLeft < BATCH_SIZE * SEEDS_PER_READ);
                     if (numPairsLeft >= *wsize_pair) {
                         fprintf(stderr, "[0000][%0.4d] Re-allocating seqPairArrays, in Left\n", tid);
                         *wsize_pair += 1024;
@@ -2083,57 +2077,50 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     
                     sp.idq = leftQerOffset;
                     sp.idr = leftRefOffset;
-                    uint8_t *qs = seqBufLeftQer + sp.idq;
-                    uint8_t *rs = seqBufLeftRef + sp.idr;
                     
                     leftQerOffset += s->qbeg;
-                    // assert(leftQerOffset < MAX_SEQ_LEN_QER * BATCH_SIZE * SEEDS_PER_READ);
-                    if (leftQerOffset >= *wsize_buf_qer) {
+                    if (leftQerOffset >= *wsize_buf_qer)
+                    {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufQers in %s (left)\n",
                                 tid, __func__);
                         int64_t tmp = *wsize_buf_qer;
                         *wsize_buf_qer *= 2;
                         uint8_t *seqBufQer_ = (uint8_t*)
                             _mm_realloc(seqBufLeftQer, tmp, *wsize_buf_qer, sizeof(uint8_t)); 
-                            // realloc(mmc->seqBufLeftQer[tid*CACHE_LINE], *wsize_buf_qer);
                         mmc->seqBufLeftQer[tid*CACHE_LINE] = seqBufLeftQer = seqBufQer_;
                         
                         seqBufQer_ = (uint8_t*)
                             _mm_realloc(seqBufRightQer, tmp, *wsize_buf_qer, sizeof(uint8_t)); 
-                            // realloc(mmc->seqBufRightQer[tid*CACHE_LINE], *wsize_buf_qer);
                         mmc->seqBufRightQer[tid*CACHE_LINE] = seqBufRightQer = seqBufQer_;      
                     }
                     
-
-                    for (int i = 0; i < s->qbeg; ++i) qs[i] = query[s->qbeg - 1 - i];  // vectorize it!!
+                    uint8_t *qs = seqBufLeftQer + sp.idq;
+                    for (int i = 0; i < s->qbeg; ++i) qs[i] = query[s->qbeg - 1 - i];
                     
                     tmp = s->rbeg - rmax[0];
                     leftRefOffset += tmp;
-                    // assert(leftRefOffset < MAX_SEQ_LEN_REF * BATCH_SIZE * SEEDS_PER_READ);
-                    if (leftRefOffset >= *wsize_buf_ref) {
+                    if (leftRefOffset >= *wsize_buf_ref)
+                    {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s (left)\n",
                                 tid, __func__);
                         int64_t tmp = *wsize_buf_ref;
                         *wsize_buf_ref *= 2;
                         uint8_t *seqBufRef_ = (uint8_t*)
                             _mm_realloc(seqBufLeftRef, tmp, *wsize_buf_ref, sizeof(uint8_t)); 
-                            // realloc(mmc->seqBufLeftRef[tid*CACHE_LINE], *wsize_buf_ref);
                         mmc->seqBufLeftRef[tid*CACHE_LINE] = seqBufLeftRef = seqBufRef_;
                         
                         seqBufRef_ = (uint8_t*)
                             _mm_realloc(seqBufRightRef, tmp, *wsize_buf_ref, sizeof(uint8_t)); 
-                            // realloc(mmc->seqBufRightRef[tid*CACHE_LINE], *wsize_buf_ref);
                         mmc->seqBufRightRef[tid*CACHE_LINE] = seqBufRightRef = seqBufRef_;              
                     }
                     
-
+                    uint8_t *rs = seqBufLeftRef + sp.idr;                    
                     for (int64_t i = 0; i < tmp; ++i) rs[i] = rseq[tmp - 1 - i]; //seq1
                     
                     sp.len2 = s->qbeg;
                     sp.len1 = tmp;
-                    int minval = sp.h0 + max_(sp.len1, sp.len2);
-
-                    //if (max_(sp.len1, sp.len2) < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
+                    int minval = sp.h0 + max_(sp.len1, sp.len2) * opt->a;
+                    
                     if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
                         numPairsLeft128++;
                     }
@@ -2165,8 +2152,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     sp.seqid = c->seqid;
                     sp.regid = av->n - 1;
 
-                    // assert(numPairsRight < BATCH_SIZE * SEEDS_PER_READ);
-                    if (numPairsRight >= *wsize_pair) {
+                    if (numPairsRight >= *wsize_pair)
+                    {
                         fprintf(stderr, "[0000] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
                         *wsize_pair += 1024;
                         seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
@@ -2182,18 +2169,14 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                                                                    * sizeof(SeqPair));
                         mmc->seqPairArrayRight128[tid] = seqPairArrayRight128;
                     }
-
                     
                     sp.len2 = l_query - qe;
                     sp.len1 = rmax[1] - rmax[0] - re;
 
                     sp.idq = rightQerOffset;
                     sp.idr = rightRefOffset;
-                    uint8_t *qs = seqBufRightQer + sp.idq;
-                    uint8_t *rs = seqBufRightRef + sp.idr;
                     
                     rightQerOffset += sp.len2;
-                    // assert(rightQerOffset < MAX_SEQ_LEN_QER * BATCH_SIZE * SEEDS_PER_READ);
                     if (rightQerOffset >= *wsize_buf_qer)
                     {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufQers in %s (right)\n",
@@ -2202,17 +2185,14 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                         *wsize_buf_qer *= 2;
                         uint8_t *seqBufQer_ = (uint8_t*)
                             _mm_realloc(seqBufLeftQer, tmp, *wsize_buf_qer, sizeof(uint8_t)); 
-                        // realloc(mmc->seqBufLeftQer[tid*CACHE_LINE], *wsize_buf_qer);
                         mmc->seqBufLeftQer[tid*CACHE_LINE] = seqBufLeftQer = seqBufQer_;
                         
                         seqBufQer_ = (uint8_t*)
                             _mm_realloc(seqBufRightQer, tmp, *wsize_buf_qer, sizeof(uint8_t)); 
-                            // realloc(mmc->seqBufRightQer[tid*CACHE_LINE], *wsize_buf_qer);
                         mmc->seqBufRightQer[tid*CACHE_LINE] = seqBufRightQer = seqBufQer_;      
                     }
 
                     rightRefOffset += sp.len1;
-                    // assert(rightRefOffset < MAX_SEQ_LEN_REF * BATCH_SIZE * SEEDS_PER_READ);
                     if (rightRefOffset >= *wsize_buf_ref)
                     {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s (right)\n",
@@ -2221,24 +2201,24 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                         *wsize_buf_ref *= 2;
                         uint8_t *seqBufRef_ = (uint8_t*)
                             _mm_realloc(seqBufLeftRef, tmp, *wsize_buf_ref, sizeof(uint8_t)); 
-                            // realloc(mmc->seqBufLeftRef[tid*CACHE_LINE], *wsize_buf_ref);
                         mmc->seqBufLeftRef[tid*CACHE_LINE] = seqBufLeftRef = seqBufRef_;
                         
                         seqBufRef_ = (uint8_t*)
                             _mm_realloc(seqBufRightRef, tmp, *wsize_buf_ref, sizeof(uint8_t)); 
-                            // realloc(mmc->seqBufRightRef[tid*CACHE_LINE], *wsize_buf_ref);
                         mmc->seqBufRightRef[tid*CACHE_LINE] = seqBufRightRef = seqBufRef_;              
                     }
                     
                     tprof[PE23][tid] += sp.len1 + sp.len2;
 
+                    uint8_t *qs = seqBufRightQer + sp.idq;
+                    uint8_t *rs = seqBufRightRef + sp.idr;
                     
                     for (int i = 0; i < sp.len2; ++i) qs[i] = query[qe + i];
 
                     for (int i = 0; i < sp.len1; ++i) rs[i] = rseq[re + i]; //seq1
 
 
-                    int minval = sp.h0 + max_(sp.len1, sp.len2);
+                    int minval = sp.h0 + max_(sp.len1, sp.len2) * opt->a;
                     if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
                         numPairsRight128++;
                     }
