@@ -122,7 +122,7 @@ public:
     ~BandedPairWiseSW();
     // Scalar code section
     int scalarBandedSWA(int qlen, const uint8_t *query, int tlen,
-                        const uint8_t *target, int w,
+                        const uint8_t *target, int32_t w,
                         int h0, int *_qle, int *_tle,
                         int *_gtle, int *_gscore,
                         int *_max_off);
@@ -132,7 +132,7 @@ public:
                                 uint8_t *seqBufQer,
                                 int numPairs,
                                 int nthreads,
-                                int w);
+                                int32_t w);
 
 #if ((!__AVX512BW__) & (!__AVX2__) & (__SSE2__))
     // AVX256 is not updated for banding and separate ins/del in the inner loop.
@@ -142,14 +142,14 @@ public:
                     uint8_t *seqBufQer,
                     int32_t numPairs,
                     uint16_t numThreads,
-                    int8_t w);
+                    int32_t w);
 
     void smithWatermanBatchWrapper8(SeqPair *pairArray,
                                    uint8_t *seqBufRef,
                                    uint8_t *seqBufQer,
                                    int32_t numPairs,
                                    uint16_t numThreads,
-                                   int8_t w);
+                                   int32_t w);
 
     void smithWaterman128_8(uint8_t seq1SoA[],
                             uint8_t seq2SoA[],
@@ -160,7 +160,7 @@ public:
                             uint16_t tid,
                             int32_t numPairs,
                             int zdrop,
-                            uint8_t w,
+                            int32_t w,
                             uint8_t qlen[],
                             uint8_t myband[]);
     // 16 bit vector code section
@@ -169,14 +169,14 @@ public:
                      uint8_t *seqBufQer,
                      int32_t numPairs,
                      uint16_t numThreads,
-                     int8_t w);
+                     int32_t w);
 
     void smithWatermanBatchWrapper16(SeqPair *pairArray,
                                      uint8_t *seqBufRef,
                                      uint8_t *seqBufQer,
                                      int32_t numPairs,
                                      uint16_t numThreads,
-                                     int8_t w);
+                                     int32_t w);
     
     void smithWaterman128_16(uint16_t seq1SoA[],
                              uint16_t seq2SoA[],
@@ -187,7 +187,7 @@ public:
                              uint16_t tid,
                              int32_t numPairs,
                              int zdrop,
-                             uint16_t w,
+                             int32_t w,
                              uint16_t qlen[],
                              uint16_t myband[]);
     
@@ -201,14 +201,14 @@ public:
                     uint8_t *seqBufQer,
                     int32_t numPairs,
                     uint16_t numThreads,
-                    int8_t w);
+                    int32_t w);
 
     void smithWatermanBatchWrapper8(SeqPair *pairArray,
                                    uint8_t *seqBufRef,
                                    uint8_t *seqBufQer,
                                    int32_t numPairs,
                                    uint16_t numThreads,
-                                   int8_t w);
+                                   int32_t w);
 
     void smithWaterman256_8(uint8_t seq1SoA[],
                             uint8_t seq2SoA[],
@@ -219,7 +219,7 @@ public:
                             uint16_t tid,
                             int32_t numPairs,
                             int zdrop,
-                            uint8_t w,
+                            int32_t w,
                             uint8_t qlen[],
                             uint8_t myband[]);
     // 16 bit vector code section
@@ -228,14 +228,14 @@ public:
                      uint8_t *seqBufQer,
                      int32_t numPairs,
                      uint16_t numThreads,
-                     int8_t w);
+                     int32_t w);
 
     void smithWatermanBatchWrapper16(SeqPair *pairArray,
                                      uint8_t *seqBufRef,
                                      uint8_t *seqBufQer,
                                      int32_t numPairs,
                                      uint16_t numThreads,
-                                     int8_t w);
+                                     int32_t w);
     
     void smithWaterman256_16(uint16_t seq1SoA[],
                              uint16_t seq2SoA[],
@@ -246,7 +246,7 @@ public:
                              uint16_t tid,
                              int32_t numPairs,
                              int zdrop,
-                             uint16_t w,
+                             int32_t w,
                              uint16_t qlen[],
                              uint16_t myband[]);
     
@@ -259,14 +259,14 @@ public:
                     uint8_t *seqBufQer,
                     int32_t numPairs,
                     uint16_t numThreads,
-                    int8_t w);
+                    int32_t w);
 
     void smithWatermanBatchWrapper8(SeqPair *pairArray,
                                    uint8_t *seqBufRef,
                                    uint8_t *seqBufQer,
                                    int32_t numPairs,
                                    uint16_t numThreads,
-                                   int8_t w);
+                                   int32_t w);
 
     void smithWaterman512_8(uint8_t seq1SoA[],
                             uint8_t seq2SoA[],
@@ -277,7 +277,7 @@ public:
                             uint16_t tid,
                             int32_t numPairs,
                             int zdrop,
-                            uint8_t w,
+                            int32_t w,
                             uint8_t qlen[],
                             uint8_t myband[]);
 
@@ -287,14 +287,14 @@ public:
                      uint8_t *seqBufQer,
                      int32_t numPairs,
                      uint16_t numThreads,
-                     int8_t w);
+                     int32_t w);
 
     void smithWatermanBatchWrapper16(SeqPair *pairArray,
                                      uint8_t *seqBufRef,
                                      uint8_t *seqBufQer,
                                      int32_t numPairs,
                                      uint16_t numThreads,
-                                     int8_t w);
+                                     int32_t w);
     
     void smithWaterman512_16(uint16_t seq1SoA[],
                              uint16_t seq2SoA[],
@@ -305,7 +305,7 @@ public:
                              uint16_t tid,
                              int32_t numPairs,
                              int zdrop,
-                             uint16_t w,
+                             int32_t w,
                              uint16_t qlen[],
                              uint16_t myband[]);
 #endif
@@ -318,7 +318,6 @@ private:
     int o_del, o_ins, e_del, e_ins;
     const int8_t *mat;
 
-    int8_t w;  //band size
     int8_t w_match;
     int8_t w_mismatch;
     int8_t w_open;

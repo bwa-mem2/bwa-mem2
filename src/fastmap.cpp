@@ -316,6 +316,8 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 
         return 0;
     } // step 2
+    
+    return 0;
 }
 
 static void *ktp_worker(void *data)

@@ -2287,7 +2287,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     // scalar
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // uint64_t tim = __rdtsc();
         bswLeft.scalarBandedSWAWrapper(pair_ar,
                                        seqBufLeftRef,
@@ -2343,7 +2343,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
 
     //****************** Left - vector int16 ***********************
-#if 1
     assert(numPairsLeft == (numPairsLeft128 + numPairsLeft16 + numPairsLeft1));
 
     pair_ar = seqPairArrayLeft128 + numPairsLeft128;
@@ -2352,7 +2351,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     nump = numPairsLeft16;
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // int64_t tim = __rdtsc();
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
         bswLeft.scalarBandedSWAWrapper(pair_ar, seqBufLeftRef, seqBufLeftQer, nump, nthreads, w);
@@ -2412,17 +2411,15 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
         pair_ar = pair_ar_aux;
         pair_ar_aux = tmp;
     }
-#endif
 
     //****************** Left - vector int8 ***********************
-#if 1
     pair_ar = seqPairArrayLeft128;
     pair_ar_aux = seqPairArrayAux;
     
     nump = numPairsLeft128;
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // int64_t tim = __rdtsc();
         
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
@@ -2482,7 +2479,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
         pair_ar = pair_ar_aux;
         pair_ar_aux = tmp;
     }
-#endif
 
     // tprof[CLEFT][tid] += __rdtsc() - timL;
     
@@ -2507,7 +2503,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // tim = __rdtsc();      
         bswRight.scalarBandedSWAWrapper(pair_ar,
                         seqBufRightRef,
@@ -2568,7 +2564,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
         
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // uint64_t tim = __rdtsc();
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
         bswRight.scalarBandedSWAWrapper(pair_ar, seqBufRightRef, seqBufRightQer, nump, nthreads, w);
@@ -2638,7 +2634,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
         
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // uint64_t tim = __rdtsc();
         
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
