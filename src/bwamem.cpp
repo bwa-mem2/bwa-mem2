@@ -1751,7 +1751,7 @@ uint8_t *bns_fetch_seq_v2(const bntseq_t *bns, const uint8_t *pac,
 
 inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArray,
                             int32_t *hist, int &numPairs128, int &numPairs16,
-                            int &numPairs1)
+                            int &numPairs1, int score_a)
 {
     int32_t i;
     numPairs128 = numPairs16 = numPairs1 = 0;
@@ -1768,7 +1768,8 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
     for(i = 0; i < count; i++)
     {
         SeqPair sp = pairArray[i];
-        int minval = sp.h0 + max_(sp.len1, sp.len2);
+        // int minval = sp.h0 + max_(sp.len1, sp.len2);
+        int minval = sp.h0 + min_(sp.len1, sp.len2) * score_a;
         if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) 
             hist[minval]++;
         else if(sp.len1 < MAX_SEQ_LEN16 && sp.len2 < MAX_SEQ_LEN16 && minval < MAX_SEQ_LEN16)
@@ -1797,7 +1798,8 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
     for(i = 0; i < count; i++)
     {
         SeqPair sp = pairArray[i];
-        int minval = sp.h0 + max_(sp.len1, sp.len2);
+        // int minval = sp.h0 + max_(sp.len1, sp.len2);
+        int minval = sp.h0 + min_(sp.len1, sp.len2) * score_a;
         
         if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) 
         {
@@ -2119,7 +2121,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     
                     sp.len2 = s->qbeg;
                     sp.len1 = tmp;
-                    int minval = sp.h0 + max_(sp.len1, sp.len2) * opt->a;
+                    int minval = sp.h0 + min_(sp.len1, sp.len2) * opt->a;
                     
                     if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
                         numPairsLeft128++;
@@ -2217,8 +2219,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
                     for (int i = 0; i < sp.len1; ++i) rs[i] = rseq[re + i]; //seq1
 
-
-                    int minval = sp.h0 + max_(sp.len1, sp.len2) * opt->a;
+                    int minval = sp.h0 + min_(sp.len1, sp.len2) * opt->a;
+                    
                     if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
                         numPairsRight128++;
                     }
@@ -2260,7 +2262,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     
     /* Sorting based score is required as that affects the use of SIMD lanes */
     sortPairsLenExt(seqPairArrayLeft128, numPairsLeft, seqPairArrayAux, hist,
-                  numPairsLeft128, numPairsLeft16, numPairsLeft1);
+                    numPairsLeft128, numPairsLeft16, numPairsLeft1, opt->a);
     assert(numPairsLeft == (numPairsLeft128 + numPairsLeft16 + numPairsLeft1));
     
 
@@ -2493,7 +2495,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     }
 
     sortPairsLenExt(seqPairArrayRight128, numPairsRight, seqPairArrayAux,
-                    hist, numPairsRight128, numPairsRight16, numPairsRight1);
+                    hist, numPairsRight128, numPairsRight16, numPairsRight1, opt->a);
 
     assert(numPairsRight == (numPairsRight128 + numPairsRight16 + numPairsRight1));
 
