@@ -134,7 +134,8 @@ int main(int argc, char **argv) {
     assert(numthreads <= omp_get_max_threads());
 
     int64_t num_batches = (numReads + batch_size - 1 ) / batch_size;
-    int64_t numTotalSmem[num_batches];
+    int64_t *numTotalSmem = (int64_t *)_mm_malloc(num_batches * sizeof(int64_t), 64);;
+    int64_t *batchStart = (int64_t *)_mm_malloc(num_batches * sizeof(int64_t), 64);;
 #pragma omp parallel num_threads(numthreads)
     {
         int tid = omp_get_thread_num();
@@ -156,6 +157,7 @@ int main(int argc, char **argv) {
 #endif
     startTick = __rdtsc();
     memset(numTotalSmem, 0, num_batches * sizeof(int64_t));
+    memset(batchStart, 0, num_batches * sizeof(int64_t));
     int64_t workTicks[numthreads];
     memset(workTicks, 0, numthreads * sizeof(int64_t));
 
@@ -163,6 +165,9 @@ int main(int argc, char **argv) {
     {
         int32_t *rid_array = (int32_t *)_mm_malloc(batch_size * sizeof(int32_t), 64);
         int32_t tid = omp_get_thread_num();
+        int64_t myMatchStart = tid * (numReads/numthreads) * max_readlength;
+        SMEM *myMatchArray = matchArray + myMatchStart;
+        int64_t myTotalSmems = 0;
         int64_t startTick = __rdtsc();
 
 #pragma omp for schedule(dynamic)
@@ -188,19 +193,19 @@ int main(int argc, char **argv) {
                     query_cum_len_ar,
                     max_readlength,
                     minSeedLen,
-                    matchArray + i * max_readlength,
+                    myMatchArray + myTotalSmems,
                     numTotalSmem + batch_id);
-            //printf("numTotalSmem = %d\n", numTotalSmem[batch_id]);
-            //fflush(stdout);
-            fmiSearch->sortSMEMs(matchArray + i * max_readlength,
+            batchStart[batch_id] = myMatchStart + myTotalSmems;
+            fmiSearch->sortSMEMs(myMatchArray + myTotalSmems,
                     numTotalSmem + batch_id,
                     batch_count,
                     max_readlength,
                     1);
             for(j = 0; j < numTotalSmem[batch_id]; j++)
             {
-                matchArray[i * max_readlength + j].rid += i;
+                myMatchArray[myTotalSmems + j].rid += i;
             }
+            myTotalSmems += numTotalSmem[batch_id];
             int64_t et1 = __rdtsc();
             workTicks[tid] += (et1 - st1);
         }
@@ -237,8 +242,7 @@ int main(int argc, char **argv) {
     int32_t prevRid = -1;
     for(batch_id = 0; batch_id < num_batches; batch_id++)
     {
-        int32_t first = batch_id * batch_size;;
-        SMEM *myMatchArray = matchArray + first * max_readlength;
+        SMEM *myMatchArray = matchArray + batchStart[batch_id];
         int64_t i;
         for(i = 0; i < numTotalSmem[batch_id]; i++)
         {
@@ -267,10 +271,12 @@ int main(int argc, char **argv) {
         }
     }
 
-    //free(query_seq);
+    _mm_free(query_cum_len_ar);
     free(enc_qdb);
     _mm_free(matchArray);
     _mm_free(min_intv_array);
+    _mm_free(numTotalSmem);
+    _mm_free(batchStart);
     delete fmiSearch;
     return 0;
 }
