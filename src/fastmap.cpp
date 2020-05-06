@@ -579,6 +579,9 @@ static void usage(const mem_opt_t *opt)
     fprintf(stderr, "   -R STR        read group header line such as '@RG\\tID:foo\\tSM:bar' [null]\n");
     fprintf(stderr, "   -H STR/FILE   insert STR to header if it starts with @; or insert lines in FILE [null]\n");
     fprintf(stderr, "   -j            treat ALT contigs as part of the primary assembly (i.e. ignore <idxbase>.alt file)\n");
+    fprintf(stderr, "   -5            for split alignment, take the alignment with the smallest coordinate as primary\n");
+    fprintf(stderr, "   -q            don't modify mapQ of supplementary alignments\n");
+    fprintf(stderr, "   -K INT        process INT input bases in each batch regardless of nThreads (for reproducibility) []\n");    
     fprintf(stderr, "   -v INT        verbose level: 1=error, 2=warning, 3=message, 4+=debugging [%d]\n", bwa_verbose);
     fprintf(stderr, "   -T INT        minimum score to output [%d]\n", opt->T);
     fprintf(stderr, "   -h INT[,INT]  if there are <INT hits with score >80%% of the max score, output all in XA [%d,%d]\n", opt->max_XA_hits, opt->max_XA_hits_alt);
@@ -606,7 +609,6 @@ int main_mem(int argc, char *argv[])
     mem_pestat_t     pes[4];
     ktp_aux_t        aux;
     bool             is_o      = 0;
-    int64_t          nread_lim = 0;
     uint8_t          *ref_string;
     
     memset(&aux, 0, sizeof(ktp_aux_t));
@@ -619,7 +621,8 @@ int main_mem(int argc, char *argv[])
     memset(&opt0, 0, sizeof(mem_opt_t));
     
     /* Parse input arguments */
-    while ((c = getopt(argc, argv, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:q:")) >= 0)
+    // comment: added option '5' in the list
+    while ((c = getopt(argc, argv, "51qpaMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:")) >= 0)
     {
         if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
         else if (c == '1') no_mt_io = 1;
@@ -632,7 +635,7 @@ int main_mem(int argc, char *argv[])
             opt->pen_unpaired = atoi(optarg), opt0.pen_unpaired = 1, assert(opt->pen_unpaired >= INT_MIN && opt->pen_unpaired <= INT_MAX);
         else if (c == 't')
             opt->n_threads = atoi(optarg), opt->n_threads = opt->n_threads > 1? opt->n_threads : 1, assert(opt->n_threads >= INT_MIN && opt->n_threads <= INT_MAX);
-        else if (c == 'o')
+        else if (c == 'o' || c == 'f')
         {
             is_o = 1;
             aux.fp = fopen(optarg, "w");
@@ -641,10 +644,6 @@ int main_mem(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             }
             /*fclose(aux.fp);*/
-            aux.totEl = 0;
-        }
-        else if (c == 'q') {
-            nread_lim = atoi(optarg);
         }
         else if (c == 'P') opt->flag |= MEM_F_NOPAIRING;
         else if (c == 'a') opt->flag |= MEM_F_ALL;
@@ -653,6 +652,8 @@ int main_mem(int argc, char *argv[])
         else if (c == 'S') opt->flag |= MEM_F_NO_RESCUE;
         else if (c == 'Y') opt->flag |= MEM_F_SOFTCLIP;
         else if (c == 'V') opt->flag |= MEM_F_REF_HDR;
+        else if (c == '5') opt->flag |= MEM_F_PRIMARY5 | MEM_F_KEEP_SUPP_MAPQ; // always apply MEM_F_KEEP_SUPP_MAPQ with -5
+        else if (c == 'q') opt->flag |= MEM_F_KEEP_SUPP_MAPQ;
         else if (c == 'c') opt->max_occ = atoi(optarg), opt0.max_occ = 1;
         else if (c == 'd') opt->zdrop = atoi(optarg), opt0.zdrop = 1;
         else if (c == 'v') bwa_verbose = atoi(optarg);

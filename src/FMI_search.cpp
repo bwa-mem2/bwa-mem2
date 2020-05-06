@@ -31,8 +31,6 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include "FMI_search.h"
 #include "utils.h"
 
-extern int myrank, num_ranks;
-
 FMI_search::FMI_search(char *ref_file_name)
 {
     fprintf(stderr, "* Entering FMI_search\n");

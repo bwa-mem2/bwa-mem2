@@ -62,7 +62,6 @@ typedef struct {
 	int64_t ntasks;
 	int64_t task_size;
 	int64_t actual_chunk_size;
-	int64_t totEl;
 	FILE *fp;
 	uint8_t *ref_string;
 	FMI_search *fmi;	
