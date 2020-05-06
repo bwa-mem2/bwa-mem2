@@ -38,12 +38,13 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <ctime>
 #include<fstream>
 #include <emmintrin.h>
-#include <inttypes.h>
 
 #include "sais.h"
-
 #include "utils.h"
 #include "bntseq.h"
+
+#define __STDC_FORMAT_MACROS 1
+#include <inttypes.h>
 
 #if !SAIS
 #include<seqan/index.h>
