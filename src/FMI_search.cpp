@@ -31,7 +31,6 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include "sais.h"
 #include "FMI_search.h"
 
-
 FMI_search::FMI_search(const char *fname)
 {
     fprintf(stderr, "* Entering FMI_search\n");

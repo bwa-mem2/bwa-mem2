@@ -680,7 +680,15 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
     }
 
     n_pri[0] = mem_mark_primary_se(opt, a[0].n, a[0].a, id<<1|0);
-    n_pri[1] = mem_mark_primary_se(opt, a[1].n, a[1].a, id<<1|1);  
+    n_pri[1] = mem_mark_primary_se(opt, a[1].n, a[1].a, id<<1|1);
+    
+    #if V17
+    if (opt->flag & MEM_F_PRIMARY5) {
+        mem_reorder_primary5(opt->T, &a[0]);
+        mem_reorder_primary5(opt->T, &a[1]);
+    }
+    #endif
+    
     if (opt->flag&MEM_F_NOPAIRING) goto no_pairing;
 
     // pairing single-end hits
