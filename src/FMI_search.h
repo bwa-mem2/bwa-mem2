@@ -30,21 +30,51 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #ifndef _FMI_SEARCH_H
 #define _FMI_SEARCH_H
 
-#include<stdlib.h>
-#include<stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <immintrin.h>
+#include <fstream>
+
 #include "bntseq.h"
 #include "read_index_ele.h"
 #include "bwa.h"
 
+#define DUMMY_CHAR 6
+
+#define assert_not_null(x, size, cur_alloc) \
+        if (x == NULL) { fprintf(stderr, "Allocation of %0.2lf GB for " #x " failed.\nCurrent Allocation = %0.2lf GB\n", size * 1.0 /(1024*1024*1024), cur_alloc * 1.0 /(1024*1024*1024)); exit(EXIT_FAILURE); }
+
+#define CP_BLOCK_SIZE_SCALAR 64
+#define CP_MASK_SCALAR 63
+#define CP_SHIFT_SCALAR 6
+#define BIT_DATA_TYPE uint64_t
+#define PADDING_SCALAR 8
+
+#define CP_BLOCK_SIZE_AVX 32
+#define CP_MASK_AVX 31
+#define CP_SHIFT_AVX 5
+
+typedef struct checkpoint_occ_scalar
+{
+    BIT_DATA_TYPE bwt_str_bit0;
+    BIT_DATA_TYPE bwt_str_bit1;
+    BIT_DATA_TYPE dollar_mask;
+    int64_t cp_count[4];
+    uint8_t  pad[PADDING_SCALAR];
+}CP_OCC_SCALAR;
+
+typedef struct checkpoint_occ_avx
+{
+    uint8_t  bwt_str[CP_BLOCK_SIZE_AVX];
+    int64_t cp_count[4];
+}CP_OCC_AVX;
+
 #if ((!__AVX2__))
 
-#define CP_BLOCK_SIZE 64
-#define CP_MASK 63
-#define CP_SHIFT 6
-#define BIT_DATA_TYPE uint64_t
-#define PADDING 8
+typedef CP_OCC_SCALAR CP_OCC;
+#define CP_SHIFT CP_SHIFT_SCALAR
 
 #if defined(__clang__) || defined(__GNUC__)
 static inline int _mm_countbits_64(unsigned long x) {
@@ -54,8 +84,8 @@ static inline int _mm_countbits_64(unsigned long x) {
 
 #define \
 GET_OCC(pp, c, occ_id_pp, y_pp, occ_pp, bwt_str_bit0_pp, bwt_str_bit1_pp, bit0_cmp_pp, bit1_cmp_pp, mismatch_mask_pp) \
-                int64_t occ_id_pp = pp >> CP_SHIFT; \
-                int64_t y_pp = pp & CP_MASK; \
+                int64_t occ_id_pp = pp >> CP_SHIFT_SCALAR; \
+                int64_t y_pp = pp & CP_MASK_SCALAR; \
                 int64_t occ_pp = cp_occ[occ_id_pp].cp_count[c]; \
                 if(y_pp > 0) \
                 { \
@@ -64,24 +94,14 @@ GET_OCC(pp, c, occ_id_pp, y_pp, occ_pp, bwt_str_bit0_pp, bwt_str_bit1_pp, bit0_c
                 BIT_DATA_TYPE bit0_cmp_pp = bwt_str_bit0_pp ^ base_mask[c][0]; \
                 BIT_DATA_TYPE bit1_cmp_pp = bwt_str_bit1_pp ^ base_mask[c][1]; \
                 uint64_t mismatch_mask_pp = bit0_cmp_pp | bit1_cmp_pp | cp_occ[occ_id_pp].dollar_mask; \
-                mismatch_mask_pp = mismatch_mask_pp >> (CP_BLOCK_SIZE - y_pp); \
+                mismatch_mask_pp = mismatch_mask_pp >> (CP_BLOCK_SIZE_SCALAR - y_pp); \
                 occ_pp += y_pp - _mm_countbits_64(mismatch_mask_pp); \
                 }
 
-typedef struct checkpoint_occ
-{
-    BIT_DATA_TYPE bwt_str_bit0;
-    BIT_DATA_TYPE bwt_str_bit1;
-    BIT_DATA_TYPE dollar_mask;
-    int64_t cp_count[4];
-    uint8_t  pad[PADDING];
-}CP_OCC;
-
 #else
 
-#define CP_BLOCK_SIZE 32
-#define CP_MASK 31
-#define CP_SHIFT 5
+typedef CP_OCC_AVX CP_OCC;
+#define CP_SHIFT CP_SHIFT_AVX
 
 #if defined(__clang__) || defined(__GNUC__)
 static inline int _mm_countbits_32(unsigned x) {
@@ -91,8 +111,8 @@ static inline int _mm_countbits_32(unsigned x) {
 
 #define \
 GET_OCC(pp, c, c256, occ_id_pp, y_pp, occ_pp, bwt_str_pp, bwt_pp_vec, mask_pp_vec, mask_pp) \
-                int64_t occ_id_pp = pp >> CP_SHIFT; \
-                int64_t y_pp = pp & CP_MASK; \
+                int64_t occ_id_pp = pp >> CP_SHIFT_AVX; \
+                int64_t y_pp = pp & CP_MASK_AVX; \
                 int64_t occ_pp = cp_occ[occ_id_pp].cp_count[c]; \
                 uint8_t *bwt_str_pp = cp_occ[occ_id_pp].bwt_str; \
                 __m256i bwt_pp_vec = _mm256_load_si256((const __m256i *)(bwt_str_pp)); \
@@ -100,12 +120,6 @@ GET_OCC(pp, c, c256, occ_id_pp, y_pp, occ_pp, bwt_str_pp, bwt_pp_vec, mask_pp_ve
                 uint64_t mask_pp = _mm256_movemask_epi8(mask_pp_vec); \
                 mask_pp = mask_pp << (32 - y_pp); \
                 occ_pp += _mm_countbits_32(mask_pp);
-
-typedef struct checkpoint_occ
-{
-    uint8_t  bwt_str[CP_BLOCK_SIZE];
-    int64_t cp_count[4];
-}CP_OCC;
 
 #endif
 
@@ -124,10 +138,13 @@ typedef struct smem_struct
 class FMI_search: public indexEle
 {
     public:
-    FMI_search(char *fmi_file_name);
+    FMI_search(const char *fname);
     ~FMI_search();
     //int64_t beCalls;
     
+    int build_index();
+    void load_index();
+
     void getSMEMs(uint8_t *enc_qdb,
                   int32_t numReads,
                   int32_t batch_size,
@@ -177,12 +194,21 @@ class FMI_search: public indexEle
                    int32_t readlength,
                    int nthreads);
     int64_t get_sa_entry(int64_t pos);
-    void get_sa_entries(int64_t *posArray, int64_t *coordArray, uint32_t count, int32_t nthreads);
-    void get_sa_entries(SMEM *smemArray, int64_t *coordArray, int32_t *coordCountArray, uint32_t count, int32_t max_occ);
+    void get_sa_entries(int64_t *posArray,
+                        int64_t *coordArray,
+                        uint32_t count,
+                        int32_t nthreads);
+    void get_sa_entries(SMEM *smemArray,
+                        int64_t *coordArray,
+                        int32_t *coordCountArray,
+                        uint32_t count,
+                        int32_t max_occ);
 
     int64_t reference_seq_len;
     int64_t sentinel_index;
 private:
+        char file_name[1024];
+        int64_t index_alloc;
         int64_t count[5];
         uint32_t *sa_ls_word;
         int8_t *sa_ms_byte;
@@ -194,6 +220,19 @@ private:
         uint8_t *c_bcast_array;
 #endif
 
+        int64_t pac_seq_len(const char *fn_pac);
+        void pac2nt(const char *fn_pac,
+                    std::string &reference_seq);
+        int build_fm_index_avx(const char *ref_file_name,
+                               char *binary_seq,
+                               int64_t ref_seq_len,
+                               int64_t *sa_bwt,
+                               int64_t *count);
+        int build_fm_index_scalar(const char *ref_file_name,
+                               char *binary_seq,
+                               int64_t ref_seq_len,
+                               int64_t *sa_bwt,
+                               int64_t *count);
         SMEM backwardExt(SMEM smem, uint8_t a);
 };
 

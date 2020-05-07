@@ -35,7 +35,7 @@
 #include "bwa.h"
 #include "bwt.h"
 #include "utils.h"
-#include "bwtbuild.h"
+#include "FMI_search.h"
 
 int bwa_index(int argc, char *argv[]) // the "index" command
 {
@@ -69,7 +69,8 @@ int bwa_idx_build(const char *fa, const char *prefix)
 		l_pac = bns_fasta2bntseq(fp, prefix, 1);
 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
 		err_gzclose(fp);
-        build_index(prefix);
+        FMI_search *fmi = new FMI_search(prefix);
+        fmi->build_index();
 	}
 	return 0;
 }
