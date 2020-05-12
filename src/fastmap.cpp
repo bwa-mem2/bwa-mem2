@@ -871,7 +871,7 @@ int main_mem(int argc, char *argv[])
             aux.fmi->idx->bns->anns[i].is_alt = 0;
 
     /* READS file operations */
-    fp = gzopen(argv[optind + 1], "r");
+    fp = strcmp(argv[optind + 1], "-") ? gzopen(argv[optind + 1], "r") : gzdopen(STDIN_FILENO, "r");
     if (fp == 0)
     {
         fprintf(stderr, "[E::%s] fail to open file `%s'.\n", __func__, argv[optind + 1]);
