@@ -65,8 +65,6 @@ typedef struct {
 	FILE *fp;
 	uint8_t *ref_string;
 	FMI_search *fmi;	
-	// bwaidx_t *idx;
-	// MPI_File mfp;
 } ktp_aux_t;
 
 typedef struct {
@@ -74,5 +72,8 @@ typedef struct {
 	int n_seqs;
 	bseq1_t *seqs;
 } ktp_data_t;
+
+void *kopen(const char *fn, int *_fd);
+int kclose(void *a);
 
 #endif
