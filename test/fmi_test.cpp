@@ -73,6 +73,7 @@ int main(int argc, char **argv) {
     int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(numReads * sizeof(int32_t), 64);
 
     FMI_search *fmiSearch = new FMI_search(argv[1]);
+    fmiSearch->load_index();
 
 
     int max_readlength = seqs[0].l_seq;

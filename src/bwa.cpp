@@ -44,7 +44,6 @@ int bwa_verbose = 3;
 char bwa_rg_id[256];
 char *bwa_pg;
 
-long long int count_fasta_file(char *file_path, char *str_db);
 /************************
  * Batch FASTA/Q reader *
  ************************/
