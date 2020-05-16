@@ -481,7 +481,7 @@ void FMI_search::load_index()
     }
     else
     {
-        fprintf(stderr, "Index file found. Loading index from %s\n", cp_file_name);
+        fprintf(stderr, "* Index file found. Loading index from %s\n", cp_file_name);
     }
 
     err_fread_noeof(&reference_seq_len, sizeof(int64_t), 1, cpstream);

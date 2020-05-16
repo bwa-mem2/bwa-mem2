@@ -37,7 +37,7 @@ LIBS=		-lpthread -lm -lz -L. -lbwa ##-lnuma
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
-			src/bwamem_extra.o
+			src/bwamem_extra.o src/kopen.o
 BWA_LIB=    libbwa.a
 
 ifneq ($(portable),)
