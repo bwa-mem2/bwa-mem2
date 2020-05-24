@@ -112,7 +112,7 @@ extern uint64_t prof[10][112];
 
 // constructor
 kswv::kswv(const int o_del, const int e_del, const int o_ins,
-           const int e_ins, int8_t w_match, int8_t w_mismatch,
+           const int e_ins, const int8_t w_match, const int8_t w_mismatch,
            int numThreads, int32_t maxRefLen = MAX_SEQ_LEN_REF_SAM,
            int32_t maxQerLen = MAX_SEQ_LEN_QER_SAM)
 {

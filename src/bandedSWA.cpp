@@ -50,7 +50,7 @@ extern uint64_t prof[10][112];
 BandedPairWiseSW::BandedPairWiseSW(const int o_del, const int e_del, const int o_ins,
 								   const int e_ins, const int zdrop,
 								   const int end_bonus, const int8_t *mat_,
-								   int8_t w_match, int8_t w_mismatch, int numThreads)
+								   const int8_t w_match, const int8_t w_mismatch, int numThreads)
 {
 	mat = mat_;
 	this->m = 5;

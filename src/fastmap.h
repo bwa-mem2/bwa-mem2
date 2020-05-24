@@ -73,7 +73,9 @@ typedef struct {
 	bseq1_t *seqs;
 } ktp_data_t;
 
+    
 void *kopen(const char *fn, int *_fd);
 int kclose(void *a);
+int main_mem(int argc, char *argv[]);
 
 #endif
