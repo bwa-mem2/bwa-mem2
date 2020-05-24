@@ -382,8 +382,8 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
                      int phase)
 {    
     int m_b, n_b;
-    uint8_t minsc[SIMD_WIDTH8] alignas(64) = {0};
-    uint8_t endsc[SIMD_WIDTH8] alignas(64) = {0};
+    uint8_t minsc[SIMD_WIDTH8] __attribute__((aligned(64))) = {0};
+    uint8_t endsc[SIMD_WIDTH8] __attribute__((aligned(64))) = {0};
     uint64_t *b;
 
     __m512i zero512 = _mm512_setzero_si512();
