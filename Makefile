@@ -48,7 +48,7 @@ ifeq ($(arch),sse)
 		ARCH_FLAGS=-msse4.1
 else ifeq ($(arch),avx2)
 	ifeq ($(CXX), icpc)
-		ARCH_FLAGS=-xCORE-AVX2
+		ARCH_FLAGS=-march=core-avx2 #-xCORE-AVX2
 	else	
 		ARCH_FLAGS=-mavx2
 	endif
