@@ -28,6 +28,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
          Heng Li <hli@jimmy.harvard.edu>
 *****************************************************************************************/
 
+#include <iostream>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -534,7 +535,7 @@ static inline void revseq(int l, uint8_t *s)
         t = s[i], s[i] = s[l - 1 - i], s[l - 1 - i] = t;
 }
 
-// This function is equivalent to align2() for axv512 i.e #else part
+// This function is equivalent to align2() for axv512
 int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc,
                      int64_t &pcnt, int64_t &pcnt8, kswr_t *aln,
                      int32_t maxRefLen, int32_t maxQerLen, int tid)
@@ -544,21 +545,19 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc,
 
     SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
 
-#if DEBUG    // orig function, for debugging
-    uint64_t tim = __rdtsc();   
-    // ncnt = 0;
+#if DEBUG    // orig function from bwa-mem -- for debugging purpose. Disabled by default.
+    // uint64_t tim = __rdtsc();   
     SeqPair sp;
     for (int i=0; i<pcnt; i++) {
         sp = seqPairArray[i];
         int xtra = sp.h0;
         uint8_t *qs = seqBufQer + sp.idq;
         uint8_t *rs = seqBufRef + sp.idr;
-        // ncnt ++;
         aln[i] = ksw_align2(sp.len2, qs, sp.len1, rs, 5,
                             opt->mat, opt->o_del, opt->e_del,
                             opt->o_ins, opt->e_ins, xtra, 0);       
     }
-    tprof[SAM2][0] += __rdtsc() - tim;
+    // tprof[SAM2][0] += __rdtsc() - tim;
     
 #else   // avx512, vectorized function
 
@@ -566,23 +565,19 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc,
         kswr_t *r = &aln[i];
         r->tb = r->qb = -1;
     }
-    int nthreads = 1;
 
-    uint64_t tim = __rdtsc();
-
+    int nthreads = 1; // no multi-threading here
     kswv *pwsw = new kswv(opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, opt->a, -1*opt->b, nthreads,
                           maxRefLen, maxQerLen);
 
-#if __AVX512BW__
+#if __AVX512BW__    
     pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pcnt8, nthreads, 0);
-    pwsw->getScores16(seqPairArray + pcnt8, seqBufRef, seqBufQer, aln + pcnt8, pcnt-pcnt8, nthreads, 0);
+    pwsw->getScores16(seqPairArray + pcnt8, seqBufRef, seqBufQer, aln, pcnt-pcnt8, nthreads, 0);
 #else
     fprintf(stderr, "Error: This should not have happened!! \nPlease look in to AVX512 macros\n");
     exit(EXIT_FAILURE);
 #endif
-    tprof[SAM2][0] += __rdtsc() - tim;
-    tprof[PE24][0] += pcnt;
-    
+
     // Post-processing
     int pos = 0, pos8 = 0, pos16 = 0;
     for (int i=0; i<pcnt; i++) {
@@ -600,32 +595,20 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc,
         
         if (i < pcnt8) pos8 ++;
         else pos16 ++;
-        
     }
 
     int pcnt2 = pos;
     assert(pos8 + pos16 == pcnt2);
-    tim = __rdtsc();
+
 #if __AVX512BW__
     pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pos8, nthreads, 1);
-    pwsw->getScores16(seqPairArray + pos8, seqBufRef, seqBufQer, aln + pos8, pos16, nthreads, 1);
+    pwsw->getScores16(seqPairArray + pos8, seqBufRef, seqBufQer, aln, pos16, nthreads, 1);
+    // pwsw->kswvScalarWrapper(seqPairArray, seqBufRef, seqBufQer, aln, pos, nthreads, 0); //debug
 #else
     fprintf(stderr, "Error: This should not have happened!! \nPlease look in to AVX512 macros\n");
     exit(EXIT_FAILURE);
 #endif
     
-    tprof[SAM2][0] += __rdtsc() - tim;
-    tprof[PE25][0] += pcnt2;
-    
-    for (int i=0; i<pcnt2; i++) {
-        SeqPair sp = seqPairArray[i];
-        kswr_t r = aln[sp.regid];
-        
-        uint8_t *qs = seqBufQer + sp.idq;
-        uint8_t *rs = seqBufRef + sp.idr;
-        revseq(r.qe + 1, qs); revseq(r.te + 1, rs);
-    }       
-
     delete(pwsw);
 #endif  
 
@@ -665,14 +648,11 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                 if (a[i].a[j].score >= a[i].a[0].score  - opt->pen_unpaired)
                     kv_push(mem_alnreg_t, b[i], a[i].a[j]);
                 
-        uint64_t tim = __rdtsc();
         for (int l=0; l<a[0].n; l++)
             a[0].a[l].flg = 0;
         for (int l=0; l<a[1].n; l++)
             a[1].a[l].flg = 0;
         
-        tim = __rdtsc();
-
         for (i = 0; i < 2; ++i) {
             for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
                 int val = mem_matesw_batch_post(opt, bns, pac, pes, &b[i].a[j],

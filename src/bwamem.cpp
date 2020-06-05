@@ -1050,7 +1050,8 @@ int64_t sort_classify(mem_cache *mmc, int64_t pcnt, int tid)
     SeqPair *seqPairArrayAux = mmc->seqPairArrayRight128[tid];
 
     int64_t pos8 = 0, pos16 = 0;
-    for (int i=0; i<pcnt; i++) {
+    for (int i=0; i<pcnt; i++)
+    {
         SeqPair *s = seqPairArray + i;
         int xtra = s->h0;
         int size = (xtra & KSW_XBYTE)? 1 : 2;
