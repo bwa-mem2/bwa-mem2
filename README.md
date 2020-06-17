@@ -93,6 +93,6 @@ Memory: 100GB
 
 ## Citation
 
-Vasimuddin Md, Sanchit Misra, Heng Li, Srinivas Aluru.
+Heng Li, Srinivas Aluru.
 <b> Efficient Architecture-Aware Acceleration of BWA-MEM for Multicore Systems. </b>
 <i> IEEE Parallel and Distributed Processing Symposium (IPDPS), 2019. </i>
