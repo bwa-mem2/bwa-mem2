@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -462,6 +462,8 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 
         return 0;
     } // step 2
+    
+    return 0;
 }
 
 static void *ktp_worker(void *data)
@@ -741,6 +743,9 @@ static void usage(const mem_opt_t *opt)
     fprintf(stderr, "   -R STR        read group header line such as '@RG\\tID:foo\\tSM:bar' [null]\n");
     fprintf(stderr, "   -H STR/FILE   insert STR to header if it starts with @; or insert lines in FILE [null]\n");
     fprintf(stderr, "   -j            treat ALT contigs as part of the primary assembly (i.e. ignore <idxbase>.alt file)\n");
+    fprintf(stderr, "   -5            for split alignment, take the alignment with the smallest coordinate as primary\n");
+    fprintf(stderr, "   -q            don't modify mapQ of supplementary alignments\n");
+    fprintf(stderr, "   -K INT        process INT input bases in each batch regardless of nThreads (for reproducibility) []\n");    
     fprintf(stderr, "   -v INT        verbose level: 1=error, 2=warning, 3=message, 4+=debugging [%d]\n", bwa_verbose);
     fprintf(stderr, "   -T INT        minimum score to output [%d]\n", opt->T);
     fprintf(stderr, "   -h INT[,INT]  if there are <INT hits with score >80%% of the max score, output all in XA [%d,%d]\n", opt->max_XA_hits, opt->max_XA_hits_alt);
@@ -766,13 +771,14 @@ int main_mem(int argc, char *argv[])
     int useErt = 0;
     char  *idx_prefix = 0;
     
-    mem_opt_t       *opt, opt0;
-    gzFile           fp, fp2   = 0;
-    mem_pestat_t     pes[4];
-    ktp_aux_t        aux;
-    bool             is_o      = 0;
-    int64_t          nread_lim = 0;
-    uint8_t          *ref_string;
+    mem_opt_t    *opt, opt0;
+    gzFile        fp, fp2 = 0;
+    void         *ko = 0, *ko2 = 0;
+    int           fd, fd2;
+    mem_pestat_t  pes[4];
+    ktp_aux_t     aux;
+    bool          is_o    = 0;
+    uint8_t      *ref_string;
     
     memset(&aux, 0, sizeof(ktp_aux_t));
     memset(pes, 0, 4 * sizeof(mem_pestat_t));
@@ -784,7 +790,8 @@ int main_mem(int argc, char *argv[])
     memset(&opt0, 0, sizeof(mem_opt_t));
     
     /* Parse input arguments */
-    while ((c = getopt(argc, argv, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:q:Z")) >= 0)
+    // comment: added option '5' in the list
+    while ((c = getopt(argc, argv, "51qpaMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:Z")) >= 0)
     {
         if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
         else if (c == '1') no_mt_io = 1;
@@ -797,7 +804,7 @@ int main_mem(int argc, char *argv[])
             opt->pen_unpaired = atoi(optarg), opt0.pen_unpaired = 1, assert(opt->pen_unpaired >= INT_MIN && opt->pen_unpaired <= INT_MAX);
         else if (c == 't')
             opt->n_threads = atoi(optarg), opt->n_threads = opt->n_threads > 1? opt->n_threads : 1, assert(opt->n_threads >= INT_MIN && opt->n_threads <= INT_MAX);
-        else if (c == 'o')
+        else if (c == 'o' || c == 'f')
         {
             is_o = 1;
             aux.fp = fopen(optarg, "w");
@@ -806,10 +813,6 @@ int main_mem(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             }
             /*fclose(aux.fp);*/
-            aux.totEl = 0;
-        }
-        else if (c == 'q') {
-            nread_lim = atoi(optarg);
         }
         else if (c == 'P') opt->flag |= MEM_F_NOPAIRING;
         else if (c == 'a') opt->flag |= MEM_F_ALL;
@@ -818,6 +821,8 @@ int main_mem(int argc, char *argv[])
         else if (c == 'S') opt->flag |= MEM_F_NO_RESCUE;
         else if (c == 'Y') opt->flag |= MEM_F_SOFTCLIP;
         else if (c == 'V') opt->flag |= MEM_F_REF_HDR;
+        else if (c == '5') opt->flag |= MEM_F_PRIMARY5 | MEM_F_KEEP_SUPP_MAPQ; // always apply MEM_F_KEEP_SUPP_MAPQ with -5
+        else if (c == 'q') opt->flag |= MEM_F_KEEP_SUPP_MAPQ;
         else if (c == 'c') opt->max_occ = atoi(optarg), opt0.max_occ = 1;
         else if (c == 'd') opt->zdrop = atoi(optarg), opt0.zdrop = 1;
         else if (c == 'v') bwa_verbose = atoi(optarg);
@@ -999,10 +1004,12 @@ int main_mem(int argc, char *argv[])
     fprintf(stderr, "* Ref file: %s\n", argv[optind]);          
     if (!useErt) {
         aux.fmi = new FMI_search(argv[optind]);
+        aux.fmi->load_index();
     }
     else {
         idx_prefix = argv[optind];
-        aux.fmi = new FMI_search(argv[optind], BWA_IDX_BNS | BWA_IDX_PAC);
+        aux.fmi = new FMI_search(argv[optind]);
+        aux.fmi->load_index_other_elements(BWA_IDX_BNS | BWA_IDX_PAC);
     }
     tprof[FMI][0] += __rdtsc() - tim;
     
@@ -1043,15 +1050,16 @@ int main_mem(int argc, char *argv[])
             aux.fmi->idx->bns->anns[i].is_alt = 0;
 
     /* READS file operations */
-    fp = gzopen(argv[optind + 1], "r");
-    if (fp == 0)
-    {
-        fprintf(stderr, "[E::%s] fail to open file `%s'.\n", __func__, argv[optind + 1]);
+    ko = kopen(argv[optind + 1], &fd);
+	if (ko == 0) {
+		fprintf(stderr, "[E::%s] fail to open file `%s'.\n", __func__, argv[optind + 1]);
         free(opt);
         if (is_o) 
             fclose(aux.fp);
         return 1;
     }
+    // fp = gzopen(argv[optind + 1], "r");
+    fp = gzdopen(fd, "r");
     aux.ks = kseq_init(fp);
     
     // PAIRED_END
@@ -1064,8 +1072,8 @@ int main_mem(int argc, char *argv[])
         }
         else
         {
-            fp2 = gzopen(argv[optind + 2], "r");
-            if (fp2 == 0) {
+            ko2 = kopen(argv[optind + 2], &fd2);
+            if (ko2 == 0) {
                 fprintf(stderr, "[E::%s] failed to open file `%s'.\n", __func__, argv[optind + 2]);
                 free(opt);
                 err_gzclose(fp);
@@ -1073,7 +1081,9 @@ int main_mem(int argc, char *argv[])
                 if (is_o) 
                     fclose(aux.fp);             
                 return 1;
-            }
+            }            
+            // fp2 = gzopen(argv[optind + 2], "r");
+            fp2 = gzdopen(fd2, "r");
             aux.ks2 = kseq_init(fp2);
             opt->flag |= MEM_F_PE;
             assert(aux.ks2 != 0);
@@ -1102,12 +1112,12 @@ int main_mem(int argc, char *argv[])
     free(hdr_line);
     free(opt);
     kseq_destroy(aux.ks);   
-    err_gzclose(fp);
+    err_gzclose(fp); kclose(ko);
 
     // PAIRED_END
     if (aux.ks2) {
         kseq_destroy(aux.ks2);
-        err_gzclose(fp2);
+        err_gzclose(fp2); kclose(ko2);
     }
     
     if (is_o) {

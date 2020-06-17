@@ -66,10 +66,6 @@ typedef struct {
 	uint32_t *occ;
 	uint32_t sentinel_index;
 	int64_t seq_len;
-	//int L2[5];
-	//uint32_t *sa;
-	//uint32_t *occ;
-	//uint32_t primary;
 } bwt2_t;
 	
 typedef struct {
@@ -94,53 +90,51 @@ typedef struct { size_t n, m; bwtintv_t *a; } bwtintv_v;
 
 #define bwt_set_intv(bwt, c, ik) ((ik).x[0] = (bwt)->L2[(int)(c)]+1, (ik).x[2] = (bwt)->L2[(int)(c)+1]-(bwt)->L2[(int)(c)], (ik).x[1] = (bwt)->L2[3-(c)]+1, (ik).info = 0)
 
-//#ifdef __cplusplus
-//extern "C" {
-//#endif
+#ifdef __cplusplus
+extern "C" {
+#endif
+    void bwt_dump_bwt(const char *fn, const bwt_t *bwt);
+    void bwt_dump_sa(const char *fn, const bwt_t *bwt);
 
-void bwt_dump_bwt(const char *fn, const bwt_t *bwt);
-void bwt_dump_sa(const char *fn, const bwt_t *bwt);
+    bwt_t *bwt_restore_bwt(const char *fn);
+    void bwt_restore_sa(const char *fn, bwt_t *bwt);
 
-bwt_t *bwt_restore_bwt(const char *fn);
-void bwt_restore_sa(const char *fn, bwt_t *bwt);
-
-void bwt_destroy(bwt_t *bwt);
-void bwt_destroy2(bwt2_t *bwt2);
+    void bwt_destroy(bwt_t *bwt);
+    void bwt_destroy2(bwt2_t *bwt2);
 	
-void bwt_bwtgen(const char *fn_pac, const char *fn_bwt); // from BWT-SW
-void bwt_bwtgen2(const char *fn_pac, const char *fn_bwt, int block_size); // from BWT-SW
-void bwt_cal_sa(bwt_t *bwt, int intv);
+    void bwt_bwtgen(const char *fn_pac, const char *fn_bwt); // from BWT-SW
+    void bwt_bwtgen2(const char *fn_pac, const char *fn_bwt, int block_size); // from BWT-SW
+    void bwt_cal_sa(bwt_t *bwt, int intv);
 
-void bwt_bwtupdate_core(bwt_t *bwt);
+    void bwt_bwtupdate_core(bwt_t *bwt);
 
-bwtint_t bwt_occ(const bwt_t *bwt, bwtint_t k, ubyte_t c);
-void bwt_occ4(const bwt_t *bwt, bwtint_t k, bwtint_t cnt[4]);
-bwtint_t bwt_sa(const bwt_t *bwt, bwtint_t k);
+    bwtint_t bwt_occ(const bwt_t *bwt, bwtint_t k, ubyte_t c);
+    void bwt_occ4(const bwt_t *bwt, bwtint_t k, bwtint_t cnt[4]);
+    bwtint_t bwt_sa(const bwt_t *bwt, bwtint_t k);
 
 // more efficient version of bwt_occ/bwt_occ4 for retrieving two close Occ values
-void bwt_gen_cnt_table(bwt_t *bwt);
-void bwt_2occ(const bwt_t *bwt, bwtint_t k, bwtint_t l, ubyte_t c, bwtint_t *ok, bwtint_t *ol);
-void bwt_2occ4(const bwt_t *bwt, bwtint_t k, bwtint_t l, bwtint_t cntk[4], bwtint_t cntl[4]);
+    void bwt_gen_cnt_table(bwt_t *bwt);
+    void bwt_2occ(const bwt_t *bwt, bwtint_t k, bwtint_t l, ubyte_t c, bwtint_t *ok, bwtint_t *ol);
+    void bwt_2occ4(const bwt_t *bwt, bwtint_t k, bwtint_t l, bwtint_t cntk[4], bwtint_t cntl[4]);
 
-int bwt_match_exact(const bwt_t *bwt, int len, const ubyte_t *str, bwtint_t *sa_begin, bwtint_t *sa_end);
-int bwt_match_exact_alt(const bwt_t *bwt, int len, const ubyte_t *str, bwtint_t *k0, bwtint_t *l0);
+    int bwt_match_exact(const bwt_t *bwt, int len, const ubyte_t *str, bwtint_t *sa_begin, bwtint_t *sa_end);
+    int bwt_match_exact_alt(const bwt_t *bwt, int len, const ubyte_t *str, bwtint_t *k0, bwtint_t *l0);
 
 /**
  * Extend bi-SA-interval _ik_
  */
-void bwt_extend(const bwt_t *bwt, const bwtintv_t *ik, bwtintv_t ok[4], int is_back);
+    void bwt_extend(const bwt_t *bwt, const bwtintv_t *ik, bwtintv_t ok[4], int is_back);
 
 /**
  * Given a query _q_, collect potential SMEMs covering position _x_ and store them in _mem_.
  * Return the end of the longest exact match starting from _x_.
  */
-int bwt_smem1(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_intv, bwtintv_v *mem, bwtintv_v *tmpvec[2]);
-int bwt_smem1a(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_intv, uint64_t max_intv, bwtintv_v *mem, bwtintv_v *tmpvec[2]);
+    int bwt_smem1(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_intv, bwtintv_v *mem, bwtintv_v *tmpvec[2]);
+    int bwt_smem1a(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_intv, uint64_t max_intv, bwtintv_v *mem, bwtintv_v *tmpvec[2]);
 
-int bwt_seed_strategy1(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_len, int max_intv, bwtintv_t *mem);
-
-//#ifdef __cplusplus
-//}
-//#endif
+    int bwt_seed_strategy1(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_len, int max_intv, bwtintv_t *mem);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -63,12 +63,9 @@ typedef struct {
 	int64_t ntasks;
 	int64_t task_size;
 	int64_t actual_chunk_size;
-	int64_t totEl;
 	FILE *fp;
 	uint8_t *ref_string;
 	FMI_search *fmi;	
-	// bwaidx_t *idx;
-	// MPI_File mfp;
 } ktp_aux_t;
 
 typedef struct {
@@ -76,5 +73,10 @@ typedef struct {
 	int n_seqs;
 	bseq1_t *seqs;
 } ktp_data_t;
+
+    
+void *kopen(const char *fn, int *_fd);
+int kclose(void *a);
+int main_mem(int argc, char *argv[]);
 
 #endif

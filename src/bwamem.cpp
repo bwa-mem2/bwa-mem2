@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -1325,7 +1325,8 @@ int64_t sort_classify(mem_cache *mmc, int64_t pcnt, int tid)
     SeqPair *seqPairArrayAux = mmc->seqPairArrayRight128[tid];
 
     int64_t pos8 = 0, pos16 = 0;
-    for (int i=0; i<pcnt; i++) {
+    for (int i=0; i<pcnt; i++)
+    {
         SeqPair *s = seqPairArray + i;
         int xtra = s->h0;
         int size = (xtra & KSW_XBYTE)? 1 : 2;
@@ -1949,7 +1950,7 @@ void* _mm_realloc(void *ptr, int64_t csize, int64_t nsize, int16_t dsize) {
 
 inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArray,
                             int32_t *hist, int &numPairs128, int &numPairs16,
-                            int &numPairs1)
+                            int &numPairs1, int score_a)
 {
     int32_t i;
     numPairs128 = numPairs16 = numPairs1 = 0;
@@ -1966,7 +1967,8 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
     for(i = 0; i < count; i++)
     {
         SeqPair sp = pairArray[i];
-        int minval = sp.h0 + max_(sp.len1, sp.len2);
+        // int minval = sp.h0 + max_(sp.len1, sp.len2);
+        int minval = sp.h0 + min_(sp.len1, sp.len2) * score_a;
         if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) 
             hist[minval]++;
         else if(sp.len1 < MAX_SEQ_LEN16 && sp.len2 < MAX_SEQ_LEN16 && minval < MAX_SEQ_LEN16)
@@ -1995,7 +1997,8 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
     for(i = 0; i < count; i++)
     {
         SeqPair sp = pairArray[i];
-        int minval = sp.h0 + max_(sp.len1, sp.len2);
+        // int minval = sp.h0 + max_(sp.len1, sp.len2);
+        int minval = sp.h0 + min_(sp.len1, sp.len2) * score_a;
         
         if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) 
         {
@@ -2317,7 +2320,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     
                     sp.len2 = s->qbeg;
                     sp.len1 = tmp;
-                    int minval = sp.h0 + max_(sp.len1, sp.len2) * opt->a;
+                    int minval = sp.h0 + min_(sp.len1, sp.len2) * opt->a;
                     
                     if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
                         numPairsLeft128++;
@@ -2415,8 +2418,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
                     for (int i = 0; i < sp.len1; ++i) rs[i] = rseq[re + i]; //seq1
 
-
-                    int minval = sp.h0 + max_(sp.len1, sp.len2) * opt->a;
+                    int minval = sp.h0 + min_(sp.len1, sp.len2) * opt->a;
+                    
                     if (sp.len1 < MAX_SEQ_LEN8 && sp.len2 < MAX_SEQ_LEN8 && minval < MAX_SEQ_LEN8) {
                         numPairsRight128++;
                     }
@@ -2458,7 +2461,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     
     /* Sorting based score is required as that affects the use of SIMD lanes */
     sortPairsLenExt(seqPairArrayLeft128, numPairsLeft, seqPairArrayAux, hist,
-                  numPairsLeft128, numPairsLeft16, numPairsLeft1);
+                    numPairsLeft128, numPairsLeft16, numPairsLeft1, opt->a);
     assert(numPairsLeft == (numPairsLeft128 + numPairsLeft16 + numPairsLeft1));
     
 
@@ -2485,7 +2488,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     // scalar
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // uint64_t tim = __rdtsc();
         bswLeft.scalarBandedSWAWrapper(pair_ar,
                                        seqBufLeftRef,
@@ -2541,7 +2544,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
 
     //****************** Left - vector int16 ***********************
-#if 1
     assert(numPairsLeft == (numPairsLeft128 + numPairsLeft16 + numPairsLeft1));
 
     pair_ar = seqPairArrayLeft128 + numPairsLeft128;
@@ -2550,7 +2552,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     nump = numPairsLeft16;
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // int64_t tim = __rdtsc();
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
         bswLeft.scalarBandedSWAWrapper(pair_ar, seqBufLeftRef, seqBufLeftQer, nump, nthreads, w);
@@ -2610,17 +2612,15 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
         pair_ar = pair_ar_aux;
         pair_ar_aux = tmp;
     }
-#endif
 
     //****************** Left - vector int8 ***********************
-#if 1
     pair_ar = seqPairArrayLeft128;
     pair_ar_aux = seqPairArrayAux;
     
     nump = numPairsLeft128;
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // int64_t tim = __rdtsc();
         
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
@@ -2680,7 +2680,6 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
         pair_ar = pair_ar_aux;
         pair_ar_aux = tmp;
     }
-#endif
 
     // tprof[CLEFT][tid] += __rdtsc() - timL;
     
@@ -2695,7 +2694,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     }
 
     sortPairsLenExt(seqPairArrayRight128, numPairsRight, seqPairArrayAux,
-                    hist, numPairsRight128, numPairsRight16, numPairsRight1);
+                    hist, numPairsRight128, numPairsRight16, numPairsRight1, opt->a);
 
     assert(numPairsRight == (numPairsRight128 + numPairsRight16 + numPairsRight1));
 
@@ -2705,7 +2704,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // tim = __rdtsc();      
         bswRight.scalarBandedSWAWrapper(pair_ar,
                         seqBufRightRef,
@@ -2766,7 +2765,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
         
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // uint64_t tim = __rdtsc();
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
         bswRight.scalarBandedSWAWrapper(pair_ar, seqBufRightRef, seqBufRightQer, nump, nthreads, w);
@@ -2836,7 +2835,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
         
     for ( i=0; i<MAX_BAND_TRY; i++)
     {
-        int w = opt->w << i;
+        int32_t w = opt->w << i;
         // uint64_t tim = __rdtsc();
         
 #if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))

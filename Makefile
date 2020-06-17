@@ -34,10 +34,10 @@ ARCH_FLAGS=	-msse4.1
 MEM_FLAGS=	-DSAIS=1
 CPPFLAGS=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
 LIBS=		-lpthread -lm -lz -L. -lbwa ##-lnuma
-OBJS=		src/fastmap.o src/bwtindex.o src/main.o src/utils.o src/kthread.o \
+OBJS=		src/fastmap.o src/main.o src/utils.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bwt.o src/ertindex.o src/bntseq.o src/bwamem.o src/ertseeding.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
-			src/bwamem_extra.o src/bwtbuild.o src/QSufSort.o src/bwt_gen.o src/rope.o src/rle.o src/is.o
+			src/bwamem_extra.o src/bwtbuild.o src/QSufSort.o src/bwt_gen.o src/rope.o src/rle.o src/is.o src/kopen.o src/bwtindex.o
 BWA_LIB=    libbwa.a
 
 ifneq ($(portable),)
@@ -48,7 +48,7 @@ ifeq ($(arch),sse)
 		ARCH_FLAGS=-msse4.1
 else ifeq ($(arch),avx2)
 	ifeq ($(CXX), icpc)
-		ARCH_FLAGS=-xCORE-AVX2
+		ARCH_FLAGS=-march=core-avx2 #-xCORE-AVX2
 	else	
 		ARCH_FLAGS=-mavx2
 	endif
@@ -96,7 +96,7 @@ depend:
 # DO NOT DELETE
 
 src/FMI_search.o: src/FMI_search.h src/bntseq.h src/read_index_ele.h
-src/FMI_search.o: src/utils.h src/macro.h src/bwa.h src/bwt.h
+src/FMI_search.o: src/utils.h src/macro.h src/bwa.h src/bwt.h src/sais.h
 src/bandedSWA.o: src/bandedSWA.h src/macro.h
 src/bntseq.o: src/bntseq.h src/utils.h src/macro.h src/kseq.h src/khash.h
 src/bwa.o: src/bntseq.h src/bwa.h src/bwt.h src/macro.h src/ksw.h src/utils.h
@@ -119,6 +119,7 @@ src/bwt_gen.o: src/QSufSort.h src/malloc_wrap.h
 src/bwtbuild.o: src/sais.h src/utils.h src/bntseq.h
 src/bwtindex.o: src/bntseq.h src/bwa.h src/bwt.h src/macro.h src/utils.h src/rle.h src/rope.h src/malloc_wrap.h
 src/bwtindex.o: src/bwtbuild.h
+src/bwtindex.o: src/FMI_search.h src/read_index_ele.h
 src/fastmap.o: src/fastmap.h src/bwa.h src/bntseq.h src/bwt.h src/macro.h
 src/fastmap.o: src/bwamem.h src/kthread.h src/bandedSWA.h src/kstring.h
 src/fastmap.o: src/ksw.h src/kvec.h src/ksort.h src/utils.h src/profiling.h

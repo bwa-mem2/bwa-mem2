@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -44,7 +44,6 @@ int bwa_verbose = 3;
 char bwa_rg_id[256];
 char *bwa_pg;
 
-long long int count_fasta_file(char *file_path, char *str_db);
 /************************
  * Batch FASTA/Q reader *
  ************************/

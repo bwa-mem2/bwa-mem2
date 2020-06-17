@@ -37,6 +37,7 @@
 #include "rope.h"
 #include "khash.h"
 #include "ertindex.h"
+#include "FMI_search.h"
 
 #ifdef _DIVBWT
 #include "divsufsort.h"
@@ -262,7 +263,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 		}
 
 		// First build the BWT index with the prefix
-		algo_type = BWTALGO_BWTSW;
+		algo_type = BWTALGO_AUTO;
 		bwa_idx_build(argv[optind], prefix, algo_type, block_size);
 
 		// Load BWT index
@@ -308,7 +309,8 @@ int bwa_idx_build_mem2(const char *fa, const char *prefix)
 		l_pac = bns_fasta2bntseq(fp, prefix, 1);
 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
 		err_gzclose(fp);
-		build_index(prefix);
+		FMI_search *fmi = new FMI_search(prefix);
+		fmi->build_index();
 	}
 	return 0;
 }

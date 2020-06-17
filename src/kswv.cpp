@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -43,22 +43,19 @@ extern uint64_t prof[10][112];
 #endif
 
 #define AMBIG_ 4  // ambiguous base
-
 // for 16 bit
 #define DUMMY1_ 4
 #define DUMMY2_ 5
 #define DUMMY3 26
-
 #define AMBR16 15
 #define AMBQ16 16
-
 // for 8-bit
 #define DUMMY8 8
 #define DUMMY5 5
 #define AMBRQ 0xFF
-
 #define AMBR 4
 #define AMBQ 8
+
 
 // -----------------------------------------------------------------------------------
 #if __AVX512BW__
@@ -72,8 +69,8 @@ extern uint64_t prof[10][112];
         sbt11 = _mm512_mask_blend_epi8(cmpq, sbt11, sft512);            \
         or11 =  _mm512_or_si512(s1, s2);                                \
         __mmask64 cmp = _mm512_movepi8_mask(or11);                      \
-        sbt11 = _mm512_mask_blend_epi8(cmp, sbt11, mismatch512);        \
         __m512i m11 = _mm512_adds_epu8(h00, sbt11);                     \
+        m11 = _mm512_mask_blend_epi8(cmp, m11, zero512);                \
         m11 = _mm512_subs_epu8(m11, sft512);                            \
         h11 = _mm512_max_epu8(m11, e11);                                \
         h11 = _mm512_max_epu8(h11, f11);                                \
@@ -90,10 +87,13 @@ extern uint64_t prof[10][112];
 
 #define MAIN_SAM_CODE16_OPT(s1, s2, h00, h11, e11, f11, f21, max512)    \
     {                                                                   \
-        __m512i sbt11, xor11;                                           \
+        __m512i sbt11, xor11, or11;                                     \
         xor11 = _mm512_xor_si512(s1, s2);                               \
         sbt11 = _mm512_permutexvar_epi16(xor11, perm512);               \
         __m512i m11 = _mm512_add_epi16(h00, sbt11);                     \
+        or11 =  _mm512_or_si512(s1, s2);                                \
+        __mmask64 cmp = _mm512_movepi8_mask(or11);                      \
+        m11 = _mm512_mask_blend_epi8(cmp, m11, zero512);                \
         h11 = _mm512_max_epi16(m11, e11);                               \
         h11 = _mm512_max_epi16(h11, f11);                               \
         h11 = _mm512_max_epi16(h11, zero512);                           \
@@ -112,7 +112,7 @@ extern uint64_t prof[10][112];
 
 // constructor
 kswv::kswv(const int o_del, const int e_del, const int o_ins,
-           const int e_ins, int8_t w_match, int8_t w_mismatch,
+           const int e_ins, const int8_t w_match, const int8_t w_mismatch,
            int numThreads, int32_t maxRefLen = MAX_SEQ_LEN_REF_SAM,
            int32_t maxQerLen = MAX_SEQ_LEN_QER_SAM)
 {
@@ -169,12 +169,8 @@ void kswv::getScores8(SeqPair *pairArray,
                       uint16_t numThreads,
                       int phase)
 {
-    int64_t startTick, endTick; 
-    // startTick = __rdtsc();
-
-    kswvBatchWrapper8(pairArray, seqBufRef, seqBufQer, aln, numPairs, numThreads, phase);
-
-    // endTick = __rdtsc();
+    kswvBatchWrapper8(pairArray, seqBufRef, seqBufQer, aln,
+                      numPairs, numThreads, phase);
 }
 
 #define PFD_ 2
@@ -216,29 +212,29 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
     
 #if SORT_PAIRS     // disbaled in bwa-mem2 (only used in separate benchmark sw code)
     {
-    // Sort the sequences according to decreasing order of lengths
-    SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
-                                               sizeof(SeqPair), 64);
-    int16_t *hist = (int16_t *)_mm_malloc((this->maxQerLen + 32) * numThreads *
-                                          sizeof(int16_t), 64);
-
-#pragma omp parallel num_threads(numThreads)
-    {
-        int32_t tid = omp_get_thread_num();
-        SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
-        int16_t *myHist = hist + tid * (this->maxQerLen + 32);
-
-#pragma omp for
-        for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+        // Sort the sequences according to decreasing order of lengths
+        SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
+                                                   sizeof(SeqPair), 64);
+        int16_t *hist = (int16_t *)_mm_malloc((this->maxQerLen + 32) * numThreads *
+                                              sizeof(int16_t), 64);
+        
+        #pragma omp parallel num_threads(numThreads)
         {
-            int32_t first, last;
-            first = ii;
-            last  = ii + SORT_BLOCK_SIZE;
-            if(last > roundNumPairs) last = roundNumPairs;
-            sortPairsLen(pairArray + first, last - first, myTempArray, myHist);
+            int32_t tid = omp_get_thread_num();
+            SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
+            int16_t *myHist = hist + tid * (this->maxQerLen + 32);
+            
+            #pragma omp for
+            for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+            {
+                int32_t first, last;
+                first = ii;
+                last  = ii + SORT_BLOCK_SIZE;
+                if(last > roundNumPairs) last = roundNumPairs;
+                sortPairsLen(pairArray + first, last - first, myTempArray, myHist);
+            }
         }
-    }
-    _mm_free(hist);
+        _mm_free(hist);
     }
 #endif
 
@@ -246,7 +242,7 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
     st3 = __rdtsc();
 #endif
     
-//#pragma omp parallel num_threads(numThreads)
+    //#pragma omp parallel num_threads(numThreads)
     {
         int32_t i;
         // uint16_t tid = omp_get_thread_num();
@@ -258,7 +254,7 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
                 
         int nstart = 0, nend = numPairs;
         
-//#pragma omp for schedule(dynamic, 128)
+        // #pragma omp for schedule(dynamic, 128)
         for(i = nstart; i < nend; i+=SIMD_WIDTH8)
         {
             int32_t j, k;
@@ -288,7 +284,7 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
                     mySeq1SoA[k * SIMD_WIDTH8 + j] = 0xFF;
                 }
             }
-
+            
             for(j = 0; j < SIMD_WIDTH8; j++)
             {               
                 SeqPair sp = pairArray[i + j];
@@ -298,23 +294,25 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
                 seq2 = seqBufQer + sp.idq;
 #endif
                 // assert(sp.len2 < this->maxQerLen);
-                int quanta = 16 - sp.len2 % 16;  // based on SSE2-8 bit lane
+                int quanta = (sp.len2 + 16 - 1) / 16;  // based on SSE-8 bit lane
+                quanta *= 16;                          // for matching the output of bwa-mem
                 for(k = 0; k < sp.len2; k++)
                 {
                     mySeq2SoA[k * SIMD_WIDTH8 + j] = (seq2[k]==AMBIG_? AMBQ:seq2[k]);
                 }
 
-                for(k = sp.len2; k < sp.len2 + quanta; k++) {
-                    mySeq2SoA[k * SIMD_WIDTH8 + j] = DUMMY5;  // SSE2 qunata
+                for(k = sp.len2; k < quanta; k++) {
+                    mySeq2SoA[k * SIMD_WIDTH8 + j] = DUMMY5;  // SSE quanta
                 }
-                if(maxLen2 < (sp.len2 + quanta)) maxLen2 = sp.len2 + quanta;
+                if(maxLen2 < (quanta)) maxLen2 = quanta;
             }
             
             for(j = 0; j < SIMD_WIDTH8; j++)
             {
                 SeqPair sp = pairArray[i + j];
-                int quanta = 16 - sp.len2 % 16;  // based on SSE2-8 bit lane                
-                for(k = sp.len2 + quanta; k <= maxLen2; k++)
+                int quanta = (sp.len2 + 16 - 1) / 16;  // based on SSE2-8 bit lane
+                quanta *= 16;
+                for(k = quanta; k <= maxLen2; k++)
                 {
                     mySeq2SoA[k * SIMD_WIDTH8 + j] = 0xFF;
                 }
@@ -336,23 +334,23 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
     
 #if SORT_PAIRS     // disbaled in bwa-mem2 (only used in separate benchmark sw code)
     {
-    // Sort the sequences according to increasing order of id
-#pragma omp parallel num_threads(numThreads)
-    {
-        int32_t tid = omp_get_thread_num();
-        SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
-
-#pragma omp for
-        for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+        // Sort the sequences according to increasing order of id
+        #pragma omp parallel num_threads(numThreads)
         {
-            int32_t first, last;
-            first = ii;
-            last  = ii + SORT_BLOCK_SIZE;
-            if(last > roundNumPairs) last = roundNumPairs;
-            sortPairsId(pairArray + first, first, last - first, myTempArray);
+            int32_t tid = omp_get_thread_num();
+            SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
+            
+            #pragma omp for
+            for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+            {
+                int32_t first, last;
+                first = ii;
+                last  = ii + SORT_BLOCK_SIZE;
+                if(last > roundNumPairs) last = roundNumPairs;
+                sortPairsId(pairArray + first, first, last - first, myTempArray);
+            }
         }
-    }
-    _mm_free(tempArray);
+        _mm_free(tempArray);
     }
 #endif
 
@@ -381,10 +379,10 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
                      uint16_t tid,
                      int32_t numPairs,
                      int phase)
-{    
+{
     int m_b, n_b;
-    uint8_t minsc[SIMD_WIDTH8] __attribute((aligned(64))) = {0};
-    uint8_t endsc[SIMD_WIDTH8] __attribute((aligned(64))) = {0};
+    uint8_t minsc[SIMD_WIDTH8] __attribute__((aligned(64))) = {0};
+    uint8_t endsc[SIMD_WIDTH8] __attribute__((aligned(64))) = {0};
     uint64_t *b;
 
     __m512i zero512 = _mm512_setzero_si512();
@@ -452,8 +450,9 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
     __m512i oe_ins512   = _mm512_set1_epi8(this->o_ins + this->e_ins);
     __m512i five512     = _mm512_set1_epi8(DUMMY5); // ambig mapping element
     __m512i gmax512     = zero512; // exit1 = zero512;
-    __m512i te512       = zero512;  // change to -1
-    __m512i te512_      = zero512;  // change to -1
+    __m512i te512       = _mm512_set1_epi16(-1);  // changed to -1
+    __m512i te512_      = _mm512_set1_epi16(-1);  // changed to -1
+    
     __mmask64 exit0 = 0xFFFFFFFFFFFFFFFF;
 
     tid = 0;  // no threading for now !!
@@ -552,15 +551,12 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
     pimax512 = _mm512_mask_blend_epi8(minsc_msk, zero512, pimax512);
     pimax512 = _mm512_mask_blend_epi8(exit0, zero512, pimax512);
     _mm512_store_si512((__m512i *) (rowMax + (i-1) * SIMD_WIDTH8), pimax512);
-    
-    /******************* DP loop over *****************************/   
-    /*************** Partial output setting ***************/
-    uint8_t score[SIMD_WIDTH8] __attribute((aligned(64)));
 
-    int16_t te1[SIMD_WIDTH8] __attribute((aligned(64)));
-    
-    uint8_t qe[SIMD_WIDTH8] __attribute((aligned(64)));
-    
+    /******************* DP loop over *****************************/   
+    /**************** Partial output setting **********************/
+    uint8_t score[SIMD_WIDTH8] __attribute((aligned(64)));
+    int16_t te1[SIMD_WIDTH8] __attribute((aligned(64)));    
+    uint8_t qe[SIMD_WIDTH8] __attribute((aligned(64)));    
     int16_t low[SIMD_WIDTH8] __attribute((aligned(64)));
     int16_t high[SIMD_WIDTH8] __attribute((aligned(64)));
     
@@ -577,8 +573,6 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
         else te = te1;
 #if !MAINY
         ind = p[l].regid;    // index of corr. aln
-        // if (ind != po_ind + l) printf("ind: %d, po_ind: %d, l: %d\n", ind, po_ind, l);
-        // assert(ind == po_ind + l);
         if (phase) {
             if (aln[ind].score == score[l]) {
                 aln[ind].tb = aln[ind].te - te[l];
@@ -661,8 +655,10 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
     for (int i=0; i<SIMD_WIDTH8; i++) rlen[i] = p[i].len1;
     __m512i rlen512 = _mm512_load_si512(rlen);
     __m512i rlen512_ = _mm512_load_si512(rlen + SIMD_WIDTH16);
-    
+
+    static bool flg = 1;
     for (int i=minh+1; i<limit; i++)
+    //for (int i=minh; i<limit; i++)
     {
         __m512i i512 = _mm512_set1_epi16(i);
         rmax512 = _mm512_load_si512((__m512i*) (rowMax + i*SIMD_WIDTH8));
@@ -678,7 +674,7 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
         mask2 &= mask1_;        
         max512 = _mm512_mask_blend_epi8(mask2, max512, rmax512);
         te512 = _mm512_mask_blend_epi16(mask2, te512, i512);
-        te512_ = _mm512_mask_blend_epi16(mask2 >> SIMD_WIDTH16, te512_, i512);  
+        te512_ = _mm512_mask_blend_epi16(mask2 >> SIMD_WIDTH16, te512_, i512);
     }
     
     int16_t temp4[SIMD_WIDTH8] __attribute((aligned(64)));
@@ -711,12 +707,9 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
 
     return 1;   
 }
-#endif
 
 /*********************************** Vectorized Code 16 bit *****************************/
-
 /// 16 bit lanes
-#if __AVX512BW__
 void kswv::getScores16(SeqPair *pairArray,
                        uint8_t *seqBufRef,
                        uint8_t *seqBufQer,
@@ -725,7 +718,8 @@ void kswv::getScores16(SeqPair *pairArray,
                        uint16_t numThreads,
                        int phase)
 {
-    kswvBatchWrapper16(pairArray, seqBufRef, seqBufQer, aln, numPairs, numThreads, phase);
+    kswvBatchWrapper16(pairArray, seqBufRef, seqBufQer, aln,
+                       numPairs, numThreads, phase);
 }
 
 void kswv::kswvBatchWrapper16(SeqPair *pairArray,
@@ -767,29 +761,29 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
     
 #if SORT_PAIRS     // disbaled in bwa-mem2 (only used in separate benchmark sw code)
     {
-    // Sort the sequences according to decreasing order of lengths
-    SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
-                                               sizeof(SeqPair), 64);
-    int16_t *hist = (int16_t *)_mm_malloc((this->maxQerLen + 32) * numThreads *
-                                          sizeof(int16_t), 64);
-
-#pragma omp parallel num_threads(numThreads)
-    {
-        int32_t tid = omp_get_thread_num();
-        SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
-        int16_t *myHist = hist + tid * (this->maxQerLen + 32);
-
-#pragma omp for
-        for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+        // Sort the sequences according to decreasing order of lengths
+        SeqPair *tempArray = (SeqPair *)_mm_malloc(SORT_BLOCK_SIZE * numThreads *
+                                                   sizeof(SeqPair), 64);
+        int16_t *hist = (int16_t *)_mm_malloc((this->maxQerLen + 32) * numThreads *
+                                              sizeof(int16_t), 64);
+        
+        #pragma omp parallel num_threads(numThreads)
         {
-            int32_t first, last;
-            first = ii;
-            last  = ii + SORT_BLOCK_SIZE;
-            if(last > roundNumPairs) last = roundNumPairs;
-            sortPairsLen(pairArray + first, last - first, myTempArray, myHist);
+            int32_t tid = omp_get_thread_num();
+            SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
+            int16_t *myHist = hist + tid * (this->maxQerLen + 32);
+            
+            #pragma omp for
+            for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+            {
+                int32_t first, last;
+                first = ii;
+                last  = ii + SORT_BLOCK_SIZE;
+                if(last > roundNumPairs) last = roundNumPairs;
+                sortPairsLen(pairArray + first, last - first, myTempArray, myHist);
+            }
         }
-    }
-    _mm_free(hist);
+        _mm_free(hist);
     }
 #endif
 
@@ -797,11 +791,11 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
     st3 = __rdtsc();
 #endif
     
-//#pragma omp parallel num_threads(numThreads)
+// #pragma omp parallel num_threads(numThreads)
     {
         int32_t i;
         // uint16_t tid = omp_get_thread_num();
-        uint16_t tid = 0;
+        uint16_t tid = 0;  // no threading here.
         int16_t *mySeq1SoA = NULL;
         mySeq1SoA = seq1SoA + tid * this->maxRefLen * SIMD_WIDTH16;
         assert(mySeq1SoA != NULL);
@@ -843,7 +837,8 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
                 SeqPair sp = pairArray[i + j];
                 for(k = sp.len1; k <= maxLen1; k++) //removed "="
                 {
-                    mySeq1SoA[k * SIMD_WIDTH16 + j] = DUMMY1_;
+                    // mySeq1SoA[k * SIMD_WIDTH16 + j] = DUMMY1_;
+                    mySeq1SoA[k * SIMD_WIDTH16 + j] = 0xFFFF;
                 }
             }
 
@@ -857,47 +852,42 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
 #endif
                 assert(sp.len2 <= this->maxQerLen);
 
-#if 1
-                int quanta = 8 - sp.len2 % 8;  // based on SSE2-16 bit lane
-#else
-                int quanta = 16 - sp.len2 % 16;  // based on SSE2-8 bit lane
-#endif
-                
+
+                // int quanta = 8 - sp.len2 % 8;  // based on SSE-16 bit lane
+                int quanta = (sp.len2 + 8 - 1)/8;  // based on SSE-16 bit lane
+                quanta *= 8;
                 assert(sp.len2 < this->maxQerLen);
                 for(k = 0; k < sp.len2; k++)
                 {
                     mySeq2SoA[k * SIMD_WIDTH16 + j] = (seq2[k]==AMBIG_? AMBQ16:seq2[k]);
                 }
                 
-                assert(sp.len2 + quanta < this->maxQerLen); 
-                
-                for(k = sp.len2; k < sp.len2 + quanta; k++) {
+                assert(quanta < this->maxQerLen); 
+                for(k = sp.len2; k < quanta; k++) {
                     mySeq2SoA[k * SIMD_WIDTH16 + j] = DUMMY3;
                 }
-                if(maxLen2 < (sp.len2 + quanta)) maxLen2 = sp.len2 + quanta;
+                if(maxLen2 < (quanta)) maxLen2 = quanta;
             }
             
             for(j = 0; j < SIMD_WIDTH16; j++)
             {
                 SeqPair sp = pairArray[i + j];
-#if 1
-                int quanta = 8 - sp.len2 % 8;  // based on SSE2-16 bit lane
-#else
-                int quanta = 16 - sp.len2 % 16;  // based on SSE2-8 bit lane
-#endif
-                for(k = sp.len2 + quanta; k <= maxLen2; k++)
+                int quanta = (sp.len2 + 8 - 1)/8;  // based on SSE2-16 bit lane
+                quanta *= 8;
+                for(k = quanta; k <= maxLen2; k++)
                 {
-                    mySeq2SoA[k * SIMD_WIDTH16 + j] = DUMMY2_;
+                    // mySeq2SoA[k * SIMD_WIDTH16 + j] = DUMMY2_;
+                    mySeq2SoA[k * SIMD_WIDTH16 + j] = 0xFFFF;
                 }
             }
 
-            kswv512_16_exp(mySeq1SoA, mySeq2SoA,
-                           maxLen1, maxLen2,
-                           pairArray + i,
-                           aln, i,
-                           tid,
-                           numPairs,
-                           phase);
+            kswv512_16(mySeq1SoA, mySeq2SoA,
+                       maxLen1, maxLen2,
+                       pairArray + i,
+                       aln, i,
+                       tid,
+                       numPairs,
+                       phase);
         }
     }
 
@@ -907,23 +897,23 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
     
 #if SORT_PAIRS     // disbaled in bwa-mem2 (only used in separate benchmark sw code)
     {
-    // Sort the sequences according to increasing order of id
-#pragma omp parallel num_threads(numThreads)
-    {
-        int32_t tid = omp_get_thread_num();
-        SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
-
-#pragma omp for
-        for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+        // Sort the sequences according to increasing order of id
+        #pragma omp parallel num_threads(numThreads)
         {
-            int32_t first, last;
-            first = ii;
-            last  = ii + SORT_BLOCK_SIZE;
-            if(last > roundNumPairs) last = roundNumPairs;
-            sortPairsId(pairArray + first, first, last - first, myTempArray);
+            int32_t tid = omp_get_thread_num();
+            SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
+            
+            #pragma omp for
+            for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
+            {
+                int32_t first, last;
+                first = ii;
+                last  = ii + SORT_BLOCK_SIZE;
+                if(last > roundNumPairs) last = roundNumPairs;
+                sortPairsId(pairArray + first, first, last - first, myTempArray);
+            }
         }
-    }
-    _mm_free(tempArray);
+        _mm_free(tempArray);
     }
 #endif
 
@@ -940,17 +930,16 @@ void kswv::kswvBatchWrapper16(SeqPair *pairArray,
     return; 
 }
 
-//  Experimental code
-int kswv::kswv512_16_exp(int16_t seq1SoA[],
-                         int16_t seq2SoA[],
-                         int16_t nrow,
-                         int16_t ncol,
-                         SeqPair *p,
-                         kswr_t *aln,
-                         int po_ind,
-                         uint16_t tid,
-                         int32_t numPairs,
-                         int phase)
+int kswv::kswv512_16(int16_t seq1SoA[],
+                     int16_t seq2SoA[],
+                     int16_t nrow,
+                     int16_t ncol,
+                     SeqPair *p,
+                     kswr_t *aln,
+                     int po_ind,
+                     uint16_t tid,
+                     int32_t numPairs,
+                     int phase)
 {
     int m_b, n_b;
     int16_t minsc[SIMD_WIDTH16] = {0}, endsc[SIMD_WIDTH16] = {0};
@@ -964,15 +953,22 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
     int16_t temp[SIMD_WIDTH16] __attribute((aligned(64))) = {0};
     int16_t temp1[SIMD_WIDTH16] __attribute((aligned(64)));
     int16_t temp2[SIMD_WIDTH16] __attribute((aligned(64)));
+
+    // query profile, we use xor operations on the strings
+    // temp[0] = this->w_match;
+    // temp[1] = temp[2] = temp[3] =  this->w_mismatch;
+    // temp[4] = temp[5] = temp[6] = temp[7] =  this->w_mismatch;
+    // temp[16] = temp[17] = temp[18] = temp[19] = this->w_ambig;
+    // temp[31] =  this->w_ambig;
+    // temp[12] = temp[13] = temp[14] = temp[15] =  this->w_ambig;
+    // temp[10] = temp[20] = temp[30] = this->w_mismatch;
     
-    temp[0] = this->w_match;
-    temp[1] = temp[2] = temp[3] =  this->w_mismatch;
-    temp[4] = temp[5] = temp[6] = temp[7] =  this->w_mismatch;
-    temp[16] = temp[17] = temp[18] = temp[19] = this->w_ambig;
-    temp[31] =  this->w_ambig;
+    temp[0] = this->w_match;    // matching
+    temp[1]  = temp[2]  = temp[3]  =  this->w_mismatch;  // mis-matching    
     temp[12] = temp[13] = temp[14] = temp[15] =  this->w_ambig;
-    temp[10] = temp[20] = temp[30] = this->w_mismatch;
-        
+    temp[16] = temp[17] = temp[18] = temp[19] = this->w_ambig;
+    temp[31] = this->w_ambig;
+       
     __m512i perm512 = _mm512_load_si512(temp);
         
     m_b = n_b = 0; b = 0;
@@ -1006,11 +1002,12 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
     __m512i e_ins512    = _mm512_set1_epi16(this->e_ins);
     __m512i oe_ins512   = _mm512_set1_epi16(this->o_ins + this->e_ins);
     __m512i gmax512     = zero512; // exit1 = zero512;
-    __m512i te512       = zero512;  // change to -1
+    // __m512i te512       = zero512;  // change to -1
+    __m512i te512       = _mm512_set1_epi16(-1);
     __mmask32 exit0 = 0xFFFFFFFF;
 
     
-    tid = 0;  // no threading for now !!
+    tid = 0;  // no threading here.
     int16_t *H0     = H16_0 + tid * SIMD_WIDTH16 * this->maxQerLen;
     int16_t *H1     = H16_1 + tid * SIMD_WIDTH16 * this->maxQerLen;
     int16_t *Hmax   = H16_max + tid * SIMD_WIDTH16 * this->maxQerLen;
@@ -1033,7 +1030,7 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
     __mmask32 mask512 = 0x0000;
     __mmask32 minsc_msk = 0x0000;
 
-    __m512i qe512 = _mm512_set1_epi16(-1);
+    __m512i qe512 = _mm512_set1_epi16(0);
     _mm512_store_si512((__m512i *)(H0), zero512);
     _mm512_store_si512((__m512i *)(H1), zero512);
     __m512i i512 = zero512;
@@ -1221,231 +1218,18 @@ int kswv::kswv512_16_exp(int16_t seq1SoA[],
     return 1;
 }
 
-void kswv::kswv512_16(int16_t seq1SoA[],
-                     int16_t seq2SoA[],
-                     int16_t nrow,
-                     int16_t ncol,
-                     SeqPair *p,
-                     kswr_t *aln,
-                     int po_ind,
-                     uint16_t tid,
-                     int32_t numPairs)
-{
-    int m_b, n_b;
-    int16_t minsc[SIMD_WIDTH16], endsc[SIMD_WIDTH16];
-    uint64_t *b;
-
-    __m512i zero512 = _mm512_setzero_si512();
-    __m512i one512  = _mm512_set1_epi16(1);
-    __m512i minus1  = _mm512_set1_epi16(-1);
-
-    int16_t temp[SIMD_WIDTH16] __attribute((aligned(64))) = {0};
-    int16_t temp1[SIMD_WIDTH16] __attribute((aligned(64)));
-    int16_t temp2[SIMD_WIDTH16] __attribute((aligned(64)));
-
-    temp[0] = this->w_match;
-    temp[1] = temp[2] = temp[3] =  this->w_mismatch;
-    temp[4] = temp[5] = temp[6] = temp[7] =  this->w_mismatch;
-    temp[16] = temp[17] = temp[18] = temp[19] = this->w_ambig;
-    temp[20] = temp[31] =  this->w_ambig;
-    temp[10] = temp[12] = temp[13] = temp[14] = temp[15] =  this->w_ambig;
-
-    __m512i perm512 = _mm512_load_si512(temp);  
-    m_b = n_b = 0; b = 0;
-
-    int val = 0;
-    for (int i=0; i<SIMD_WIDTH16; i++) {
-        int xtra = p[i].h0;
-        val = (xtra & KSW_XSUBO)? xtra & 0xffff : 0x10000;
-        minsc[i] = val;
-        // msc_mask;
-        val = (xtra & KSW_XSTOP)? xtra & 0xffff : 0x10000;
-        endsc[i] = val;
-        // esc_mask;
-    }
-
-    __m512i minsc512 = _mm512_load_si512((__m512i*) minsc);
-    
-    __m512i e_del512    = _mm512_set1_epi16(this->e_del);
-    __m512i oe_del512   = _mm512_set1_epi16(this->o_del + this->e_del);
-    __m512i e_ins512    = _mm512_set1_epi16(this->e_ins);
-    __m512i oe_ins512   = _mm512_set1_epi16(this->o_ins + this->e_ins);
-    __m512i gmax512     = zero512; // exit1 = zero512;
-    __m512i te512       = zero512;  // change to -1
-    __mmask32 exit0 = 0xFFFFFFFF;
-
-    
-    tid = 0;  // no threading for now !!
-    int16_t *H0     = H16_0 + tid * SIMD_WIDTH16 * this->maxQerLen;
-    int16_t *H1     = H16_1 + tid * SIMD_WIDTH16 * this->maxQerLen;
-    int16_t *Hmax   = H16_max + tid * SIMD_WIDTH16 * this->maxQerLen;
-    int16_t *F      = F16 + tid * SIMD_WIDTH16 * this->maxQerLen;
-
-    int16_t *rowMax = rowMax16 + tid * SIMD_WIDTH16 * this->maxRefLen;
-    
-    _mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
-    _mm_prefetch((const char*) seq2SoA, _MM_HINT_NTA);
-    _mm_prefetch((const char*) seq1SoA, _MM_HINT_NTA);
-    _mm_prefetch((const char*) (H1 + SIMD_WIDTH16), _MM_HINT_NTA);
-    _mm_prefetch((const char*) (F + SIMD_WIDTH16), _MM_HINT_NTA);
-
-    for (int i=ncol; i >= 0; i--) {
-        _mm512_store_si512((__m512*) (H0 + i * SIMD_WIDTH16), zero512);
-        _mm512_store_si512((__m512*) (Hmax + i * SIMD_WIDTH16), zero512);
-        _mm512_store_si512((__m512*) (F + i * SIMD_WIDTH16), zero512);
-    }
-
-    __m512i max512 = zero512, imax512, pimax512 = zero512;
-    __mmask32 mask512 = 0x0000;
-    __mmask32 minsc_msk = 0x0000;
-
-    __m512i qe512 = _mm512_set1_epi16(-1);
-    _mm512_store_si512((__m512i *)(H0), zero512);
-    _mm512_store_si512((__m512i *)(H1), zero512);
-    __m512i i512 = zero512;;
-
-    int i;
-    for (i=0; i < nrow; i++)
-    {
-        __m512i e11 = zero512;
-        __m512i h00, h11, h10, s1;
-        
-        s1 = _mm512_load_si512((__m512i *)(seq1SoA + (i + 0) * SIMD_WIDTH16));
-        h10 = zero512;
-        imax512 = zero512;
-        __m512i iqe512 = _mm512_set1_epi16(-1);
-        
-        __m512i l512 = zero512;
-        int j;
-        for (j=0; j<ncol; j++)
-        {
-            __m512i f11, s2, f21;
-            h00 = _mm512_load_si512((__m512i *)(H0 + j * SIMD_WIDTH16));
-            s2  = _mm512_load_si512((__m512i *)(seq2SoA + (j) * SIMD_WIDTH16));
-            f11 = _mm512_load_si512((__m512i *)(F + (j+1) * SIMD_WIDTH16));
-
-            // my main code
-            MAIN_SAM_CODE16_OPT(s1, s2, h00, h11, e11, f11, f21, max512);
-            
-            _mm512_store_si512((__m512i *)(H1 + (j+1) * SIMD_WIDTH16), h11);  
-            _mm512_store_si512((__m512i *)(F + (j+1) * SIMD_WIDTH16), f21);
-            l512 = _mm512_add_epi16(l512, one512);
-            // prof[DP2][0] += 22;
-            
-        } // core DP loop
-                
-        // Block I
-        if (i > 0) {
-            __mmask32 msk32 = _mm512_cmpgt_epi16_mask(imax512, pimax512);
-            msk32 |= mask512;
-            // msk32 &= ~minsc_msk;
-            pimax512 = _mm512_mask_blend_epi16(msk32, pimax512, minus1);            
-            pimax512 = _mm512_mask_blend_epi16(minsc_msk, minus1, pimax512);
-            //pimax512 = _mm512_mask_mov_epi16(minus1, minsc_msk, pimax512);
-            
-            _mm512_store_si512((__m512i *) (rowMax + (i-1)*SIMD_WIDTH16), pimax512);
-            
-            mask512 = ~msk32;
-        }
-        pimax512 = imax512;
-        minsc_msk = _mm512_cmpge_epi16_mask(imax512, minsc512);
-        
-        // Block II: gmax, te
-        __mmask32 cmp0 = _mm512_cmpgt_epi16_mask(imax512, gmax512);
-        gmax512 = _mm512_max_epi16(gmax512, imax512);
-        // te512 = _mm512_mask_mov_epi16(te512, cmp0, i512);
-        te512 = _mm512_mask_blend_epi16(cmp0, te512,  i512);
-        qe512 = _mm512_mask_blend_epi16(cmp0, qe512,  iqe512);
-        
-        cmp0 &= exit0; // check exit code
-        
-        int16_t *S = H1; H1 = H0; H0 = S;
-        i512 = _mm512_add_epi16(i512, one512);
-    } // for nrow
-    
-    pimax512 = _mm512_mask_blend_epi16(mask512, pimax512, minus1);
-    pimax512 = _mm512_mask_blend_epi16(minsc_msk, minus1, pimax512);
-    _mm512_store_si512((__m512i *) (rowMax + (i-1) * SIMD_WIDTH16), pimax512);
-    
-    /*************** Partial output setting ***************/
-    int16_t score[SIMD_WIDTH16] __attribute((aligned(64)));
-    int16_t te[SIMD_WIDTH16] __attribute((aligned(64)));
-    int16_t qe[SIMD_WIDTH16] __attribute((aligned(64)));
-    int16_t low[SIMD_WIDTH16] __attribute((aligned(64)));
-    int16_t high[SIMD_WIDTH16] __attribute((aligned(64)));  
-    _mm512_store_si512((__m512i *) score, gmax512); 
-    _mm512_store_si512((__m512i *) te, te512);
-    _mm512_store_si512((__m512i *) qe, qe512);
-    
-    for (int l=0; l<SIMD_WIDTH16; l++) {
-        int ind = po_ind + l;
-#if !MAINY
-        ind = p[l].regid;    // index of corr. aln
-        assert(ind == po_ind + l);
-#endif      
-        aln[ind].score = score[l];
-        aln[ind].te = te[l];
-        aln[ind].qe = qe[l];
-    }
-
-    /*************** Score2 and te2 *******************/
-    int qmax = this->g_qmax;    
-    int maxl = 0 , minh = nrow;
-    for (int i=0; i<SIMD_WIDTH16; i++)
-    {
-        int val = (score[i] + qmax - 1) / qmax;
-        low[i] = te[i] - val;
-        high[i] = te[i] + val;
-        maxl = maxl < low[i] ? low[i] : maxl;
-        minh = minh > high[i] ? high[i] : minh;
-    }
-    max512 = _mm512_set1_epi16(-1);
-    te512 = _mm512_set1_epi16(-1);
-    __m512i low512 = _mm512_load_si512((__m512i*) low);
-    __m512i high512 = _mm512_load_si512((__m512i*) high);
-
-    
-    __m512i rmax512;
-    for (int i=0; i< maxl; i++)
-    {
-        __m512i i512 = _mm512_set1_epi16(i);
-        rmax512 = _mm512_load_si512((__m512i*) (rowMax + i*SIMD_WIDTH16));
-        __mmask32 mask1 = _mm512_cmpgt_epi16_mask(low512, i512);
-        __mmask32 mask2 = _mm512_cmpgt_epi16_mask(rmax512, max512);
-        mask2 &= mask1;
-        max512 = _mm512_mask_blend_epi16(mask2, max512, rmax512);
-        te512 = _mm512_mask_blend_epi16(mask2, te512, i512);
-    }   
-    for (int i=minh+1; i< nrow; i++)
-    {
-        __m512i i512 = _mm512_set1_epi16(i);
-        rmax512 = _mm512_load_si512((__m512i*) (rowMax + i*SIMD_WIDTH16));
-        __mmask32 mask1 = _mm512_cmpgt_epi16_mask(i512, high512);
-        __mmask32 mask2 = _mm512_cmpgt_epi16_mask(rmax512, max512);
-        mask2 &= mask1;
-        max512 = _mm512_mask_blend_epi16(mask2, max512, rmax512);
-        te512 = _mm512_mask_blend_epi16(mask2, te512, i512);    
-    }
-
-    _mm512_store_si512((__m512i *) temp1, max512);
-    _mm512_store_si512((__m512i *) temp2, te512);       
-    for (int i=0; i<SIMD_WIDTH16; i++) {
-        int ind = po_ind + i;
-#if !MAINY
-        ind = p[i].regid;    // index of corr. aln
-        assert(ind == po_ind + i);
-#endif      
-        aln[ind].score2 = temp1[i];
-        aln[ind].te2 = temp2[i];
-    }
-    
-}
-#endif
+#endif // AVX512BW
 
 
 
 /**************************************Scalar code***************************************/
-#if MAINY
+/* This is the original SW code from bwa-mem. We are keeping both, 8-bit and 16-bit 
+   implementations, here for benchmarking purpose. 
+   The interface call to the code is very simple and similar to the one we used above.
+   By default the code is disabled.
+ */
+
+#if ORIGINAL_SW_SAM
 void kswv::bwa_fill_scmat(int8_t mat[25]) {
     int a = this->w_match;
     int b = this->w_mismatch;
@@ -1479,11 +1263,6 @@ kswq_t* kswv::ksw_qinit(int size, int qlen, uint8_t *query, int m, const int8_t 
     size = size > 1? 2 : 1;
     p = 8 * (3 - size); // # values per __m128i
     slen = (qlen + p - 1) / p; // segmented length
-    { // fillers
-        // printf("qlen: %d %d\n", qlen, p*slen);
-        for (int j=qlen; j<p*slen; j++)
-            query[j] = DUMMY1_;
-    }   
     q = (kswq_t*)malloc(sizeof(kswq_t) + 256 + 16 * slen * (m + 4)); // a single block of memory
     q->qp = (__m128i*)(((size_t)q + sizeof(kswq_t) + 15) >> 4 << 4); // align memory
     q->H0 = q->qp + slen * m;
@@ -1633,7 +1412,6 @@ end_loop16:
         for (i = 0; i < qlen; ++i, ++t)
             if ((int)*t > max) max = *t, r.qe = i / 16 + i % 16 * slen;
             else if ((int)*t == max && (tmp = i / 16 + i % 16 * slen) < r.qe) r.qe = tmp; 
-        //printf("%d,%d\n", max, gmax);
         if (b) {
             assert(q->max != 0);
             i = (r.score + q->max - 1) / q->max;
@@ -1655,7 +1433,6 @@ end_loop16:
     return r;
 }
 
-//original
 kswr_t kswv::kswvScalar_i16(kswq_t *q, int tlen, const uint8_t *target,
                             int _o_del, int _e_del, int _o_ins, int _e_ins,
                             int xtra) // the first gap costs -(_o+_e)
@@ -1725,6 +1502,7 @@ kswr_t kswv::kswvScalar_i16(kswq_t *q, int tlen, const uint8_t *target,
                 if(UNLIKELY(!_mm_movemask_epi8(_mm_cmpgt_epi16(f, h)))) goto end_loop8;
             }
         }
+        
 end_loop8:
         __max_8(imax, max);
         if (imax >= minsc) {
@@ -1769,47 +1547,53 @@ end_loop8:
 }
 
 // -------------------------------------------------------------
-// kswc scalar, wrapper function
+// kswc scalar, wrapper function, the interface.
 //-------------------------------------------------------------
-void kswv::kswvScalaWrapper(SeqPair *seqPairArray,
-                            uint8_t *seqBufRef,
-                            uint8_t *seqBufQer,
-                            kswr_t* aln,
-                            int numPairs,
-                            int nthreads) {
-
+void kswv::kswvScalarWrapper(SeqPair *seqPairArray,
+                             uint8_t *seqBufRef,
+                             uint8_t *seqBufQer,
+                             kswr_t* aln,
+                             int numPairs,
+                             int nthreads,
+                             bool sw, int tid) {
+    
     int8_t mat[25];
-    // bwa_fill_scmat(1, 4, mat);
     bwa_fill_scmat(mat);
 
-    int st = 0, ed = numPairs;
-    
-    for (int i=st; i<ed; i++) {
+    int st = 0, ed = numPairs;    
+    for (int i = st; i < ed; i++)
+    {
         SeqPair *p = seqPairArray + i;
-        kswr_t *myaln = aln + i;
+        kswr_t *myaln = aln + p->regid;
             
-        //uint8_t *seq1 = seqBuf + p->id * 2 * MAX_SEQ_LEN;
-        //uint8_t *seq2 = seqBuf + (p->id * 2 + 1) * MAX_SEQ_LEN;
-        uint8_t *target = seqBufRef + p->id * this->maxRefLen;
-        uint8_t *query = seqBufQer + p->id * this->maxQerLen;
+        uint8_t *target = seqBufRef + p->idr;
+        uint8_t *query = seqBufQer + p->idq;
+
         int tlen = p->len1;
         int qlen = p->len2;
         int xtra = p->h0;
 
-#if SCALAR_U8
-        kswq_t *q = ksw_qinit((xtra & KSW_XBYTE)? 1 : 2, qlen, query, this->m, mat);
-        kswr_t ks = kswvScalar_u8_exp(q, tlen, target,
-                                      o_del, e_del,
-                                      o_ins, e_ins,
-                                      xtra);
-#else
-        kswq_t *q = ksw_qinit(2, qlen, query, this->m, mat);
-        kswr_t ks = kswvScalar_i16_exp(q, tlen, target,
-                                       o_del, e_del,
-                                       o_ins, e_ins,
-                                       xtra);
-#endif
-
+        kswq_t *q;
+        kswr_t ks;
+            
+        int vw = (xtra & KSW_XBYTE)? 1 : 2;
+        if (sw == 0) {
+            assert(vw == 1);
+            q = ksw_qinit((xtra & KSW_XBYTE)? 1 : 2, qlen, query, this->m, mat);
+            ks = kswvScalar_u8(q, tlen, target,
+                               o_del, e_del,
+                               o_ins, e_ins,
+                               xtra, tid, i);
+            free(q);
+        } else {
+            assert(vw == 2);
+            q = ksw_qinit(2, qlen, query, this->m, mat);
+            ks = kswvScalar_i16(q, tlen, target,
+                                o_del, e_del,
+                                o_ins, e_ins,
+                                xtra);
+            free(q);
+        }
 
         myaln->score = ks.score;
         myaln->tb = ks.tb;
@@ -1818,441 +1602,26 @@ void kswv::kswvScalaWrapper(SeqPair *seqPairArray,
         myaln->qe = ks.qe;
         myaln->score2 = ks.score2;
         myaln->te2 = ks.te2;
-
-        free(q->qp);
-        free(q);
     }
 
 }
-
-// Experimental code
-kswr_t kswv::kswvScalar_u8_exp(kswq_t *q, int tlen, const uint8_t *target,
-                               int _o_del, int _e_del, int _o_ins, int _e_ins,
-                               int xtra) // the first gap costs -(_o+_e)
-{
-    int slen, i, m_b, n_b, te = -1, gmax = 0, minsc, endsc;
-    uint64_t *b;
-    __m128i zero, oe_del, e_del, oe_ins, e_ins, shift, *H0, *H1, *E, *Hmax;
-    kswr_t r;
-#define SIMD 16
-    
-#define __max_16(ret, xx) do { \
-        (xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 8)); \
-        (xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 4)); \
-        (xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 2)); \
-        (xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 1)); \
-        (ret) = _mm_extract_epi16((xx), 0) & 0x00ff;        \
-    } while (0)
-    
-    // initialization
-    r = g_defr;
-    minsc = (xtra & KSW_XSUBO)? xtra & 0xffff : 0x10000;
-    endsc = (xtra & KSW_XSTOP)? xtra & 0xffff : 0x10000;
-    assert(minsc < 256);
-    // if (endsc > 256)
-    //  printf("endsc: %x\n", endsc);
-    
-    m_b = n_b = 0; b = 0;
-    zero = _mm_set1_epi32(0);
-    oe_del = _mm_set1_epi8(_o_del + _e_del);
-    e_del = _mm_set1_epi8(_e_del);
-    oe_ins = _mm_set1_epi8(_o_ins + _e_ins);
-    e_ins = _mm_set1_epi8(_e_ins);
-    shift = _mm_set1_epi8(q->shift);
-    H0 = q->H0; H1 = q->H1; E = q->E; Hmax = q->Hmax;
-    slen = q->slen;
-    for (i = 0; i < slen; ++i) {
-        _mm_store_si128(E + i, zero);
-        _mm_store_si128(H0 + i, zero);
-        _mm_store_si128(Hmax + i, zero);
-    }
-
-    // the core loop
-    for (i = 0; i < tlen; ++i) {
-        int j, k, cmp, imax;
-        __m128i e, h, t, f = zero, max = zero, *S = q->qp + target[i] * slen; // s is the 1st score vector
-        h = _mm_load_si128(H0 + slen - 1); // h={2,5,8,11,14,17,-1,-1} in the above example
-        h = _mm_slli_si128(h, 1); // h=H(i-1,-1); << instead of >> because x64 is little-endian
-        for (j = 0; LIKELY(j < slen); ++j) {
-            /* SW cells are computed in the following order:
-             *   H(i,j)   = max{H(i-1,j-1)+S(i,j), E(i,j), F(i,j)}
-             *   E(i+1,j) = max{H(i,j)-q, E(i,j)-r}
-             *   F(i,j+1) = max{H(i,j)-q, F(i,j)-r}
-             */
-            // compute H'(i,j); note that at the beginning, h=H'(i-1,j-1)
-            h = _mm_adds_epu8(h, _mm_load_si128(S + j));
-            h = _mm_subs_epu8(h, shift); // h=H'(i-1,j-1)+S(i,j)
-            e = _mm_load_si128(E + j); // e=E'(i,j)
-            h = _mm_max_epu8(h, e);
-            h = _mm_max_epu8(h, f); // h=H'(i,j)
-            max = _mm_max_epu8(max, h); // set max
-            _mm_store_si128(H1 + j, h); // save to H'(i,j)
-            // now compute E'(i+1,j)
-            e = _mm_subs_epu8(e, e_del); // e=E'(i,j) - e_del
-            t = _mm_subs_epu8(h, oe_del); // h=H'(i,j) - o_del - e_del
-            e = _mm_max_epu8(e, t); // e=E'(i+1,j)
-            _mm_store_si128(E + j, e); // save to E'(i+1,j)
-            // now compute F'(i,j+1)
-            f = _mm_subs_epu8(f, e_ins);
-            t = _mm_subs_epu8(h, oe_ins); // h=H'(i,j) - o_ins - e_ins
-            f = _mm_max_epu8(f, t);
-            // get H'(i-1,j) and prepare for the next j
-            h = _mm_load_si128(H0 + j); // h=H'(i-1,j)
-        }
-        
-        // NB: we do not need to set E(i,j) as we disallow adjecent insertion and then deletion
-        for (k = 0; LIKELY(k < 16); ++k) { // this block mimics SWPS3; NB: H(i,j) updated in the lazy-F loop cannot exceed max
-            f = _mm_slli_si128(f, 1);
-            for (j = 0; LIKELY(j < slen); ++j) {
-                h = _mm_load_si128(H1 + j);
-                h = _mm_max_epu8(h, f); // h=H'(i,j)
-                _mm_store_si128(H1 + j, h);
-                h = _mm_subs_epu8(h, oe_ins);
-                f = _mm_subs_epu8(f, e_ins);
-                cmp = _mm_movemask_epi8(_mm_cmpeq_epi8(_mm_subs_epu8(f, h), zero));
-                if (UNLIKELY(cmp == 0xffff)) goto end_loop16;
-            }
-        }       
-    end_loop16:
-        // int k;for (k=0;k<16;++k)printf("%d ", ((uint8_t*)&max)[k]);printf("\n");
-        __max_16(imax, max); // imax is the maximum number in max
-
-        if (imax >= minsc) { // write the b array; this condition adds branching unfornately
-            if (n_b == 0 || (int32_t)b[n_b-1] + 1 != i) { // then append
-                if (n_b == m_b) {
-                    m_b = m_b? m_b<<1 : 8;
-                    b = (uint64_t*) realloc (b, 8 * m_b);
-                }
-                b[n_b++] = (uint64_t)imax<<32 | i;
-            } else if ((int)(b[n_b-1]>>32) < imax) b[n_b-1] = (uint64_t)imax<<32 | i; // modify the last
-        }
-        if (imax > gmax) {
-            gmax = imax; te = i; // te is the end position on the target
-            assert(gmax < 256);
-            for (j = 0; LIKELY(j < slen); ++j) // keep the H1 vector
-                _mm_store_si128(Hmax + j, _mm_load_si128(H1 + j));
-            if (gmax + q->shift >= 255) 
-                printf("gmax: %d\n", gmax);
-            
-            if (gmax + q->shift >= 255 || gmax >= endsc) break;         
-        }
-        S = H1; H1 = H0; H0 = S; // swap H0 and H1
-    }
-    r.score = gmax + q->shift < 255? gmax : 255;
-    r.te = te;
-    // assert(r.score != 255);
-        
-    if (r.score != 255) { // get a->qe, the end of query match; find the 2nd best score
-        int max = -1, tmp, low, high, qlen = slen * 16;
-        uint8_t *t = (uint8_t*) Hmax;
-        for (i = 0; i < qlen; ++i, ++t)
-            if ((int)*t > max) max = *t, r.qe = i / 16 + i % 16 * slen;
-            else if ((int)*t == max && (tmp = i / 16 + i % 16 * slen) < r.qe) r.qe = tmp; 
-        if (b) {
-            assert(q->max != 0);
-            i = (r.score + q->max - 1) / q->max;
-#if 0
-            int range = i;
-#endif
-            low = te - i; high = te + i;
-            // printf("n_b: %d, low: %d\n", n_b, low);
-            for (i = 0; i < n_b; ++i) {
-                int e = (int32_t)b[i];
-                // printf("%d %d %d\n", i, e, (int)(b[i]>>32));
-                if ((e < low || e > high) && (int)(b[i]>>32) > r.score2)
-                    r.score2 = b[i]>>32, r.te2 = e;
-            }
-            {
-#if 0           
-            int min = -1, t = -1;
-            for (i = 0; i < n_b; ++i) {
-                int e = (int) (b[i] >> 32);
-                if (r.score != e)
-                {
-                    min = e > min? e : min;
-                    t = (int32_t) b[i];
-                }
-                printf("i: %d, score: %d\n", (int32_t) b[i], (int) (b[i] >> 32));
-            }
-            if (r.score2 != min) {
-                printf("i (range): %d, low: %d, high: %d, te: %d\n", range, low, high, te);
-                printf("score: %d, te: %d, score2: %d, te2: %d, min: %d, i: %d\n",
-                       r.score, r.te, r.score2, r.te2, min, t);
-            }
-            exit(0);
-#endif
-            }
-        }
-    }
-
-#if MAXI
-    fprintf(stderr, "score: %d, te: %d, qe: %d, score2: %d, te2: %d\n",
-            r.score, r.te, r.qe, r.score2, r.te2);
 #endif
 
-    free(b);
-    return r;
-}
+/************************** standalone benchmark code *************************************/
+/** This is a standalone code for the benchmarking purpose 
+    By default it is disabled.
+**/
 
-
-// Experimental code
-kswr_t kswv::kswvScalar_i16_exp(kswq_t *q, int tlen, const uint8_t *target,
-                                int _o_del, int _e_del, int _o_ins, int _e_ins,
-                                int xtra) // the first gap costs -(_o+_e)
-{
-    static int itr = 0;
-    
-    int slen, i, m_b, n_b, te = -1, gmax = 0, minsc, endsc;
-    uint64_t *b;
-    __m128i zero, oe_del, e_del, oe_ins, e_ins, *H0, *H1, *E, *Hmax;
-    kswr_t r;
-    
-#define SIMD16 8
-
-#define __max_8(ret, xx) do {                                \
-        (xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 8)); \
-        (xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 4)); \
-        (xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 2)); \
-        (ret) = _mm_extract_epi16((xx), 0);                  \
-    } while (0)
-
-    // initialization
-    r = g_defr;
-    minsc = (xtra&KSW_XSUBO)? xtra&0xffff : 0x10000;
-    endsc = (xtra&KSW_XSTOP)? xtra&0xffff : 0x10000;
-    m_b = n_b = 0; b = 0;
-    zero = _mm_set1_epi32(0);
-    oe_del = _mm_set1_epi16(_o_del + _e_del);
-    e_del = _mm_set1_epi16(_e_del);
-    oe_ins = _mm_set1_epi16(_o_ins + _e_ins);
-    e_ins = _mm_set1_epi16(_e_ins);
-    H0 = q->H0; H1 = q->H1; E = q->E; Hmax = q->Hmax;
-    slen = q->slen;
-    for (i = 0; i < slen; ++i) {
-        _mm_store_si128(E + i, zero);
-        _mm_store_si128(H0 + i, zero);
-        _mm_store_si128(Hmax + i, zero);
-    }
-
-
-#ifdef VTUNE_ANALYSIS
-    __itt_resume();
-#endif
-    
-    // the core loop
-    for (i = 0; i < tlen; ++i) {
-        int j, k, imax;
-        __m128i e, t, h, f = zero, max = zero, *S = q->qp + target[i] * slen; // s is the 1st score vector
-        h = _mm_load_si128(H0 + slen - 1); // h={2,5,8,11,14,17,-1,-1} in the above example
-        h = _mm_slli_si128(h, 2);
-
-        for (j = 0; LIKELY(j < slen); ++j)
-        {
-            
-            h = _mm_adds_epi16(h, *S++);            
-            e = _mm_load_si128(E + j);          
-            h = _mm_max_epi16(h, e);
-            h = _mm_max_epi16(h, f);
-            max = _mm_max_epi16(max, h);
-            _mm_store_si128(H1 + j, h);
-            e = _mm_subs_epu16(e, e_del);
-            t = _mm_subs_epu16(h, oe_del);
-            e = _mm_max_epi16(e, t);
-            _mm_store_si128(E + j, e);
-            f = _mm_subs_epu16(f, e_ins);
-            t = _mm_subs_epu16(h, oe_ins);
-            f = _mm_max_epi16(f, t);
-            h = _mm_load_si128(H0 + j);
-            // prof[DP2][0] ++;
-            prof[DP2][0] += 14;
-        }
-                
-        for (k = 0; LIKELY(k < 16); ++k) {
-            f = _mm_slli_si128(f, 2);
-            for (j = 0; LIKELY(j < slen); ++j) {
-                h = _mm_load_si128(H1 + j);
-                h = _mm_max_epi16(h, f);
-                _mm_store_si128(H1 + j, h);
-                h = _mm_subs_epu16(h, oe_ins);
-                f = _mm_subs_epu16(f, e_ins);
-                if(UNLIKELY(!_mm_movemask_epi8(_mm_cmpgt_epi16(f, h)))) goto end_loop8;
-            }
-        }
-end_loop8:
-        __max_8(imax, max);
-        
-        if (imax >= minsc) {
-            if (n_b == 0 || (int32_t)b[n_b-1] + 1 != i) {
-                if (n_b == m_b) {
-                    m_b = m_b? m_b<<1 : 8;
-                    b = (uint64_t*)realloc(b, 8 * m_b);
-                }
-                b[n_b++] = (uint64_t)imax<<32 | i;
-            } else if ((int)(b[n_b-1]>>32) < imax) b[n_b-1] = (uint64_t)imax<<32 | i; // modify the last
-        }
-        if (imax > gmax) {
-            gmax = imax; te = i;
-            for (j = 0; LIKELY(j < slen); ++j)
-                _mm_store_si128(Hmax + j, _mm_load_si128(H1 + j));
-            if (gmax >= endsc) {
-                // printf("Breaking, gmax: %d, endsc: %d\n", gmax, endsc);
-                break;
-            }
-        }
-        S = H1; H1 = H0; H0 = S;
-    }
-
-
-#ifdef VTUNE_ANALYSIS
-    __itt_pause();
-#endif
-
-    int max_ = -1;
-    r.score = gmax; r.te = te;
-    int max = -1, tmp, low, high, qlen = slen * 8;
-    {
-        uint16_t *t = (uint16_t*)Hmax;
-        for (i = 0, r.qe = -1; i < qlen; ++i, ++t)
-            if ((int)*t > max) max = *t, r.qe = i / 8 + i % 8 * slen;
-            else if ((int)*t == max && (tmp = i / 8 + i % 8 * slen) < r.qe) r.qe = tmp;
-        max_ = max;
-        if (b) {
-            assert(q->max != 0);
-            i = (r.score + q->max - 1) / q->max;
-            low = te - i; high = te + i;
-            for (i = 0; i < n_b; ++i) {
-                int e = (int32_t)b[i];
-                if ((e < low || e > high) && (int)(b[i]>>32) > r.score2)
-                    r.score2 = b[i]>>32, r.te2 = e;
-            }
-        }
-    }
-
-#if MAXI
-    fprintf(stderr, "score: %d, te: %d, qe: %d, score2: %d, te2: %d\n",
-            gmax, te, r.qe, r.score2, r.te2);
-#endif
-
-    itr ++; 
-    free(b);
-    return r;
-}
-
-
-#if DEBUG
-kswr_t kswv::kswvScalarPure(kswq_t *q, int tlen, const uint8_t *target,
-                            int _o_del, int _e_del, int _o_ins, int _e_ins,
-                            int xtra) // the first gap costs -(_o+_e)
-{
-    static int itr = 0;
-    int lane_ = 0;
-    bool gate = 0;
-    
-    int slen, i, m_b, n_b, te = -1, gmax = 0, minsc, endsc;
-    uint64_t *b;
-    int zero, oe_del, e_del, oe_ins, e_ins, *H0, *H1, *E, *Hmax;
-    kswr_t r;
-    
-#define SIMD16 8
-    int16_t dp[1048][200], rMax[tlen+1];
-    int16_t temp[SIMD16];
-
-
-    // initialization
-    r = g_defr;
-    minsc = (xtra&KSW_XSUBO)? xtra&0xffff : 0x10000;
-    endsc = (xtra&KSW_XSTOP)? xtra&0xffff : 0x10000;
-    m_b = n_b = 0; b = 0;
-    zero = 0;
-    oe_del = _o_del + _e_del;
-    e_del = _e_del;
-    oe_ins = o_ins + _e_ins;
-    e_ins = _e_ins;
-    H0 = q->H0; H1 = q->H1; E = q->E; Hmax = q->Hmax;  // fix
-    slen = q->slen;
-
-    for (i = 0; i < slen*SIMD16; ++i) {
-        E[i] = H0[i] = Hmax[i] = 0;
-    }
-
-    // the core loop
-    for (i = 0; i < tlen; ++i) {
-        int j, k, imax;
-        int e, t, h, f = zero, max = zero, *S = q->qp + target[i] * slen; // s is the 1st score vector
-
-        h = H0[0];
-        for (j = 0; j < slen*SIMD16; ++j)
-        {
-
-            h += *S++;
-            e = E[j+1];
-            h = max_(h, e);
-            h = max_(h, f);
-            H1[j+1] = h;
-            max = max_(max, h);
-            e -= e_del;
-            t = h - oe_del;
-            e = max_(e, t);
-            E[j+1] = e;
-            f -= e_ins;
-            t = h - oe_ins;
-            f = max_(f, t);
-            h = H0[j+1];
-            prof[DP2][0] ++;
-        }   
-        imax = max;
-        if (imax >= minsc) {
-            if (n_b == 0 || (int32_t)b[n_b-1] + 1 != i) {
-                if (n_b == m_b) {
-                    m_b = m_b? m_b<<1 : 8;
-                    b = (uint64_t*)realloc(b, 8 * m_b);
-                }
-                b[n_b++] = (uint64_t)imax<<32 | i;
-            } else if ((int)(b[n_b-1]>>32) < imax) b[n_b-1] = (uint64_t)imax<<32 | i; // modify the last
-        }
-        if (imax > gmax) {
-            gmax = imax; te = i;
-            for (j = 0; LIKELY(j < slen*SIMD16); ++j)
-                //_mm_store_si128(Hmax + j, _mm_load_si128(H1 + j));
-                Hmax[j] = H1[j];
-            if (gmax >= endsc) break;
-        }
-        S = H1; H1 = H0; H0 = S;        
-    }
-    r.score = gmax; r.te = te;
-    int max = -1, tmp, low, high, qlen = slen * 8;
-    {
-        int *t = (int*) Hmax;
-        for (i = 0, r.qe = -1; i < qlen; ++i, ++t)
-            if ((int)*t > max) max = *t, r.qe = i;
-            else if ((int)*t == max && (tmp = i) < r.qe) r.qe = tmp;
-        if (b) {
-            assert(q->max != 0);
-            i = (r.score + q->max - 1) / q->max;
-            low = te - i; high = te + i;
-            for (i = 0; i < n_b; ++i) {
-                int e = (int32_t)b[i];
-                if ((e < low || e > high) && (int)(b[i]>>32) > r.score2)
-                    r.score2 = b[i]>>32, r.te2 = e;
-            }
-        }
-    }
-    
-}
-#endif
-
-/**********************************************************************/
-// main function:
-// #if MAINY
+#if MAINY
 #define DEFAULT_MATCH 1
 #define DEFAULT_MISMATCH -4
 #define DEFAULT_OPEN 6
 #define DEFAULT_EXTEND 1
 #define DEFAULT_AMBIG -1
 
-//#define MAX_NUM_PAIRS 1000
-//#define MATRIX_MIN_CUTOFF -100000000
-//#define LOW_INIT_VALUE (INT32_MIN/2)
+// #define MAX_NUM_PAIRS 1000
+// #define MATRIX_MIN_CUTOFF -100000000
+// #define LOW_INIT_VALUE (INT32_MIN/2)
 // #define AMBIG 52
 
 int spot = 42419;
@@ -2551,7 +1920,7 @@ int main(int argc, char *argv[])
         if (numPairs == 0) break;
 
         tim = __rdtsc();
-        pwsw->kswvScalaWrapper(seqPairArray,
+        pwsw->kswvScalarWrapper(seqPairArray,
                                seqBufRef,
                                seqBufQer,
                                aln,

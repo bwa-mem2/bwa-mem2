@@ -28,6 +28,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <errno.h>
+#include "bwt.h"
 #include "QSufSort.h"
 
 #ifdef USE_MALLOC_WRAPPERS
@@ -51,7 +52,7 @@ typedef int64_t sbgint_t;
 
 #define BITS_PER_OCC_VALUE			16
 #define OCC_VALUE_PER_WORD			2
-#define OCC_INTERVAL				256
+#define OCC_INTERVAL_NEW				256
 #define OCC_INTERVAL_MAJOR			65536
 
 #define TRUE    1
@@ -136,15 +137,15 @@ static bgint_t BWTOccValueMajorSizeInWord(const bgint_t numChar)
 {
 	bgint_t numOfOccValue;
 	unsigned numOfOccIntervalPerMajor;
-	numOfOccValue = (numChar + OCC_INTERVAL - 1) / OCC_INTERVAL + 1; // Value at both end for bi-directional encoding
-	numOfOccIntervalPerMajor = OCC_INTERVAL_MAJOR / OCC_INTERVAL;
+	numOfOccValue = (numChar + OCC_INTERVAL_NEW - 1) / OCC_INTERVAL_NEW + 1; // Value at both end for bi-directional encoding
+	numOfOccIntervalPerMajor = OCC_INTERVAL_MAJOR / OCC_INTERVAL_NEW;
 	return (numOfOccValue + numOfOccIntervalPerMajor - 1) / numOfOccIntervalPerMajor * ALPHABET_SIZE;
 }
 // for BWTIncCreate()
 static bgint_t BWTOccValueMinorSizeInWord(const bgint_t numChar)
 {
 	bgint_t numOfOccValue;
-	numOfOccValue = (numChar + OCC_INTERVAL - 1) / OCC_INTERVAL + 1;		// Value at both end for bi-directional encoding
+	numOfOccValue = (numChar + OCC_INTERVAL_NEW - 1) / OCC_INTERVAL_NEW + 1;		// Value at both end for bi-directional encoding
 	return (numOfOccValue + OCC_VALUE_PER_WORD - 1) / OCC_VALUE_PER_WORD * ALPHABET_SIZE;
 }
 // for BWTIncCreate()
@@ -153,7 +154,7 @@ static bgint_t BWTResidentSizeInWord(const bgint_t numChar) {
 	bgint_t numCharRoundUpToOccInterval;
 
 	// The $ in BWT at the position of inverseSa0 is not encoded
-	numCharRoundUpToOccInterval = (numChar + OCC_INTERVAL - 1) / OCC_INTERVAL * OCC_INTERVAL;
+	numCharRoundUpToOccInterval = (numChar + OCC_INTERVAL_NEW - 1) / OCC_INTERVAL_NEW * OCC_INTERVAL_NEW;
 
 	return (numCharRoundUpToOccInterval + CHAR_PER_WORD - 1) / CHAR_PER_WORD;
 
@@ -166,7 +167,7 @@ static void BWTIncSetBuildSizeAndTextAddr(BWTInc *bwtInc)
 	if (bwtInc->bwt->textLength == 0) {
 		// initial build
 		// Minus 2 because n+1 entries of seq and rank needed for n char
-		maxBuildSize = (bwtInc->availableWord - (2 + OCC_INTERVAL / CHAR_PER_WORD) * (sizeof(bgint_t) / 4))
+		maxBuildSize = (bwtInc->availableWord - (2 + OCC_INTERVAL_NEW / CHAR_PER_WORD) * (sizeof(bgint_t) / 4))
 							/ (2 * CHAR_PER_WORD + 1) * CHAR_PER_WORD / (sizeof(bgint_t) / 4);
 		if (bwtInc->initialMaxBuildSize > 0) {
 			bwtInc->buildSize = min(bwtInc->initialMaxBuildSize, maxBuildSize);
@@ -177,7 +178,7 @@ static void BWTIncSetBuildSizeAndTextAddr(BWTInc *bwtInc)
 		// Minus 3 because n+1 entries of sorted rank, seq and rank needed for n char
 		// Minus numberOfIterationDone because bwt slightly shift to left in each iteration
 		maxBuildSize = (bwtInc->availableWord - bwtInc->bwt->bwtSizeInWord - bwtInc->bwt->occSizeInWord
-							 - (3 + bwtInc->numberOfIterationDone * OCC_INTERVAL / BIT_PER_CHAR) * (sizeof(bgint_t) / 4)) 
+							 - (3 + bwtInc->numberOfIterationDone * OCC_INTERVAL_NEW / BIT_PER_CHAR) * (sizeof(bgint_t) / 4)) 
 							 / 3 / (sizeof(bgint_t) / 4);
 		if (maxBuildSize < CHAR_PER_WORD) {
 			fprintf(stderr, "BWTIncSetBuildSizeAndTextAddr(): Not enough space allocated to continue construction!\n");
@@ -374,7 +375,7 @@ BWTInc *BWTIncCreate(const bgint_t textLength, unsigned int initialMaxBuildSize,
 
 	n_iter = (textLength - initialMaxBuildSize) / incMaxBuildSize + 1;
 	bwtInc->availableWord = BWTResidentSizeInWord(textLength) + BWTOccValueMinorSizeInWord(textLength) // minimal memory requirement
-		+ OCC_INTERVAL / BIT_PER_CHAR * n_iter * 2 * (sizeof(bgint_t) / 4) // buffer at the end of occ array 
+		+ OCC_INTERVAL_NEW / BIT_PER_CHAR * n_iter * 2 * (sizeof(bgint_t) / 4) // buffer at the end of occ array 
 		+ incMaxBuildSize/5 * 3 * (sizeof(bgint_t) / 4); // space for the 3 temporary arrays in each iteration
 	if (bwtInc->availableWord < MIN_AVAILABLE_WORD) bwtInc->availableWord = MIN_AVAILABLE_WORD; // lh3: otherwise segfaul when availableWord is too small
 	fprintf(stderr, "[%s] textLength=%ld, availableWord=%ld\n", __func__, (long)textLength, (long)bwtInc->availableWord);
@@ -537,7 +538,7 @@ static inline bgint_t BWTOccValueExplicit(const BWT *bwt, const bgint_t occIndex
 {
 	bgint_t occIndexMajor;
 
-	occIndexMajor = occIndexExplicit * OCC_INTERVAL / OCC_INTERVAL_MAJOR;
+	occIndexMajor = occIndexExplicit * OCC_INTERVAL_NEW / OCC_INTERVAL_MAJOR;
 
 	if (occIndexExplicit % OCC_VALUE_PER_WORD == 0) {
 		return bwt->occValueMajor[occIndexMajor * ALPHABET_SIZE + character] +
@@ -625,8 +626,8 @@ bgint_t BWTOccValue(const BWT *bwt, bgint_t index, const unsigned int character)
 	if (index > bwt->inverseSa0)
 		index--;
 
-	occExplicitIndex = (index + OCC_INTERVAL / 2 - 1) / OCC_INTERVAL;	// Bidirectional encoding
-	occIndex = occExplicitIndex * OCC_INTERVAL;
+	occExplicitIndex = (index + OCC_INTERVAL_NEW / 2 - 1) / OCC_INTERVAL_NEW;	// Bidirectional encoding
+	occIndex = occExplicitIndex * OCC_INTERVAL_NEW;
 	occValue = BWTOccValueExplicit(bwt, occExplicitIndex, character);
 
 	if (occIndex == index)
@@ -1098,11 +1099,11 @@ void BWTGenerateOccValueFromBwt(const unsigned int*  bwt, unsigned int* __restri
 	bgint_t sum; // perhaps unsigned is big enough
 	bgint_t tempOccValue0[ALPHABET_SIZE], tempOccValue1[ALPHABET_SIZE];
 
-	wordBetweenOccValue = OCC_INTERVAL / CHAR_PER_WORD;
+	wordBetweenOccValue = OCC_INTERVAL_NEW / CHAR_PER_WORD;
 
 	// Calculate occValue
-	numberOfOccValue = (textLength + OCC_INTERVAL - 1) / OCC_INTERVAL + 1;				// Value at both end for bi-directional encoding
-	numberOfOccIntervalPerMajor = OCC_INTERVAL_MAJOR / OCC_INTERVAL;
+	numberOfOccValue = (textLength + OCC_INTERVAL_NEW - 1) / OCC_INTERVAL_NEW + 1;				// Value at both end for bi-directional encoding
+	numberOfOccIntervalPerMajor = OCC_INTERVAL_MAJOR / OCC_INTERVAL_NEW;
 	numberOfOccValueMajor = (numberOfOccValue + numberOfOccIntervalPerMajor - 1) / numberOfOccIntervalPerMajor;
 
 	tempOccValue0[0] = 0;
@@ -1401,7 +1402,7 @@ static void BWTIncConstruct(BWTInc *bwtInc, const bgint_t numChar)
 
 		// Merge BWT; relativeRank may be overwritten by mergedBwt
 		mergedBwt = bwtInc->workingMemory + bwtInc->availableWord - mergedBwtSizeInWord 
-				    - bwtInc->numberOfIterationDone * OCC_INTERVAL / BIT_PER_CHAR * (sizeof(bgint_t) / 4); // minus numberOfIteration * occInterval to create a buffer for merging
+				    - bwtInc->numberOfIterationDone * OCC_INTERVAL_NEW / BIT_PER_CHAR * (sizeof(bgint_t) / 4); // minus numberOfIteration * occInterval to create a buffer for merging
 		assert(mergedBwt >= insertBwt + numChar);
 		BWTIncMergeBwt(sortedRank, bwtInc->bwt->bwtCode, insertBwt, mergedBwt, bwtInc->bwt->textLength, numChar);
 	}

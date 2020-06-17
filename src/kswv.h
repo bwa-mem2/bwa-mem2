@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -128,7 +128,7 @@ public:
 	uint64_t SW_cells;
 
 	kswv(const int o_del, const int e_del, const int o_ins,
-		 const int e_ins, int8_t w_match, int8_t w_mismatch,
+		 const int e_ins, const int8_t w_match, const int8_t w_mismatch,
 		 int numThreads, int32_t maxRefLen, int32_t maxQerLen);
 	
 	~kswv();
@@ -148,13 +148,14 @@ public:
 					 int32_t numPairs,
 					 uint16_t numThreads,
 					 int phase);
-
-	void kswvScalaWrapper(SeqPair *seqPairArray,
-						  uint8_t *seqBufRef,
-						  uint8_t *seqBufQer,
-						  kswr_t* aln,
-						  int numPairs,
-						  int nthreads);
+    
+	void kswvScalarWrapper(SeqPair *seqPairArray,
+                           uint8_t *seqBufRef,
+                           uint8_t *seqBufQer,
+                           kswr_t* aln,
+                           int numPairs,
+                           int nthreads,
+                           bool sw, int tid);
 
 	kswq_t* ksw_qinit(int size, int qlen, uint8_t *query, int m, const int8_t *mat);
 	
@@ -178,7 +179,7 @@ private:
 				   uint16_t tid,
 				   int32_t numPairs,
 				   int phase);
-	
+    
 	void kswvBatchWrapper16(SeqPair *pairArray,
 							uint8_t *seqBufRef,
 							uint8_t *seqBufQer,
@@ -187,45 +188,26 @@ private:
 							uint16_t numThreads,
 							int phase);
 	
-	int kswv512_16_exp(int16_t seq1SoA[],
-					   int16_t seq2SoA[],
-					   int16_t nrow,
-					   int16_t ncol,
-					   SeqPair *p,
-					   kswr_t* aln,
-					   int po_ind,
-					   uint16_t tid,
-					   int32_t numPairs,
-					   int phase);
-
-	void kswv512_16(int16_t seq1SoA[],
-				   int16_t seq2SoA[],
-				   int16_t nrow,
-				   int16_t ncol,
-				   SeqPair *p,
-				   kswr_t* aln,
-				   int po_ind,
-				   uint16_t tid,
-				   int32_t numPairs);
+	int kswv512_16(int16_t seq1SoA[],
+                   int16_t seq2SoA[],
+                   int16_t nrow,
+                   int16_t ncol,
+                   SeqPair *p,
+                   kswr_t* aln,
+                   int po_ind,
+                   uint16_t tid,
+                   int32_t numPairs,
+                   int phase);
 #endif
 	
 	kswr_t kswvScalar_u8(kswq_t *q, int tlen, const uint8_t *target,
 						int _o_del, int _e_del, int _o_ins, int _e_ins,
 						int xtra);  // the first gap costs -(_o+_e)
-
-	kswr_t kswvScalar_u8_exp(kswq_t *q, int tlen, const uint8_t *target,
-							 int _o_del, int _e_del, int _o_ins, int _e_ins,
-							 int xtra);  // the first gap costs -(_o+_e)
 	
 	kswr_t kswvScalar_i16(kswq_t *q, int tlen, const uint8_t *target,
 						  int _o_del, int _e_del, int _o_ins, int _e_ins,
 						  int xtra); // the first gap costs -(_o+_e)
 	
-	kswr_t kswvScalar_i16_exp(kswq_t *q, int tlen, const uint8_t *target,
-							  int _o_del, int _e_del, int _o_ins, int _e_ins,
-							  int xtra); // the first gap costs -(_o+_e)
-		
-
 	void bwa_fill_scmat(int8_t mat[25]);
 		
 	int m;
