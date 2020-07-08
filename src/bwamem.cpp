@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -1056,7 +1056,8 @@ int64_t sort_classify(mem_cache *mmc, int64_t pcnt, int tid)
     SeqPair *seqPairArrayAux = mmc->seqPairArrayRight128[tid];
 
     int64_t pos8 = 0, pos16 = 0;
-    for (int i=0; i<pcnt; i++) {
+    for (int i=0; i<pcnt; i++)
+    {
         SeqPair *s = seqPairArray + i;
         int xtra = s->h0;
         int size = (xtra & KSW_XBYTE)? 1 : 2;

@@ -359,22 +359,16 @@ kswr_t ksw_align2(int qlen, uint8_t *query, int tlen, uint8_t *target,
 	if (qry && *qry == 0) *qry = q;
 	func = q->size == 2? ksw_i16 : ksw_u8;
 	size = q->size;
-
 	
-	// uint64_t tim = __rdtsc();
 	r = func(q, tlen, target, o_del, e_del, o_ins, e_ins, xtra);
-	// tprof[ALIGN1][tid] += __rdtsc() - tim;
-	// tprof[PE24][0] ++;
 
 	if (qry == 0) free(q);
 	if ((xtra & KSW_XSTART) == 0 || ((xtra & KSW_XSUBO) && r.score < (xtra & 0xffff))) return r;
 	revseq(r.qe + 1, query); revseq(r.te + 1, target); // +1 because qe/te points to the exact end, not the position after the end
 	
 	q = ksw_qinit(size, r.qe + 1, query, m, mat);
-	// tim = __rdtsc();
+
 	rr = func(q, tlen, target, o_del, e_del, o_ins, e_ins, KSW_XSTOP | r.score);
-	// tprof[ALIGN1][tid] += __rdtsc() - tim;
-	// tprof[PE25][0] ++;
 	
 	revseq(r.qe + 1, query); revseq(r.te + 1, target);
 	free(q);

@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -118,7 +118,7 @@ public:
     BandedPairWiseSW(const int o_del, const int e_del, const int o_ins,
                      const int e_ins, const int zdrop,
                      const int end_bonus, const int8_t *mat_,
-                     int8_t w_match, int8_t w_mismatch, int numThreads);
+                     const int8_t w_match, const int8_t w_mismatch, int numThreads);
     ~BandedPairWiseSW();
     // Scalar code section
     int scalarBandedSWA(int qlen, const uint8_t *query, int tlen,
