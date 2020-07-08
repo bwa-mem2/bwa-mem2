@@ -67,6 +67,7 @@ BandedPairWiseSW::BandedPairWiseSW(const int o_del, const int e_del, const int o
 	this->w_extend	 = e_del;  // redundant, used in vector code.
 	this->w_ambig	 = DEFAULT_AMBIG;
 	this->swTicks = 0;
+	this->SW_cells = 0;
 	setupTicks = 0;
 	sort1Ticks = 0;
 	swTicks = 0;
@@ -127,7 +128,9 @@ int BandedPairWiseSW::scalarBandedSWA(int qlen, const uint8_t *query,
 	
 	// allocate memory
 	qp = (int8_t *) malloc(qlen * m);
+    assert(qp != NULL);
 	eh = (eh_t *) calloc(qlen + 1, 8);
+    assert(eh != NULL);
 
 	// generate the query profile
 	for (k = i = 0; k < m; ++k) {
@@ -3400,7 +3403,6 @@ inline void sortPairsLen(SeqPair *pairArray, int32_t count, SeqPair *tempArray,
         hist[sp.len1]++;
     }
 
-    int32_t prev = 0;
     int32_t cumulSum = 0;
     for(i = 0; i <= MAX_SEQ_LEN16; i++)
     {

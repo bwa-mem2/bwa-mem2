@@ -30,15 +30,22 @@
 
 EXE=		bwa-mem2
 #CXX=		icpc
+ifeq ($(CXX), icpc)
+	CC= icc
+else ifeq ($(CXX), g++)
+	CC=gcc
+endif		
 ARCH_FLAGS=	-msse4.1
 MEM_FLAGS=	-DSAIS=1
 CPPFLAGS=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
-LIBS=		-lpthread -lm -lz -L. -lbwa ##-lnuma
+INCLUDES=   -Isrc -Iext/safestringlib/include
+LIBS=		-lpthread -lm -lz -L. -lbwa  -Lext/safestringlib -lsafestring
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
 			src/bwamem_extra.o src/kopen.o
 BWA_LIB=    libbwa.a
+SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
 
 ifneq ($(portable),)
 	LIBS+=-static-libgcc -static-libstdc++
@@ -76,19 +83,26 @@ CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 all:$(EXE)
 
 multi:
-	rm -f src/*.o $(BWA_LIB); $(MAKE) arch=sse    EXE=bwa-mem2.sse41    CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); $(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); $(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
-	$(CXX) -Wall -O3 src/runsimd.cpp -o bwa-mem2
+	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	$(MAKE) arch=sse    EXE=bwa-mem2.sse41    CXX=$(CXX) all
+	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	$(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
+	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	$(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
+	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring -o bwa-mem2
 
-$(EXE):$(BWA_LIB) src/main.o
+$(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main.o
 	$(CXX) $(CXXFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
 
 $(BWA_LIB):$(OBJS)
 	ar rcs $(BWA_LIB) $(OBJS)
 
+$(SAFE_STR_LIB):
+	cd ext/safestringlib/ && make clean && make CC=$(CC) libsafestring.a
+
 clean:
 	rm -fr src/*.o $(BWA_LIB) $(EXE) bwa-mem2.sse41 bwa-mem2.avx2 bwa-mem2.avx512bw
+	cd ext/safestringlib/ && $(MAKE) clean
 
 depend:
 	(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CXXFLAGS) $(CPPFLAGS) -I. -- src/*.cpp)

@@ -40,7 +40,7 @@
 int bwa_index(int argc, char *argv[]) // the "index" command
 {
 	int c;
-	char *prefix = 0, *str;
+	char *prefix = 0;
 	while ((c = getopt(argc, argv, "p:")) >= 0) {
 		if (c == 'p') prefix = optarg;
 		else return 1;
@@ -71,6 +71,7 @@ int bwa_idx_build(const char *fa, const char *prefix)
 		err_gzclose(fp);
         FMI_search *fmi = new FMI_search(prefix);
         fmi->build_index();
+        delete fmi;
 	}
 	return 0;
 }

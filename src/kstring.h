@@ -28,6 +28,13 @@
 
 #include <stdlib.h>
 #include <string.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -61,7 +68,7 @@ static inline int kputsn(const char *p, int l, kstring_t *s)
 		kroundup32(s->m);
 		s->s = (char*)realloc(s->s, s->m);
 	}
-	memcpy(s->s + s->l, p, l);
+	memcpy_s(s->s + s->l, s->m - s->l, p, l);
 	s->l += l;
 	s->s[s->l] = 0;
 	return l;

@@ -31,6 +31,14 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -55,8 +63,10 @@
 	static inline kstream_t *ks_init(type_t f)						\
 	{																\
 		kstream_t *ks = (kstream_t*)calloc(1, sizeof(kstream_t));	\
+        assert(ks != NULL);                                         \
 		ks->f = f;													\
 		ks->buf = (unsigned char*)malloc(__bufsize);				\
+        assert(ks->buf != NULL);                                    \
 		return ks;													\
 	}																\
 	static inline void ks_destroy(kstream_t *ks)					\
@@ -125,7 +135,7 @@ typedef struct __kstring_t {
 				str->s = (char*)realloc(str->s, str->m);				\
 			}															\
 			gotany = 1;													\
-			memcpy(str->s + str->l, ks->buf + ks->begin, i - ks->begin); \
+			memcpy_s(str->s + str->l, str->m - str->l, ks->buf + ks->begin, i - ks->begin); \
 			str->l = str->l + (i - ks->begin);							\
 			ks->begin = i + 1;											\
 			if (i < ks->end) {											\
@@ -137,6 +147,7 @@ typedef struct __kstring_t {
 		if (str->s == 0) {												\
 			str->m = 1;													\
 			str->s = (char*)calloc(1, 1);								\
+            assert(str->s != NULL);                                     \
 		} else if (delimiter == KS_SEP_LINE && str->l > 1 && str->s[str->l-1] == '\r') --str->l; \
 		str->s[str->l] = '\0';											\
 		return str->l;													\
@@ -156,6 +167,7 @@ typedef struct __kstring_t {
 	SCOPE kseq_t *kseq_init(type_t fd)									\
 	{																	\
 		kseq_t *s = (kseq_t*)calloc(1, sizeof(kseq_t));					\
+        assert(s != NULL);                                              \
 		s->f = ks_init(fd);												\
 		return s;														\
 	}																	\
@@ -173,7 +185,7 @@ typedef struct __kstring_t {
    -2   truncated quality string
  */
 #define __KSEQ_READ(SCOPE) \
-	SCOPE int kseq_read(kseq_t *seq) \
+	SCOPE int64_t kseq_read(kseq_t *seq) \
 	{ \
 		int c; \
 		kstream_t *ks = seq->f; \
@@ -188,6 +200,7 @@ typedef struct __kstring_t {
 		if (seq->seq.s == 0) { /* we can do this in the loop below, but that is slower */ \
 			seq->seq.m = 256; \
 			seq->seq.s = (char*)malloc(seq->seq.m); \
+            assert(seq->seq.s != NULL);             \
 		} \
 		while ((c = ks_getc(ks)) != -1 && c != '>' && c != '+' && c != '@') { \
 			if (c == '\n') continue; /* skip empty lines */ \
@@ -200,6 +213,7 @@ typedef struct __kstring_t {
 			seq->seq.m = seq->seq.l + 16;								\
 			kroundup32(seq->seq.m); /* rounded to the next closest 2^k */ \
 			seq->seq.s = (char*)realloc(seq->seq.s, seq->seq.m); \
+            assert(seq->seq.s != NULL); \
 		} \
 		seq->seq.s[seq->seq.l] = 0;	/* null terminated string */ \
 		if (c != '+') return seq->seq.l; /* FASTA */ \
@@ -235,7 +249,7 @@ typedef struct __kstring_t {
 		__KSEQ_TYPE(type_t)												\
 		extern kseq_t *kseq_init(type_t fd);							\
 	void kseq_destroy(kseq_t *ks);										\
-	int kseq_read(kseq_t *seq);											\
+	int64_t kseq_read(kseq_t *seq);											\
 	static int ks_getuntil2(kstream_t *ks, int delimiter, kstring_t *str, int *dret, int append);
 	
 #endif

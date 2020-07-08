@@ -125,7 +125,6 @@ const kswr_t g_defr = { 0, -1, -1, -1, -1, -1, -1 };
 
 class kswv {
 public:
-	uint64_t SW_cells;
 
 	kswv(const int o_del, const int e_del, const int o_ins,
 		 const int e_ins, int8_t w_match, int8_t w_mismatch,

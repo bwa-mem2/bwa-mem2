@@ -40,6 +40,14 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "kvec.h"
 #include <string>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_str_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 int bwa_verbose = 3;
 char bwa_rg_id[256];
 char *bwa_pg;
@@ -210,7 +218,9 @@ bseq1_t *bseq_read_orig(int64_t chunk_size, int *n_, void *ks1_, void *ks2_, int
 bseq1_t *bseq_read_one_fasta_file(int64_t chunk_size, int *n_, gzFile fp, int64_t *s)
 {
     kseq_t *ks = kseq_init(fp);
-    return bseq_read_orig(chunk_size, n_, ks, NULL, s);
+    bseq1_t *seq = bseq_read_orig(chunk_size, n_, ks, NULL, s);
+    kseq_destroy(ks);
+    return seq;
 }
 
 void bseq_classify(int n, bseq1_t *seqs, int m[2], bseq1_t *sep[2])
@@ -271,6 +281,7 @@ uint32_t *bwa_gen_cigar2(const int8_t mat[25], int o_del, int e_del, int o_ins, 
         // UPDATE: we come to this block now... FIXME: due to an issue in mem_reg2aln(), we never come to this block. This does not affect accuracy, but it hurts performance.
         if (n_cigar) {
             cigar = (uint32_t*) malloc(4);
+            assert(cigar != NULL);
             cigar[0] = l_query<<4 | 0;
             *n_cigar = 1;
         }
@@ -604,9 +615,10 @@ char *bwa_insert_header(const char *s, char *hdr)
     if (s == 0 || s[0] != '@') return hdr;
     if (hdr) {
         len = strlen(hdr);
-        hdr = (char*) realloc(hdr, len + strlen(s) + 2);
+        int len_s = strlen(s);
+        hdr = (char*) realloc(hdr, len + len_s + 2);
         hdr[len++] = '\n';
-        strcpy(hdr + len, s);
+        strcpy_s(hdr + len, len_s + 1, s);
     } else hdr = strdup(s);
     bwa_escape(hdr + len);
     return hdr;

@@ -464,6 +464,7 @@ typedef typename std::iterator_traits<string_type>::value_type char_type;
     Bp = Cp;
     flags = 4 | 8;
   }
+  assert(k > 0);
   if((n <= ((std::numeric_limits<index_type>::max)() / 2)) && (2 <= (n / k))) {
     if(flags & 1) { flags |= ((k * 2) <= (fs - k)) ? 32 : 16; }
     else if((flags == 0) && ((k * 2) <= (fs - k * 2))) { flags |= 32; }

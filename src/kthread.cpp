@@ -52,7 +52,7 @@ static inline long steal_work(kt_for_t *t)
 static void *ktf_worker(void *data)
 {
 	ktf_worker_t *w = (ktf_worker_t*)data;
-	long i, val = 0;
+	long i;
 	int tid = w->i;
 
 #if AFF && (__liunx__)
@@ -83,7 +83,9 @@ void kt_for(void (*func)(void*, int, int, int), void *data, int n)
 	worker_t *w = (worker_t*) data;
 	t.func = func, t.data = data, t.n_threads = w->nthreads, t.n = n;
 	t.w = (ktf_worker_t*) malloc (t.n_threads * sizeof(ktf_worker_t));
+    assert(t.w != NULL);
 	tid = (pthread_t*) malloc (t.n_threads * sizeof(pthread_t));
+    assert(tid != NULL);
 	for (i = 0; i < t.n_threads; ++i)
 		t.w[i].t = &t, t.w[i].i = i;
 
@@ -105,6 +107,7 @@ void kt_for(void (*func)(void*, int, int, int), void *data, int n)
 	}
 	for (i = 0; i < t.n_threads; ++i) pthread_join(tid[i], 0);
 
+    pthread_attr_destroy(&attr);
     free(t.w);
 	free(tid);
 }
