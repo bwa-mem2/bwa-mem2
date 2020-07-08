@@ -98,7 +98,7 @@ $(BWA_LIB):$(OBJS)
 	ar rcs $(BWA_LIB) $(OBJS)
 
 $(SAFE_STR_LIB):
-	cd ext/safestringlib/ && make clean && make CC=$(CC) libsafestring.a
+	cd ext/safestringlib/ && make clean && make CC=$(CC) directories libsafestring.a
 
 clean:
 	rm -fr src/*.o $(BWA_LIB) $(EXE) bwa-mem2.sse41 bwa-mem2.avx2 bwa-mem2.avx512bw
