@@ -14,7 +14,7 @@ bwa-mem2-2.0pre2_x64-linux/bwa-mem2 index ref.fa
 bwa-mem2-2.0pre2_x64-linux/bwa-mem2 mem ref.fa read1.fq read2.fq > out.sam
 
 # Compile from source (not recommended for general users)
-git clone https://github.com/bwa-mem2/bwa-mem2
+git clone --recursive https://github.com/bwa-mem2/bwa-mem2
 cd bwa-mem2
 make
 ./bwa-mem2
