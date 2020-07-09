@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2008, by Attractive Chaos <attractivechaos@aol.co.uk>
+   Copyright (c) 2008, 2011 by Attractive Chaos <attractivechaos@aol.co.uk>
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -51,6 +51,13 @@
 	* Initial version
 
 */
+
+/*
+   Modified Copyright (C) 2020 Intel Corporation, Heng Li.
+   Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
+   Heng Li <hli@jimmy.harvard.edu> 
+*/
+
 
 #ifndef AC_KSORT_H
 #define AC_KSORT_H
