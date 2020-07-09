@@ -37,7 +37,8 @@ else ifeq ($(CXX), g++)
 endif		
 ARCH_FLAGS=	-msse4.1
 MEM_FLAGS=	-DSAIS=1
-CPPFLAGS=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
+ORIG_CPPFLAGS:=$(CPPFLAGS)
+CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS)
 INCLUDES=   -Isrc -Iext/safestringlib/include
 LIBS=		-lpthread -lm -lz -L. -lbwa  -Lext/safestringlib -lsafestring
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/kthread.o \
@@ -71,14 +72,14 @@ else ifneq ($(arch),)
 # To provide a different architecture flag like -march=core-avx2.
 	ARCH_FLAGS=$(arch)
 endif
-
-CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
+ORIG_CXXFLAGS:=$(CXXFLAGS)
+CXXFLAGS += -g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 
 .PHONY:all clean depend multi
 .SUFFIXES:.cpp .o
 
 .cpp.o:
-	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) $< -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(INCLUDES) $< -o $@
 
 all:$(EXE)
 
@@ -89,10 +90,10 @@ multi:
 	$(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
-	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring -o bwa-mem2
+	$(CXX) $(ORIG_CXXFLAGS) $(ORIG_CPPFLAGS) $(LDFLAGS) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring -o bwa-mem2
 
 $(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main.o
-	$(CXX) $(CXXFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
 
 $(BWA_LIB):$(OBJS)
 	ar rcs $(BWA_LIB) $(OBJS)
