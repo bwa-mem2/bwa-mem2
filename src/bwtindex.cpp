@@ -21,9 +21,12 @@
    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE.
+
+   Modified Copyright (C) 2019 Intel Corporation, Heng Li.
+   Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
+   Heng Li <hli@jimmy.harvard.edu> 
 */
 
-/* Contact: Heng Li <hli@jimmy.harvard.edu> */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -311,6 +314,7 @@ int bwa_idx_build_mem2(const char *fa, const char *prefix)
 		err_gzclose(fp);
 		FMI_search *fmi = new FMI_search(prefix);
 		fmi->build_index();
+		delete fmi;
 	}
 	return 0;
 }

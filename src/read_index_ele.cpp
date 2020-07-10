@@ -28,6 +28,14 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 *****************************************************************************************/
 
 #include "read_index_ele.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#include "safe_str_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 indexEle::indexEle()
 {
@@ -54,7 +62,8 @@ void indexEle::bwa_idx_load_ele(const char *hint, int which)
     char *prefix;
     int l_hint = strlen(hint);
     prefix = (char *) malloc(l_hint + 3 + 4 + 1);
-    strcpy(prefix, hint);
+    assert(prefix != NULL);
+    strcpy_s(prefix, l_hint + 3 + 4 + 1, hint);
 
     fprintf(stderr, "* Index prefix: %s\n", prefix);
     
@@ -74,6 +83,7 @@ void indexEle::bwa_idx_load_ele(const char *hint, int which)
         if (which & BWA_IDX_PAC)
         {
             idx->pac = (uint8_t*) calloc(idx->bns->l_pac/4+1, 1);
+            assert(idx->pac != NULL);
             err_fread_noeof(idx->pac, 1, idx->bns->l_pac/4+1, idx->bns->fp_pac); // concatenated 2-bit encoded sequence
             err_fclose(idx->bns->fp_pac);
             idx->bns->fp_pac = 0;
@@ -90,15 +100,16 @@ char* indexEle::bwa_idx_infer_prefix(const char *hint)
     FILE *fp;
     l_hint = strlen(hint);
     prefix = (char *) malloc(l_hint + 3 + 4 + 1);
-    strcpy(prefix, hint);
-    strcpy(prefix + l_hint, ".64.bwt");
+    assert(prefix != NULL);
+    strcpy_s(prefix, l_hint + 3 + 4 + 1, hint);
+    strcpy_s(prefix + l_hint, 8, ".64.bwt");
     if ((fp = fopen(prefix, "rb")) != 0)
     {
         fclose(fp);
         prefix[l_hint + 3] = 0;
         return prefix;
     } else {
-        strcpy(prefix + l_hint, ".bwt");
+        strcpy_s(prefix + l_hint, 8, ".bwt");
         if ((fp = fopen(prefix, "rb")) == 0)
         {
             free(prefix);

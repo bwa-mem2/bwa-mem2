@@ -21,9 +21,10 @@
    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE.
-*/
-/* Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
-                                Heng Li <hli@jimmy.harvard.edu> 
+
+   Modified Copyright (C) 2020 Intel Corporation, Heng Li.
+   Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
+   Heng Li <hli@jimmy.harvard.edu> 
 */
 
 #include <stdlib.h>
@@ -67,6 +68,7 @@ kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t 
 	p = 8 * (3 - size); // # values per __m128i
 	slen = (qlen + p - 1) / p; // segmented length
 	q = (kswq_t*)malloc(sizeof(kswq_t) + 256 + 16 * slen * (m + 4)); // a single block of memory
+    assert(q != NULL);
 	q->qp = (__m128i*)(((size_t)q + sizeof(kswq_t) + 15) >> 4 << 4); // align memory
 	q->H0 = q->qp + slen * m;
 	q->H1 = q->H0 + slen;
@@ -435,7 +437,9 @@ int ksw_extend2(int qlen, const uint8_t *query, int tlen, const uint8_t *target,
 	assert(h0 > 0);
 	// allocate memory
 	qp = (int8_t *) malloc(qlen * m);
+    assert(qp != NULL);
 	eh = (eh_t *) calloc(qlen + 1, 8);
+    assert(eh != NULL);
 	// generate the query profile
 	for (k = i = 0; k < m; ++k) {
 		const int8_t *p = &mat[k * m];
@@ -560,9 +564,17 @@ int ksw_global2(int qlen, const uint8_t *query, int tlen, const uint8_t *target,
 	if (n_cigar_) *n_cigar_ = 0;
 	// allocate memory
 	n_col = qlen < 2*w+1? qlen : 2*w+1; // maximum #columns of the backtrack matrix
-	z = n_cigar_ && cigar_? (uint8_t *) malloc((long)n_col * tlen) : 0;
+    if (n_cigar_ && cigar_) {
+        z = (uint8_t *) malloc((long)n_col * tlen);
+        assert(z != NULL);
+    }
+    else {
+        z = 0;
+    }
 	qp = (int8_t *) malloc(qlen * m);
+    assert(qp != NULL);
 	eh = (eh_t *) calloc(qlen + 1, 8);
+    assert(eh != NULL);
 	// generate the query profile
 	for (k = i = 0; k < m; ++k) {
 		const int8_t *p = &mat[k * m];

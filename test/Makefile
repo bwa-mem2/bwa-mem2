@@ -32,9 +32,9 @@
 EXE=		fmi_test smem2_test bwt_seed_strategy_test sa2ref_test xeonbsw
 CXX=		icpc
 CXXFLAGS=	-std=c++11 -fopenmp -mtune=native -march=native
-CPPFLAGS=	-DENABLE_PREFETCH -DBWA_OTHER_ELE=0
+CPPFLAGS=	-DENABLE_PREFETCH
 INCLUDES=	-I../src
-LIBS=		-L.. -fopenmp -lz -lbwa
+LIBS=		-L.. -fopenmp -lz -lbwa ../ext/safestringlib/libsafestring.a
 
 .PHONY:all clean depend
 .SUFFIXES:.cpp .o
@@ -44,19 +44,19 @@ LIBS=		-L.. -fopenmp -lz -lbwa
 
 all:$(EXE)
 
-fmi_test:fmi_test.o ../libbwa.a
+fmi_test:fmi_test.o
 	$(CXX) -o $@ $^ $(LIBS)
 
-smem2_test: smem2_test.o ../libbwa.a
+smem2_test: smem2_test.o
 	$(CXX) -o $@ $^ $(LIBS)
 
-sa2ref_test: sa2ref_test.o ../libbwa.a
+sa2ref_test: sa2ref_test.o
 	$(CXX) -o $@ $^ $(LIBS)
 
-bwt_seed_strategy_test:bwt_seed_strategy_test.o ../libbwa.a
+bwt_seed_strategy_test:bwt_seed_strategy_test.o
 	$(CXX) -o $@ $^ $(LIBS)
 
-xeonbsw:main_banded.o ../libbwa.a
+xeonbsw:main_banded.o
 	$(CXX) -o $@ $^ $(LIBS)
 
 clean:

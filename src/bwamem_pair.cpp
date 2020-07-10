@@ -299,6 +299,7 @@ int mem_matesw_orig(const mem_opt_t *opt, const bntseq_t *bns,
         is_larger = !(r>>1); // whether the mate has larger coordinate
         if (is_rev) {
             rev = (uint8_t*) malloc(l_ms); // this is the reverse complement of $ms
+            assert(rev != NULL);
             for (i = 0; i < l_ms; ++i) rev[l_ms - 1 - i] = ms[i] < 4? 3 - ms[i] : 4;
             seq = rev;
         } else seq = (uint8_t*)ms;
@@ -626,12 +627,12 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
                          int32_t &maxRefLen, int32_t &maxQerLen,
                          int tid)
 {
-    uint8_t *seqBufRef = mmc->seqBufLeftRef[tid*CACHE_LINE];
-    uint8_t *seqBufQer = mmc->seqBufLeftQer[tid*CACHE_LINE];
+    //uint8_t *seqBufRef = mmc->seqBufLeftRef[tid*CACHE_LINE];
+    //uint8_t *seqBufQer = mmc->seqBufLeftQer[tid*CACHE_LINE];
     // int64_t *wsize_buf = &(mmc->wsize_buf[tid]);
 
-    SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
-    int32_t *gar = (int32_t*) (mmc->seqPairArrayAux[tid]);
+    //SeqPair *seqPairArray = mmc->seqPairArrayLeft128[tid];
+    //int32_t *gar = (int32_t*) (mmc->seqPairArrayAux[tid]);
     // int64_t *wsize = &(mmc->wsize[tid]);
     
     int i, j, n_aa[2];
@@ -1023,6 +1024,7 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
 
         if (is_rev) {
             rev = (uint8_t*) malloc(l_ms); // this is the reverse complement of $ms
+            assert(rev != NULL);
             for (i = 0; i < l_ms; ++i) rev[l_ms - 1 - i] = ms[i] < 4? 3 - ms[i] : 4;
             seq = rev;
         } else seq = (uint8_t*)ms;
@@ -1310,6 +1312,7 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
         is_larger = !(r>>1); // whether the mate has larger coordinate
         if (is_rev) {
             rev = (uint8_t*) malloc(l_ms); // this is the reverse complement of $ms
+            assert(rev != NULL);
             for (i = 0; i < l_ms; ++i) rev[l_ms - 1 - i] = ms[i] < 4? 3 - ms[i] : 4;
             seq = rev;
         } else seq = (uint8_t*)ms;

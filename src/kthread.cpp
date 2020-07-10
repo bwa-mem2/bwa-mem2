@@ -1,8 +1,8 @@
 /*************************************************************************************
                            The MIT License
 
+   Copyright Attractive Chaos <attractor@live.co.uk>
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -24,7 +24,8 @@
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE.
 
-Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
+   Modified Copyright (C) 2019  Intel Corporation, Heng Li.
+   Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
          Heng Li <hli@jimmy.harvard.edu>.
 *****************************************************************************************/
 
@@ -52,7 +53,7 @@ static inline long steal_work(kt_for_t *t)
 static void *ktf_worker(void *data)
 {
 	ktf_worker_t *w = (ktf_worker_t*)data;
-	long i, val = 0;
+	long i;
 	int tid = w->i;
 
 #if AFF && (__liunx__)
@@ -83,7 +84,9 @@ void kt_for(void (*func)(void*, long, long, int), void *data, int n)
 	worker_t *w = (worker_t*) data;
 	t.func = func, t.data = data, t.n_threads = w->nthreads, t.n = n;
 	t.w = (ktf_worker_t*) malloc (t.n_threads * sizeof(ktf_worker_t));
+    assert(t.w != NULL);
 	tid = (pthread_t*) malloc (t.n_threads * sizeof(pthread_t));
+    assert(tid != NULL);
 	for (i = 0; i < t.n_threads; ++i)
 		t.w[i].t = &t, t.w[i].i = i;
 
@@ -105,6 +108,7 @@ void kt_for(void (*func)(void*, long, long, int), void *data, int n)
 	}
 	for (i = 0; i < t.n_threads; ++i) pthread_join(tid[i], 0);
 
-	free(t.w);
+    pthread_attr_destroy(&attr);
+    free(t.w);
 	free(tid);
 }

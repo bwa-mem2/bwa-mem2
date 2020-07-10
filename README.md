@@ -74,6 +74,8 @@ If you use BWA-Mich, please cite the following [paper](https://biorxiv.org/cgi/c
 
 ***Added MC flag in the output sam file in commit a591e22. Output should match original bwa-mem version 0.7.17.***
 
+***As of commit e0ac59e, we have a git submodule safestringlib. To get it, use --recursive while cloning or use "git submodule init" and "git submodule update" in an already cloned repository (See below for more details).***
+
 
 ## Getting Started
 ```sh
@@ -84,8 +86,15 @@ bwa-mem2-2.0pre2_x64-linux/bwa-mem2 index ref.fa
 bwa-mem2-2.0pre2_x64-linux/bwa-mem2 mem ref.fa read1.fq read2.fq > out.sam
 
 # Compile from source (not recommended for general users)
+# Get the source
+git clone --recursive https://github.com/bwa-mem2/bwa-mem2
+cd bwa-mem2
+# Or
 git clone https://github.com/bwa-mem2/bwa-mem2
 cd bwa-mem2
+git submodule init
+git submodule update
+# Compile and run
 make
 ./bwa-mem2
 ```
@@ -93,7 +102,7 @@ make
 ## Introduction
 
 Bwa-mem2 is the next version of the bwa-mem algorithm in [bwa][bwa]. It
-produces alignment identical to bwa and is ~80% faster.
+produces alignment identical to bwa and is ~1.3-3.1x faster depending on the use-case, dataset and the running machine.
 
 The original bwa was developed by Heng Li (@lh3). Performance enhancement in
 bwa-mem2 was primarily done by Vasimuddin Md (@yuk12) and Sanchit Misra (@sanchit-misra)

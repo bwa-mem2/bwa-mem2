@@ -35,6 +35,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include <stdint.h>
 #include <string.h>
 #include <immintrin.h>
+#include <limits.h>
 #include <fstream>
 
 #include "read_index_ele.h"
@@ -46,12 +47,14 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
         if (x == NULL) { fprintf(stderr, "Allocation of %0.2lf GB for " #x " failed.\nCurrent Allocation = %0.2lf GB\n", size * 1.0 /(1024*1024*1024), cur_alloc * 1.0 /(1024*1024*1024)); exit(EXIT_FAILURE); }
 
 #define CP_BLOCK_SIZE_SCALAR 64
+#define CP_FILENAME_SUFFIX_SCALAR ".bwt.2bit.64"
 #define CP_MASK_SCALAR 63
 #define CP_SHIFT_SCALAR 6
 #define BIT_DATA_TYPE uint64_t
 #define PADDING_SCALAR 8
 
 #define CP_BLOCK_SIZE_AVX 32
+#define CP_FILENAME_SUFFIX_AVX ".bwt.8bit.32"
 #define CP_MASK_AVX 31
 #define CP_SHIFT_AVX 5
 
@@ -74,6 +77,7 @@ typedef struct checkpoint_occ_avx
 
 typedef CP_OCC_SCALAR CP_OCC;
 #define CP_SHIFT CP_SHIFT_SCALAR
+#define CP_FILENAME_SUFFIX CP_FILENAME_SUFFIX_SCALAR
 
 #if defined(__clang__) || defined(__GNUC__)
 static inline int _mm_countbits_64(unsigned long x) {
@@ -101,6 +105,7 @@ GET_OCC(pp, c, occ_id_pp, y_pp, occ_pp, bwt_str_bit0_pp, bwt_str_bit1_pp, bit0_c
 
 typedef CP_OCC_AVX CP_OCC;
 #define CP_SHIFT CP_SHIFT_AVX
+#define CP_FILENAME_SUFFIX CP_FILENAME_SUFFIX_AVX
 
 #if defined(__clang__) || defined(__GNUC__)
 static inline int _mm_countbits_32(unsigned x) {
@@ -207,7 +212,7 @@ class FMI_search: public indexEle
     int64_t reference_seq_len;
     int64_t sentinel_index;
 private:
-        char file_name[1024];
+        char file_name[PATH_MAX];
         int64_t index_alloc;
         int64_t count[5];
         uint32_t *sa_ls_word;

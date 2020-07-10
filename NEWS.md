@@ -1,3 +1,23 @@
+Release 2.0 (9 July 2020)
+---------------------------------
+This is the first production release of BWA-MEM2.
+
+Changes since the last release:
+* Made the source code more secure with more than 300 changes all across it.
+
+* Added support for memory re-allocations in case the pre-allocated fixed memory is insufficient.
+
+* Added support for MC flag in the sam file and support for -5, -q flags in the command line.
+
+* The output is now identical to the output of bwa-mem-0.7.17.
+
+* Merged index building code with FMI_Search class.
+
+* Added support for different ways to input read files, now, it is same as bwa-mem.
+
+* Fixed a bug in AVX512 sam processing part, which was leading to incorrect output.
+
+
 Release 2.0pre2 (4 February 2020)
 ---------------------------------
 

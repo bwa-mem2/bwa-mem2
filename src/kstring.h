@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2008, by Attractive Chaos <attractivechaos@aol.co.uk>
+   Copyright (c) by Attractive Chaos <attractivechaos@aol.co.uk>
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -21,6 +21,10 @@
    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE.
+
+   Modified Copyright (C) 2020 Intel Corporation, Heng Li.
+   Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
+   Heng Li <hli@jimmy.harvard.edu> 
 */
 
 #ifndef KSTRING_H
@@ -28,6 +32,13 @@
 
 #include <stdlib.h>
 #include <string.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -61,7 +72,7 @@ static inline int kputsn(const char *p, int l, kstring_t *s)
 		kroundup32(s->m);
 		s->s = (char*)realloc(s->s, s->m);
 	}
-	memcpy(s->s + s->l, p, l);
+	memcpy_s(s->s + s->l, s->m - s->l, p, l);
 	s->l += l;
 	s->s[s->l] = 0;
 	return l;

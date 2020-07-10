@@ -134,7 +134,9 @@ char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 	char **XA = 0, *has_alt;
 
 	cnt = (int *) calloc(a->n, sizeof(int));
+    assert(cnt != NULL);
 	has_alt = (char *) calloc(a->n, 1);
+    assert(has_alt != NULL);
 	for (i = 0, tot = 0; i < a->n; ++i) {
 		r = get_pri_idx(opt->XA_drop_ratio, a->a, i);
 		if (r >= 0) {
@@ -144,6 +146,7 @@ char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 	}
 	if (tot == 0) goto end_gen_alt;
 	aln = (kstring_t*) calloc(a->n, sizeof(kstring_t));
+    assert(aln != NULL);
 	for (i = 0; i < a->n; ++i) {
 		mem_aln_t t;
 		if ((r = get_pri_idx(opt->XA_drop_ratio, a->a, i)) < 0) continue;
@@ -170,6 +173,7 @@ char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac
 		kputsn(str.s, str.l, &aln[r]);
 	}
 	XA = (char**) calloc(a->n, sizeof(char*));
+    assert(XA != NULL);
 	for (k = 0; k < a->n; ++k)
 		XA[k] = aln[k].s;
 

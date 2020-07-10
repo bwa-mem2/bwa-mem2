@@ -1,3 +1,32 @@
+/* The MIT License
+
+   Copyright (c) by Attractive Chaos <attractivechaos@aol.co.uk>
+
+   Permission is hereby granted, free of charge, to any person obtaining
+   a copy of this software and associated documentation files (the
+   "Software"), to deal in the Software without restriction, including
+   without limitation the rights to use, copy, modify, merge, publish,
+   distribute, sublicense, and/or sell copies of the Software, and to
+   permit persons to whom the Software is furnished to do so, subject to
+   the following conditions:
+
+   The above copyright notice and this permission notice shall be
+   included in all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+   BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+   ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+   Modified Copyright (C) 2020 Intel Corporation, Heng Li.
+   Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
+   Heng Li <hli@jimmy.harvard.edu> 
+*/
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -13,9 +42,19 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #endif
+#include <assert.h>
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#include "safe_str_lib.h"
+#ifdef __cplusplus
+}
 #endif
 
 #ifdef _WIN32
@@ -41,6 +80,7 @@ static int socket_wait(int fd, int is_read)
 static int socket_connect(const char *host, const char *port)
 {
 #define __err_connect(func) do { perror(func); freeaddrinfo(res); return -1; } while (0)
+#define __err_connect2(func) do { perror(func); freeaddrinfo(res); close(fd); return -1; } while (0)
 
 	int on = 1, fd;
 	struct linger lng = { 0, 0 };
@@ -50,12 +90,13 @@ static int socket_connect(const char *host, const char *port)
 	hints.ai_socktype = SOCK_STREAM;
 	if (getaddrinfo(host, port, &hints, &res) != 0) __err_connect("getaddrinfo");
 	if ((fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) == -1) __err_connect("socket");
-	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1) __err_connect("setsockopt");
-	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &lng, sizeof(lng)) == -1) __err_connect("setsockopt");
-	if (connect(fd, res->ai_addr, res->ai_addrlen) != 0) __err_connect("connect");
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1) __err_connect2("setsockopt");
+	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &lng, sizeof(lng)) == -1) __err_connect2("setsockopt");
+	if (connect(fd, res->ai_addr, res->ai_addrlen) != 0) __err_connect2("connect");
 	freeaddrinfo(res);
 	return fd;
 #undef __err_connect
+#undef __err_connect2
 }
 
 static int write_bytes(int fd, const char *buf, size_t len)
@@ -85,7 +126,8 @@ static int http_open(const char *fn)
 	for (p = (char*)fn + 7; *p && *p != '/'; ++p);
 	l = p - fn - 7;
 	http_host = (char*) calloc(l + 1, 1);
-	strncpy(http_host, fn + 7, l);
+    assert(http_host != NULL);
+	strncpy_s(http_host, l + 1, fn + 7, l);
 	http_host[l] = 0;
 	for (q = http_host; *q && *q != ':'; ++q);
 	if (*q == ':') *q++ = 0;
@@ -108,6 +150,7 @@ static int http_open(const char *fn)
 	l = 0;
 	fd = socket_connect(host, port);
 	buf = (char*) calloc(bufsz, 1); // FIXME: I am lazy... But in principle, 64KB should be large enough.
+    assert(buf != NULL);
 	l += snprintf(buf + l, bufsz, "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n",
 				 path, http_host);
 	if (write_bytes(fd, buf, l) != 0) {
@@ -190,8 +233,10 @@ static int ftp_open(const char *fn)
 	l = p - fn - 6;
 	port = strdup("21");
 	host = (char*) calloc(l + 1, 1);
-	strncpy(host, fn + 6, l);
+    assert(host != NULL);
+	strncpy_s(host, l + 1, fn + 6, l);
 	retr = (char*) calloc(strlen(p) + 8, 1);
+    assert(retr != NULL);
 	sprintf(retr, "RETR %s\r\n", p);
 	
 	/* connect to ctrl */
@@ -209,10 +254,11 @@ static int ftp_open(const char *fn)
 	if (*p != '(') goto ftp_open_end;
 	++p;
 	sscanf(p, "%d,%d,%d,%d,%d,%d", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5]);
-	memcpy(pasv_ip, v, 4 * sizeof(int));
+	memcpy_s(pasv_ip, 4 * sizeof(int), v, 4 * sizeof(int));
 	pasv_port = (v[4]<<8&0xff00) + v[5];
 	kftp_send_cmd(&aux, retr, 0);
 	sprintf(host2, "%d.%d.%d.%d", pasv_ip[0], pasv_ip[1], pasv_ip[2], pasv_ip[3]);
+    assert(pasv_port >= 0);
 	sprintf(port2, "%d", pasv_port);
 	fd = socket_connect(host2, port2);
 	if (fd == -1) goto ftp_open_end;
@@ -245,7 +291,7 @@ static char **cmd2argv(const char *cmd)
 			++argc;
 	argv = (char**)calloc(argc + 2, sizeof(void*));
 	argv[0] = str = (char*)calloc(end - beg + 1, 1);
-	strncpy(argv[0], cmd + beg, end - beg);
+	strncpy_s(argv[0], end - beg + 1, cmd + beg, end - beg);
 	for (i = argc = 1; i < end - beg; ++i)
 		if (isspace(str[i])) str[i] = 0;
 		else if (str[i] && str[i-1] == 0) argv[argc++] = &str[i];
@@ -269,14 +315,17 @@ void *kopen(const char *fn, int *_fd)
 	*_fd = -1;
 	if (strstr(fn, "http://") == fn) {
 		aux = (koaux_t*) calloc(1, sizeof(koaux_t));
+        assert(aux != NULL);
 		aux->type = KO_HTTP;
 		aux->fd = http_open(fn);
 	} else if (strstr(fn, "ftp://") == fn) {
 		aux = (koaux_t*) calloc(1, sizeof(koaux_t));
+        assert(aux != NULL);
 		aux->type = KO_FTP;
 		aux->fd = ftp_open(fn);
 	} else if (strcmp(fn, "-") == 0) {
 		aux = (koaux_t*) calloc(1, sizeof(koaux_t));
+        assert(aux != NULL);
 		aux->type = KO_STDIN;
 		aux->fd = STDIN_FILENO;
 	} else {
@@ -311,6 +360,7 @@ void *kopen(const char *fn, int *_fd)
 			} else { /* parent process */
 				close(pfd[1]);
 				aux = (koaux_t*) calloc(1, sizeof(koaux_t));
+                assert(aux != NULL);
 				aux->type = KO_PIPE;
 				aux->fd = pfd[0];
 				aux->pid = pid;
@@ -323,6 +373,7 @@ void *kopen(const char *fn, int *_fd)
 #endif
 			if (*_fd >= 0) {
 				aux = (koaux_t*) calloc(1, sizeof(koaux_t));
+                assert(aux != NULL);
 				aux->type = KO_FILE;
 				aux->fd = *_fd;
 			}

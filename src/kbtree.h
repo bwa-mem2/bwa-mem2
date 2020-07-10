@@ -23,6 +23,10 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+
+   Modified Copyright (C) 2020 Intel Corporation, Heng Li.
+   Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
+   Heng Li <hli@jimmy.harvard.edu> 
  */
 
 #ifndef __AC_KBTREE_H
@@ -56,6 +60,7 @@ typedef struct {
 	{																	\
 		kbtree_##name##_t *b;											\
 		b = (kbtree_##name##_t*)calloc(1, sizeof(kbtree_##name##_t));	\
+        assert(b != NULL);                                              \
 		b->t = ((size - 4 - sizeof(void*)) / (sizeof(void*) + sizeof(key_t)) + 1) >> 1; \
 		if (b->t < 2) {													\
 			free(b); return 0;											\
@@ -65,6 +70,7 @@ typedef struct {
 		b->ilen = (4 + sizeof(void*) + b->n * (sizeof(void*) + sizeof(key_t)) + 3) >> 2 << 2; \
 		b->elen = (b->off_ptr + 3) >> 2 << 2;							\
 		b->root = (kbnode_t*)calloc(1, b->ilen);						\
+        assert(b->root != NULL);                                        \
 		++b->n_nodes;													\
 		return b;														\
 	}
@@ -74,6 +80,7 @@ typedef struct {
 		kbnode_t *x, **top, **stack = 0;								\
 		if (b) {														\
 			top = stack = (kbnode_t**)calloc(max, sizeof(kbnode_t*));	\
+            assert(top != NULL);                                        \
 			*top++ = (b)->root;											\
 			while (top != stack) {										\
 				x = *--top;												\
@@ -177,6 +184,7 @@ typedef struct {
 	{																	\
 		kbnode_t *z;													\
 		z = (kbnode_t*)calloc(1, y->is_internal? b->ilen : b->elen);	\
+        assert(z != NULL);                                              \
 		++b->n_nodes;													\
 		z->is_internal = y->is_internal;								\
 		z->n = b->t - 1;												\
@@ -215,6 +223,7 @@ typedef struct {
 		if (r->n == 2 * b->t - 1) {										\
 			++b->n_nodes;												\
 			s = (kbnode_t*)calloc(1, b->ilen);							\
+            assert(s != NULL);                                          \
 			b->root = s; s->is_internal = 1; s->n = 0;					\
 			__KB_PTR(b, s)[0] = r;										\
 			__kb_split_##name(b, s, 0, r);								\
@@ -337,6 +346,7 @@ typedef struct {
 		int __kmax = 8;													\
 		__kbstack_t *__kstack, *__kp;									\
 		__kp = __kstack = (__kbstack_t*)calloc(__kmax, sizeof(__kbstack_t)); \
+        assert(__kp != NULL);                                           \
 		__kp->x = (b)->root; __kp->i = 0;								\
 		for (;;) {														\
 			while (__kp->x && __kp->i <= __kp->x->n) {					\
