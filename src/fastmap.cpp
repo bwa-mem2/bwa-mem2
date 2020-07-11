@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -191,6 +191,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
     if (step == 0)
     {
         ktp_data_t *ret = (ktp_data_t *) calloc(1, sizeof(ktp_data_t));
+        assert(ret != NULL);
         uint64_t tim = __rdtsc();
 
         /* Read "reads" from input file (fread) */
@@ -327,7 +328,8 @@ static void *ktp_worker(void *data)
     
     while (w->step < p->n_steps) {
         // test whether we can kick off the job with this worker
-        pthread_mutex_lock(&p->mutex);
+        int pthread_ret = pthread_mutex_lock(&p->mutex);
+        assert(pthread_ret == 0);
         for (;;) {
             int i;
             // test whether another worker is doing the same step
@@ -337,20 +339,25 @@ static void *ktp_worker(void *data)
                     break;
             }
             if (i == p->n_workers) break; // no workers with smaller indices are doing w->step or the previous steps
-            pthread_cond_wait(&p->cv, &p->mutex);
+            pthread_ret = pthread_cond_wait(&p->cv, &p->mutex);
+            assert(pthread_ret == 0);
         }
-        pthread_mutex_unlock(&p->mutex);
+        pthread_ret = pthread_mutex_unlock(&p->mutex);
+        assert(pthread_ret == 0);
 
         // working on w->step
         w->data = kt_pipeline(p->shared, w->step, w->step? w->data : 0, w->opt, *(w->w)); // for the first step, input is NULL
 
         // update step and let other workers know
-        pthread_mutex_lock(&p->mutex);
+        pthread_ret = pthread_mutex_lock(&p->mutex);
+        assert(pthread_ret == 0);
         w->step = w->step == p->n_steps - 1 || w->data? (w->step + 1) % p->n_steps : p->n_steps;
 
         if (w->step == 0) w->index = p->index++;
-        pthread_cond_broadcast(&p->cv);
-        pthread_mutex_unlock(&p->mutex);
+        pthread_ret = pthread_cond_broadcast(&p->cv);
+        assert(pthread_ret == 0);
+        pthread_ret = pthread_mutex_unlock(&p->mutex);
+        assert(pthread_ret == 0);
     }
     pthread_exit(0);
 }
@@ -466,11 +473,14 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     aux_.n_steps = n_steps;
     aux_.shared = aux;
     aux_.index = 0;
-    pthread_mutex_init(&aux_.mutex, 0);
-    pthread_cond_init(&aux_.cv, 0);
+    int pthread_ret = pthread_mutex_init(&aux_.mutex, 0);
+    assert(pthread_ret == 0);
+    pthread_ret = pthread_cond_init(&aux_.cv, 0);
+    assert(pthread_ret == 0);
 
     fprintf(stderr, "* No. of pipeline threads: %d\n\n", p_nt);
     aux_.workers = (ktp_worker_t*) malloc(p_nt * sizeof(ktp_worker_t));
+    assert(aux_.workers != NULL);
     
     for (int i = 0; i < p_nt; ++i) {
         ktp_worker_t *wr = &aux_.workers[i];
@@ -482,6 +492,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     }
     
     pthread_t *ptid = (pthread_t *) calloc(p_nt, sizeof(pthread_t));
+    assert(ptid != NULL);
     
     for (int i = 0; i < p_nt; ++i)
         pthread_create(&ptid[i], 0, ktp_worker, (void*) &aux_.workers[i]);
@@ -489,8 +500,10 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     for (int i = 0; i < p_nt; ++i)
         pthread_join(ptid[i], 0);
 
-    pthread_mutex_destroy(&aux_.mutex);
-    pthread_cond_destroy(&aux_.cv);
+    pthread_ret = pthread_mutex_destroy(&aux_.mutex);
+    assert(pthread_ret == 0);
+    pthread_ret = pthread_cond_destroy(&aux_.cv);
+    assert(pthread_ret == 0);
 
     free(ptid);
     free(aux_.workers);
@@ -604,12 +617,14 @@ int main_mem(int argc, char *argv[])
     char        *p, *rg_line               = 0, *hdr_line = 0;
     const char  *mode                      = 0;
     
-    mem_opt_t       *opt, opt0;
-    gzFile           fp, fp2   = 0;
-    mem_pestat_t     pes[4];
-    ktp_aux_t        aux;
-    bool             is_o      = 0;
-    uint8_t          *ref_string;
+    mem_opt_t    *opt, opt0;
+    gzFile        fp, fp2 = 0;
+    void         *ko = 0, *ko2 = 0;
+    int           fd, fd2;
+    mem_pestat_t  pes[4];
+    ktp_aux_t     aux;
+    bool          is_o    = 0;
+    uint8_t      *ref_string;
     
     memset(&aux, 0, sizeof(ktp_aux_t));
     memset(pes, 0, 4 * sizeof(mem_pestat_t));
@@ -726,6 +741,7 @@ int main_mem(int argc, char *argv[])
                 {
                     char *buf;
                     buf = (char *) calloc(1, 0x10000);
+                    assert(buf != NULL);
                     while (fgets(buf, 0xffff, fp))
                     {
                         i = strlen(buf);
@@ -838,8 +854,10 @@ int main_mem(int argc, char *argv[])
     tim = __rdtsc();
     fprintf(stderr, "* Reading reference genome..\n");
     
-    char binary_seq_file[200];
-    sprintf(binary_seq_file, "%s.0123", argv[optind]);
+    char binary_seq_file[PATH_MAX];
+    strcpy_s(binary_seq_file, PATH_MAX, argv[optind]);
+    strcat_s(binary_seq_file, PATH_MAX, ".0123");
+    //sprintf(binary_seq_file, "%s.0123", argv[optind]);
     
     fprintf(stderr, "* Binary seq file = %s\n", binary_seq_file);
     FILE *fr = fopen(binary_seq_file, "r");
@@ -871,15 +889,18 @@ int main_mem(int argc, char *argv[])
             aux.fmi->idx->bns->anns[i].is_alt = 0;
 
     /* READS file operations */
-    fp = strcmp(argv[optind + 1], "-") ? gzopen(argv[optind + 1], "r") : gzdopen(STDIN_FILENO, "r");
-    if (fp == 0)
-    {
-        fprintf(stderr, "[E::%s] fail to open file `%s'.\n", __func__, argv[optind + 1]);
+    ko = kopen(argv[optind + 1], &fd);
+	if (ko == 0) {
+		fprintf(stderr, "[E::%s] fail to open file `%s'.\n", __func__, argv[optind + 1]);
         free(opt);
         if (is_o) 
             fclose(aux.fp);
+        delete aux.fmi;
+        kclose(ko);
         return 1;
     }
+    // fp = gzopen(argv[optind + 1], "r");
+    fp = gzdopen(fd, "r");
     aux.ks = kseq_init(fp);
     
     // PAIRED_END
@@ -892,16 +913,22 @@ int main_mem(int argc, char *argv[])
         }
         else
         {
-            fp2 = gzopen(argv[optind + 2], "r");
-            if (fp2 == 0) {
+            ko2 = kopen(argv[optind + 2], &fd2);
+            if (ko2 == 0) {
                 fprintf(stderr, "[E::%s] failed to open file `%s'.\n", __func__, argv[optind + 2]);
                 free(opt);
+                free(ko);
                 err_gzclose(fp);
                 kseq_destroy(aux.ks);
                 if (is_o) 
                     fclose(aux.fp);             
+                delete aux.fmi;
+                kclose(ko);
+                kclose(ko2);
                 return 1;
-            }
+            }            
+            // fp2 = gzopen(argv[optind + 2], "r");
+            fp2 = gzdopen(fd2, "r");
             aux.ks2 = kseq_init(fp2);
             opt->flag |= MEM_F_PE;
             assert(aux.ks2 != 0);
@@ -930,12 +957,12 @@ int main_mem(int argc, char *argv[])
     free(hdr_line);
     free(opt);
     kseq_destroy(aux.ks);   
-    err_gzclose(fp);
+    err_gzclose(fp); kclose(ko);
 
     // PAIRED_END
     if (aux.ks2) {
         kseq_destroy(aux.ks2);
-        err_gzclose(fp2);
+        err_gzclose(fp2); kclose(ko2);
     }
     
     if (is_o) {

@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -30,6 +30,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdio.h>
 #include "macro.h"
 #include <stdint.h>
+#include <assert.h>
 
 extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
 
@@ -159,6 +160,7 @@ int display_stats(int nthreads)
     if (agg1 != agg3) 
         fprintf(stderr, "There is a discrepancy re-allocs, plz rectify!!\n");
 
+    assert(agg2 != 0);
     fprintf(stderr, "\n\tTotal re-allocs: %d out of total requests: %d, Rate: %0.2f\n",
             agg1, agg2, agg1*1.0/agg2);
 

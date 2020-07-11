@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -30,6 +30,13 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 #include "bwamem.h"
 #include "FMI_search.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 //----------------
 extern uint64_t tprof[LIM_R][LIM_C];
@@ -316,7 +323,7 @@ static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
             c->m <<= 1;
             if (pm == SEEDS_PER_CHAIN) {  // re-new memory
                 if ((auxSeedBuf = (mem_seed_t *) calloc(c->m, sizeof(mem_seed_t))) == NULL) { fprintf(stderr, "ERROR: out of memory auxSeedBuf\n"); exit(1); }
-                memcpy((char*) (auxSeedBuf), c->seeds, c->n * sizeof(mem_seed_t));
+                memcpy_s((char*) (auxSeedBuf), c->m * sizeof(mem_seed_t), c->seeds, c->n * sizeof(mem_seed_t));
                 c->seeds = auxSeedBuf;
                 tprof[PE13][tid]++;
             } else {  // new memory
@@ -683,7 +690,6 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
     memset(num, 0, nseq*sizeof(int));
     int64_t *sa_coord = (int64_t *) _mm_malloc(sizeof(int64_t) * opt->max_occ, 64);
     int64_t seedBufCount = 0;
-    int64_t auxSeedBufCount = 0;
     
     for (int l=0; l<nseq; l++)
         kv_init(chain_ar[l]);
@@ -1050,7 +1056,8 @@ int64_t sort_classify(mem_cache *mmc, int64_t pcnt, int tid)
     SeqPair *seqPairArrayAux = mmc->seqPairArrayRight128[tid];
 
     int64_t pos8 = 0, pos16 = 0;
-    for (int i=0; i<pcnt; i++) {
+    for (int i=0; i<pcnt; i++)
+    {
         SeqPair *s = seqPairArray + i;
         int xtra = s->h0;
         int size = (xtra & KSW_XBYTE)? 1 : 2;
@@ -1195,7 +1202,7 @@ void mem_process_seqs(mem_opt_t *opt,
     // PAIRED_END
     if (opt->flag & MEM_F_PE) { // infer insert sizes if not provided
         if (pes0)
-            memcpy(pes, pes0, 4 * sizeof(mem_pestat_t)); // if pes0 != NULL, set the insert-size
+            memcpy_s(pes, 4 * sizeof(mem_pestat_t), pes0, 4 * sizeof(mem_pestat_t)); // if pes0 != NULL, set the insert-size
                                                          // distribution as pes0
         else {
             fprintf(stderr, "[0000] Inferring insert size distribution of PE reads from data, "
@@ -1572,6 +1579,7 @@ mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *
     qb = ar->qb, qe = ar->qe;
     rb = ar->rb, re = ar->re;
     query = (uint8_t*) malloc(l_query);
+    assert(query != NULL);
     for (i = 0; i < l_query; ++i) // convert to the nt4 encoding
         query[i] = query_[i] < 5? query_[i] : nst_nt4_table[(int)query_[i]];
     a.mapq = ar->secondary < 0? mem_approx_mapq_se(opt, ar) : 0;
@@ -1591,6 +1599,7 @@ mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *
         last_sc = score;
         w2 <<= 1;
     } while (++i < 3 && score < ar->truesc - opt->a);
+    assert(a.cigar != NULL);
     l_MD = strlen((char*)(a.cigar + a.n_cigar)) + 1;
     a.NM = NM;
     pos = bns_depos(bns, rb < bns->l_pac? rb : re - 1, &is_rev);
@@ -1664,7 +1673,8 @@ void* _mm_realloc(void *ptr, int64_t csize, int64_t nsize, int16_t dsize) {
         return ptr;
     }
     void *nptr = _mm_malloc(nsize * dsize, 64);
-    memcpy(nptr, ptr, csize);
+    assert(nptr != NULL);
+    memcpy_s(nptr, nsize * dsize, ptr, csize);
     _mm_free(ptr);
     
     return nptr;
@@ -1681,7 +1691,6 @@ uint8_t *bns_get_seq_v2(int64_t l_pac, const uint8_t *pac, int64_t beg, int64_t 
     if (end > l_pac<<1) end = l_pac<<1;
     if (beg < 0) beg = 0;
     if (beg >= l_pac || end <= l_pac) {
-        int64_t k, l = 0;
         *len = end - beg;
         assert(end-beg < BATCH_SIZE * SEEDS_PER_READ * sizeof(SeqPair));
         
@@ -1764,6 +1773,7 @@ inline void sortPairsLenExt(SeqPair *pairArray, int32_t count, SeqPair *tempArra
         hist[i] = 0;
     
     int *arr = (int*) calloc (count, sizeof(int));
+    assert(arr != NULL);
     
     for(i = 0; i < count; i++)
     {
@@ -1866,7 +1876,6 @@ inline void sortPairsLen(SeqPair *pairArray, int32_t count, SeqPair *tempArray, 
         SeqPair sp = pairArray[i];
         hist[sp.len1]++;
     }
-    int32_t prev = 0;
     int32_t cumulSum = 0;
     for(i = 0; i <= MAX_SEQ_LEN16; i++)
     {

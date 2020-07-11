@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -30,11 +30,23 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include <stdio.h>
 #include "sais.h"
 #include "FMI_search.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#include "safe_str_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 FMI_search::FMI_search(const char *fname)
 {
     fprintf(stderr, "* Entering FMI_search\n");
-    strcpy(file_name, fname);
+    //strcpy(file_name, fname);
+    strcpy_s(file_name, PATH_MAX, fname);
+    reference_seq_len = 0;
+    sentinel_index = 0;
+    index_alloc = 0;
     sa_ls_word = NULL;
     sa_ms_byte = NULL;
     cp_occ = NULL;
@@ -78,11 +90,14 @@ void FMI_search::pac2nt(const char *fn_pac, std::string &reference_seq)
 
 	// initialization
 	seq_len = pac_seq_len(fn_pac);
+    assert(seq_len > 0);
+    assert(seq_len <= 0x7fffffffffL);
 	fp = xopen(fn_pac, "rb");
 
 	// prepare sequence
 	pac_size = (seq_len>>2) + ((seq_len&3) == 0? 0 : 1);
 	buf2 = (uint8_t*)calloc(pac_size, 1);
+    assert(buf2 != NULL);
 	err_fread_noeof(buf2, 1, pac_size, fp);
 	err_fclose(fp);
 	for (i = 0; i < seq_len; ++i) {
@@ -132,8 +147,10 @@ int FMI_search::build_fm_index_avx(const char *ref_file_name, char *binary_seq, 
     printf("ref_seq_len = %ld\n", ref_seq_len);
     fflush(stdout);
 
-    char outname[200];
-    sprintf(outname, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE_AVX);
+    char outname[PATH_MAX];
+    strcpy_s(outname, PATH_MAX, ref_file_name);
+    strcat_s(outname, PATH_MAX, CP_FILENAME_SUFFIX_AVX);
+    //sprintf(outname, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE_AVX);
 
     std::fstream outstream (outname, std::ios::out | std::ios::binary);
     outstream.seekg(0);	
@@ -208,7 +225,7 @@ int FMI_search::build_fm_index_avx(const char *ref_file_name, char *binary_seq, 
             cpo.cp_count[1] = cp_count[1];
             cpo.cp_count[2] = cp_count[2];
             cpo.cp_count[3] = cp_count[3];
-			memcpy(cpo.bwt_str, bwt + i, CP_BLOCK_SIZE_AVX * sizeof(uint8_t));
+			memcpy_s(cpo.bwt_str, CP_BLOCK_SIZE_AVX * sizeof(uint8_t), bwt + i, CP_BLOCK_SIZE_AVX * sizeof(uint8_t));
 
             cp_occ[i >> CP_SHIFT_AVX] = cpo;
         }
@@ -247,9 +264,11 @@ int FMI_search::build_fm_index_scalar(const char *ref_file_name, char *binary_se
     printf("ref_seq_len = %ld\n", ref_seq_len);
     fflush(stdout);
 
-    char outname[200];
+    char outname[PATH_MAX];
 
-    sprintf(outname, "%s.bwt.2bit.%d", ref_file_name, CP_BLOCK_SIZE_SCALAR);
+    strcpy_s(outname, PATH_MAX, ref_file_name);
+    strcat_s(outname, PATH_MAX, CP_FILENAME_SUFFIX_SCALAR);
+    //sprintf(outname, "%s.bwt.2bit.%d", ref_file_name, CP_BLOCK_SIZE_SCALAR);
 
     std::fstream outstream (outname, std::ios::out | std::ios::binary);
     outstream.seekg(0);	
@@ -394,8 +413,10 @@ int FMI_search::build_index() {
     index_alloc = 0;
 
     std::string reference_seq;
-    char pac_file_name[200];
-    sprintf(pac_file_name, "%s.pac", prefix);
+    char pac_file_name[PATH_MAX];
+    strcpy_s(pac_file_name, PATH_MAX, prefix);
+    strcat_s(pac_file_name, PATH_MAX, ".pac");
+    //sprintf(pac_file_name, "%s.pac", prefix);
     pac2nt(pac_file_name, reference_seq);
 	int64_t pac_len = reference_seq.length();
     int status;
@@ -403,11 +424,13 @@ int FMI_search::build_index() {
     char *binary_ref_seq = (char *)_mm_malloc(size, 64);
     index_alloc += size;
     assert_not_null(binary_ref_seq, size, index_alloc);
-    char binary_ref_name[200];
-    sprintf(binary_ref_name, "%s.0123", prefix);
+    char binary_ref_name[PATH_MAX];
+    strcpy_s(binary_ref_name, PATH_MAX, prefix);
+    strcat_s(binary_ref_name, PATH_MAX, ".0123");
+    //sprintf(binary_ref_name, "%s.0123", prefix);
     std::fstream binary_ref_stream (binary_ref_name, std::ios::out | std::ios::binary);
     binary_ref_stream.seekg(0);
-    fprintf(stderr, "init ticks = %ld\n", __rdtsc() - startTick);
+    fprintf(stderr, "init ticks = %llu\n", __rdtsc() - startTick);
     startTick = __rdtsc();
     int64_t i, count[16];
 	memset(count, 0, sizeof(int64_t) * 16);
@@ -439,7 +462,7 @@ int FMI_search::build_index() {
     count[0]=0;
     fprintf(stderr, "ref seq len = %ld\n", pac_len);
     binary_ref_stream.write(binary_ref_seq, pac_len * sizeof(char));
-    fprintf(stderr, "binary seq ticks = %ld\n", __rdtsc() - startTick);
+    fprintf(stderr, "binary seq ticks = %llu\n", __rdtsc() - startTick);
     startTick = __rdtsc();
 
     size = (pac_len + 2) * sizeof(int64_t);
@@ -450,7 +473,7 @@ int FMI_search::build_index() {
 	//status = saisxx<const char *, int64_t *, int64_t>(reference_seq.c_str(), suffix_array + 1, pac_len, 4);
 	status = saisxx(reference_seq.c_str(), suffix_array + 1, pac_len);
 	suffix_array[0] = pac_len;
-    fprintf(stderr, "build index ticks = %ld\n", __rdtsc() - startTick);
+    fprintf(stderr, "build index ticks = %llu\n", __rdtsc() - startTick);
     startTick = __rdtsc();
 
     build_fm_index_avx(prefix, binary_ref_seq, pac_len, suffix_array, count);
@@ -464,13 +487,15 @@ void FMI_search::load_index()
 {
     char *ref_file_name = file_name;
     //beCalls = 0;
-    char cp_file_name[1000];
-    assert(strnlen(ref_file_name, 1000) + 12 < 1000);
-#if ((!__AVX2__))
-    sprintf(cp_file_name, "%s.bwt.2bit.%d", ref_file_name, CP_BLOCK_SIZE_SCALAR);
-#else
-    sprintf(cp_file_name, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE_AVX);
-#endif
+    char cp_file_name[PATH_MAX];
+    strcpy_s(cp_file_name, PATH_MAX, ref_file_name);
+    strcat_s(cp_file_name, PATH_MAX, CP_FILENAME_SUFFIX);
+//    assert(strnlen(ref_file_name, 1000) + 12 < 1000);
+//#if ((!__AVX2__))
+//    sprintf(cp_file_name, "%s.bwt.2bit.%d", ref_file_name, CP_BLOCK_SIZE_SCALAR);
+//#else
+//    sprintf(cp_file_name, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE_AVX);
+//#endif
     // Read the BWT and FM index of the reference sequence
     FILE *cpstream = NULL;
     cpstream = fopen(cp_file_name,"rb");
@@ -481,7 +506,7 @@ void FMI_search::load_index()
     }
     else
     {
-        fprintf(stderr, "Index file found. Loading index from %s\n", cp_file_name);
+        fprintf(stderr, "* Index file found. Loading index from %s\n", cp_file_name);
     }
 
     err_fread_noeof(&reference_seq_len, sizeof(int64_t), 1, cpstream);

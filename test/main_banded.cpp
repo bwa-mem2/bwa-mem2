@@ -2,7 +2,7 @@
                            The MIT License
 
    BWA-MEM2  (Sequence alignment using Burrows-Wheeler Transform),
-   Copyright (C) 2019  Vasimuddin Md, Sanchit Misra, Intel Corporation, Heng Li.
+   Copyright (C) 2019  Intel Corporation, Heng Li.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -35,7 +35,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <limits>
 #include <unistd.h>
 #include "bandedSWA.h"
-//#include "bandedSWA.h"
 
 
 #define DEFAULT_MATCH 1
@@ -44,13 +43,9 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define DEFAULT_EXTEND 1
 #define DEFAULT_AMBIG -1
 
-// #define MAX_NUM_PAIRS 1000
-// #define MATRIX_MIN_CUTOFF -100000000
-// #define LOW_INIT_VALUE (INT32_MIN/2)
-// #define AMBIG 52
 FILE *fksw;
 double freq = 2.3*1e9;
-int32_t w_match, w_mismatch, w_open, w_extend, w_ambig;
+int w_match, w_mismatch, w_open, w_extend, w_ambig;
 uint64_t SW_cells;
 char *pairFileName;
 FILE *pairFile;
@@ -198,7 +193,6 @@ int main(int argc, char *argv[])
 	clock_freq = _rdtsc();
 	sleep(1);
 	clock_freq = _rdtsc() - clock_freq;
-	// clock_freq = 2.3;
 	
     parseCmdLine(argc, argv);
     SeqPair *seqPairArray = (SeqPair *)_mm_malloc(MAX_NUM_PAIRS * sizeof(SeqPair), 64);
@@ -219,7 +213,6 @@ int main(int argc, char *argv[])
 	int8_t mat[25];
 	bwa_fill_scmat(w_match, w_mismatch, w_ambig, mat);
 	int zdrop = 100, w = 100, end_bonus = 5;
-	
  	BandedPairWiseSW *bsw = new BandedPairWiseSW(w_open, w_extend, w_open, w_extend,
 												 zdrop, end_bonus, mat,
 												 w_match, w_mismatch, 1);

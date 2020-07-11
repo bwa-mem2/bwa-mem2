@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2008, by Attractive Chaos <attractivechaos@aol.co.uk>
+   Copyright (c) 2008, 2011 by Attractive Chaos <attractivechaos@aol.co.uk>
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -52,11 +52,19 @@
 
 */
 
+/*
+   Modified Copyright (C) 2020 Intel Corporation, Heng Li.
+   Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
+   Heng Li <hli@jimmy.harvard.edu> 
+*/
+
+
 #ifndef AC_KSORT_H
 #define AC_KSORT_H
 
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -77,6 +85,7 @@ typedef struct {
 																		\
 		a2[0] = array;													\
 		a2[1] = temp? temp : (type_t*)malloc(sizeof(type_t) * n);	\
+        assert(a2[1] != NULL);                                          \
 		for (curr = 0, shift = 0; (1ul<<shift) < n; ++shift) {			\
 			a = a2[curr]; b = a2[1-curr];								\
 			if (shift == 0) {											\
@@ -187,6 +196,7 @@ typedef struct {
 		}																\
 		for (d = 2; 1ul<<d < n; ++d);									\
 		stack = (ks_isort_stack_t*)malloc(sizeof(ks_isort_stack_t) * ((sizeof(size_t)*d)+2)); \
+        assert(stack != NULL);                                          \
 		top = stack; s = a; t = a + (n-1); d <<= 1;						\
 		while (1) {														\
 			if (s < t) {												\

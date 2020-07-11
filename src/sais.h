@@ -22,6 +22,10 @@
  * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
+
+   Modified Copyright (C) 2020 Intel Corporation, Heng Li.
+   Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
+   Heng Li <hli@jimmy.harvard.edu> 
  */
 
 #ifndef _SAIS_HXX
@@ -464,6 +468,7 @@ typedef typename std::iterator_traits<string_type>::value_type char_type;
     Bp = Cp;
     flags = 4 | 8;
   }
+  assert(k > 0);
   if((n <= ((std::numeric_limits<index_type>::max)() / 2)) && (2 <= (n / k))) {
     if(flags & 1) { flags |= ((k * 2) <= (fs - k)) ? 32 : 16; }
     else if((flags == 0) && ((k * 2) <= (fs - k * 2))) { flags |= 32; }
