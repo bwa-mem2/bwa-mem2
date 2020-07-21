@@ -153,10 +153,24 @@ static void test_and_launch(char *argv[], char *prefix, const char *simd) // we 
 {
 	struct stat st;
 	strcat_s(prefix, PATH_MAX, simd);
-	if (stat(prefix, &st) == 0 && (st.st_mode & S_IXUSR)) {
-		//fprintf(stderr, "Launching executable \"%s\"\n", prefix);
-		execv(prefix, argv);
-	}
+    fprintf(stderr, "Looking to launch executable \"%s\", simd = %s\n", prefix, simd);
+    fprintf(stderr, "stat(prefix, &st) = %d\n", stat(prefix, &st));
+    if(stat(prefix, &st) == 0)
+    {
+        fprintf(stderr, "(st.st_mode & S_IXUSR) = %d\n", (st.st_mode & S_IXUSR));
+        if ((st.st_mode & S_IXUSR)) {
+            fprintf(stderr, "Launching executable \"%s\"\n", prefix);
+            execv(prefix, argv);
+        }
+        else
+        {
+            fprintf(stderr, "Can not run executable: %s\n", prefix);
+        }
+    }
+    else
+    {
+        fprintf(stderr, "Can not run executable: %s\n", prefix);
+    }
 }
 
 int main(int argc, char *argv[])
