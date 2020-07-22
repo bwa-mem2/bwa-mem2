@@ -152,11 +152,13 @@ static int exe_path(const char *exe, int max, char buf[], int *base_st)
 static void test_and_launch(char *argv[], char *prefix, const char *simd) // we assume prefix is long enough
 {
 	struct stat st;
+	int n = strlen(prefix);
 	strcat_s(prefix, PATH_MAX, simd);
 	if (stat(prefix, &st) == 0 && (st.st_mode & S_IXUSR)) {
 		//fprintf(stderr, "Launching executable \"%s\"\n", prefix);
 		execv(prefix, argv);
 	}
+	prefix[n] = 0;
 }
 
 int main(int argc, char *argv[])
