@@ -155,22 +155,20 @@ static void test_and_launch(char *argv[], char *prefix, const char *simd) // we 
     int prefix_len = strlen(prefix);
 	strcat_s(prefix, PATH_MAX, simd);
     fprintf(stderr, "Looking to launch executable \"%s\", simd = %s\n", prefix, simd);
-    fprintf(stderr, "stat(prefix, &st) = %d\n", stat(prefix, &st));
     if(stat(prefix, &st) == 0)
     {
-        fprintf(stderr, "(st.st_mode & S_IXUSR) = %d\n", (st.st_mode & S_IXUSR));
-        if ((st.st_mode & S_IXUSR)) {
+        if (st.st_mode & S_IXUSR) {
             fprintf(stderr, "Launching executable \"%s\"\n", prefix);
             execv(prefix, argv);
         }
         else
         {
-            fprintf(stderr, "Can not run executable: %s\n", prefix);
+            fprintf(stderr, "(st.st_mode & S_IXUSR) = %d, can not run executable: %s\n", st.st_mode & S_IXUSR, prefix);
         }
     }
     else
     {
-        fprintf(stderr, "Can not run executable: %s\n", prefix);
+        fprintf(stderr, "stat(prefix, &st) = %d, can not run executable: %s\n", stat(prefix, &st), prefix);
     }
     prefix[prefix_len] = 0;
 }
