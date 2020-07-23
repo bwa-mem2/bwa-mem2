@@ -37,6 +37,13 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "bwt.h"
 #include "macro.h"
 
+#if !defined(__SSE__)
+#define _mm_malloc(size, align) aligned_alloc(align, size)
+#define _mm_free free
+#define _MM_HINT_NTA 0
+#define _MM_HINT_T0 0
+#endif
+
 #define BWA_IDX_BWT 0x1
 #define BWA_IDX_BNS 0x2
 #define BWA_IDX_PAC 0x4
