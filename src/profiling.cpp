@@ -57,7 +57,7 @@ int display_stats(int nthreads)
     uint64_t max, min;
     double avg;
     fprintf(stderr, "No. of OMP threads: %d\n", nthreads);
-    fprintf(stderr, "Processor is runnig @%lf MHz\n", proc_freq*1.0/1e6);
+    fprintf(stderr, "Processor is running @%lf MHz\n", proc_freq*1.0/1e6);
     fprintf(stderr, "Runtime profile:\n");
 
     fprintf(stderr, "\n\tTime taken for main_mem function: %0.2lf sec\n\n",
