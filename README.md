@@ -74,8 +74,8 @@ Where <prefix> is the prefix specified when creating the index or the path to th
 
 ## Performance
 
-Datasets:
-
+Datasets:  
+Reference Genome: human_g1k_v37.fasta
 
  Alias	    |  Dataset source				|  No. of reads	| Read length 
  --------- | --------- | --------- | --------- 
@@ -90,6 +90,10 @@ Machine details:
 Processor: Intel(R) Xeon(R) 8280 CPU @ 2.70GHz  
 OS: CentOS Linux release 7.6.1810  
 Memory: 100GB  
+
+Note: 
+If you are using machine with multiple sockets and numa domains, please use ```numactl``` to run on single socket (numa domain) for maximum performance.   
+E.g: In dual numa and dual socket system: ```numactl -m 0 -N 0 <bwa-mem2>``` command executes bwa-mem2 on first socket and numa domain.  
 
 
 <p align="center">
