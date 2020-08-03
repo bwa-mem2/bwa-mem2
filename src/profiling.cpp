@@ -57,7 +57,7 @@ int display_stats(int nthreads)
     uint64_t max, min;
     double avg;
     fprintf(stderr, "No. of OMP threads: %d\n", nthreads);
-    fprintf(stderr, "Processor is runnig @%lf MHz\n", proc_freq*1.0/1e6);
+    fprintf(stderr, "Processor is running @%lf MHz\n", proc_freq*1.0/1e6);
     fprintf(stderr, "Runtime profile:\n");
 
     fprintf(stderr, "\n\tTime taken for main_mem function: %0.2lf sec\n\n",
@@ -164,9 +164,11 @@ int display_stats(int nthreads)
     if (agg1 != agg3) 
         fprintf(stderr, "There is a discrepancy re-allocs, plz rectify!!\n");
 
-    assert(agg2 != 0);
-    fprintf(stderr, "\n\tTotal re-allocs: %d out of total requests: %d, Rate: %0.2f\n",
-            agg1, agg2, agg1*1.0/agg2);
+    if(agg2 > 0)
+    {
+        fprintf(stderr, "\n\tTotal re-allocs: %d out of total requests: %d, Rate: %0.2f\n",
+                agg1, agg2, agg1*1.0/agg2);
+    }
 
 #if HIDE
     fprintf(stderr, "\n BSW Perf.:\n");

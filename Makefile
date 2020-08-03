@@ -40,7 +40,7 @@ MEM_FLAGS=	-DSAIS=1
 CPPFLAGS=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
 INCLUDES=   -Isrc -Iext/safestringlib/include
 LIBS=		-lpthread -lm -lz -L. -lbwa  -Lext/safestringlib -lsafestring
-OBJS=		src/fastmap.o src/main.o src/utils.o src/kthread.o \
+OBJS=		src/fastmap.o src/main.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bwt.o src/ertindex.o src/bntseq.o src/bwamem.o src/ertseeding.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
 			src/bwamem_extra.o src/bwtbuild.o src/QSufSort.o src/bwt_gen.o src/rope.o src/rle.o src/is.o src/kopen.o src/bwtindex.o
@@ -161,3 +161,4 @@ src/ertseeding.o: src/ertseeding.h src/bwamem.h src/bwt.h src/bntseq.h src/bwa.h
 src/ertseeding.o: src/kthread.h src/bandedSWA.h src/kstring.h src/ksw.h
 src/ertseeding.o: src/kvec.h src/ksort.h src/utils.h src/profiling.h
 src/ertseeding.o: src/FMI_search.h src/read_index_ele.h src/kbtree.h
+src/memcpy_bwamem.o: src/memcpy_bwamem.h

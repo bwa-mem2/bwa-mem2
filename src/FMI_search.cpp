@@ -30,10 +30,10 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include <stdio.h>
 #include "sais.h"
 #include "FMI_search.h"
+#include "memcpy_bwamem.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "safe_mem_lib.h"
 #include "safe_str_lib.h"
 #ifdef __cplusplus
 }
@@ -225,7 +225,7 @@ int FMI_search::build_fm_index_avx(const char *ref_file_name, char *binary_seq, 
             cpo.cp_count[1] = cp_count[1];
             cpo.cp_count[2] = cp_count[2];
             cpo.cp_count[3] = cp_count[3];
-			memcpy_s(cpo.bwt_str, CP_BLOCK_SIZE_AVX * sizeof(uint8_t), bwt + i, CP_BLOCK_SIZE_AVX * sizeof(uint8_t));
+			memcpy_bwamem(cpo.bwt_str, CP_BLOCK_SIZE_AVX * sizeof(uint8_t), bwt + i, CP_BLOCK_SIZE_AVX * sizeof(uint8_t), __FILE__, __LINE__);
 
             cp_occ[i >> CP_SHIFT_AVX] = cpo;
         }

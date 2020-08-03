@@ -144,8 +144,8 @@ Where <prefix> is the prefix specified when creating the index or the path to th
 
 ## Performance
 
-Datasets:
-
+Datasets:  
+Reference Genome: human_g1k_v37.fasta
 
  Alias	    |  Dataset source				|  No. of reads	| Read length 
  --------- | --------- | --------- | --------- 
@@ -161,6 +161,10 @@ Processor: Intel(R) Xeon(R) 8280 CPU @ 2.70GHz
 OS: CentOS Linux release 7.6.1810  
 Memory: 100GB  
 
+Notes: 
+- If you are using machine with multiple sockets and numa domains, please use ```numactl``` to run on single socket (numa domain) for maximum performance.   
+E.g: In dual numa and dual socket system: ```numactl -m 0 -N 0 <bwa-mem2>``` command executes bwa-mem2 on first socket and numa domain.  
+- The following charts shows bwa-mem2 performance on 1 thread and 56 threads with single-end and paired-end reads.
 
 <p align="center">
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-1.png" height="400"/a></br>
