@@ -10,6 +10,17 @@
 #include <fstream>
 #include "utils.h"
 #include "ertindex.h"
+#include "memcpy_bwamem.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#include "safe_str_lib.h"
+#include <snprintf_s.h>
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -90,23 +101,23 @@ void handleDivergence(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 	int i;
 	bwtintv_t ok_copy[4];
 	bwtintv_t ik_new;
-	memcpy(ok_copy, ok, 4*sizeof(bwtintv_t));
+	memcpy_bwamem(ok_copy, 4*sizeof(bwtintv_t), ok, 4*sizeof(bwtintv_t), __FILE__, __LINE__);
 	for (i = 3; i >= 0; --i) {
 		node_t* n = (node_t*) calloc(1, sizeof(node_t));
 		n->numChildren = 0;
-		memset(n->child_nodes, 0, 4*sizeof(node_t*)); 
+		memset_s(n->child_nodes, 4*sizeof(node_t*), 0);
 		n->pos = 0;
 		n->num_bp = 0;
 		if (ok_copy[i].x[2] == 0) { //!< Empty node
 			n->type = EMPTY;
 			n->numHits = 0;
-			memcpy(n->seq, parent_node->seq, (depth-1)*sizeof(uint8_t));
+			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), parent_node->seq, (depth-1)*sizeof(uint8_t), __FILE__, __LINE__);
 			n->l_seq = depth;
 			addChildNode(parent_node, n);
 		}
 		else if (ok_copy[i].x[2] > 1 && depth != max_depth) {
 			ik_new = ok_copy[i]; ik_new.info = depth+1;
-			memcpy(n->seq, parent_node->seq, parent_node->l_seq*sizeof(uint8_t));
+			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
 			n->seq[depth] = i;
 			n->pos = depth;
 			n->num_bp = 1;
@@ -117,7 +128,7 @@ void handleDivergence(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 			ert_build_kmertree(bwt, bns, pac, ik_new, ok, depth+1, n, step, max_depth);
 		}
 		else {
-			memcpy(n->seq, parent_node->seq, parent_node->l_seq*sizeof(uint8_t));
+			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
 			n->seq[depth] = i;
 			n->pos = depth;
 			n->num_bp = 1;
@@ -143,8 +154,8 @@ void ert_build_kmertree(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pa
 		ik_new = ok[uniform_bp]; ik_new.info = depth+1;
 		node_t* n = (node_t*) calloc(1, sizeof(node_t));
 		n->numChildren = 0;
-		memset(n->child_nodes, 0, 4*sizeof(node_t*)); 
-		memcpy(n->seq, parent_node->seq, parent_node->l_seq*sizeof(uint8_t));
+		memset_s(n->child_nodes, 4*sizeof(node_t*), 0);
+		memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
 		n->seq[depth] = uniform_bp;
 		n->numHits = ok[uniform_bp].x[2];
 		n->l_seq = depth + 1;
@@ -153,7 +164,7 @@ void ert_build_kmertree(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pa
 		addChildNode(parent_node, n);
 		if (depth < max_depth) {
 			bwtintv_t ok_init;
-			memcpy(&ok_init, &ok[uniform_bp], sizeof(bwtintv_t));
+			memcpy_bwamem(&ok_init, sizeof(bwtintv_t), &ok[uniform_bp], sizeof(bwtintv_t), __FILE__, __LINE__);
 			while (uniformExtend) {
 				numBranches = 0; uniform_bp = 0;
 				depth += 1;
@@ -233,7 +244,7 @@ void ert_build_table(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 				uint64_t ref_pos = 0;
 				ref_pos = bwt_sa(bwt, ok[c].x[0]);
 				uint64_t leaf_data = ref_pos << 1;
-				memcpy(&mlt_data[mlt_byte_idx], &leaf_data, 5);                  
+				memcpy_bwamem(&mlt_data[mlt_byte_idx], 5 * sizeof(uint8_t), &leaf_data, 5 * sizeof(uint8_t), __FILE__, __LINE__);
 			}
 			mlt_byte_idx += 5;
 			*numHits += 1;
@@ -244,13 +255,13 @@ void ert_build_table(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 			n->type = DIVERGE;
 			n->pos = 0;
 			n->num_bp = 0;
-			memcpy(n->seq, aq, kmerSize);
+			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), aq, kmerSize, __FILE__, __LINE__);
 			n->l_seq = kmerSize;
-			memcpy(&n->seq[n->l_seq], aq1, xmerSize);
+			memcpy_bwamem(&n->seq[n->l_seq], xmerSize * sizeof(uint8_t), aq1, xmerSize * sizeof(uint8_t), __FILE__, __LINE__);
 			n->l_seq += xmerSize;
 			n->parent_node = 0;
 			n->numChildren = 0;
-			memset(n->child_nodes, 0, 4*sizeof(node_t*));
+			memset_s(n->child_nodes, 4*sizeof(node_t*), 0);
 			n->start_addr = mlt_byte_idx;
 			ert_build_kmertree(bwt, bns, pac, ik, ok, kmerSize+j, n, step, max_depth);
 			ert_traverse_kmertree(n, mlt_data, mh_data, &mlt_byte_idx, &mh_byte_idx, kmerSize+j, numHits, 
@@ -266,7 +277,7 @@ void ert_build_table(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 		uint64_t ptr_width = (next_ptr_width < 4) ? next_ptr_width : 0;
 		xmer_entry |= (ptr_width << 22);
 		if (step == 1) {
-			memcpy(&mlt_data[byte_idx], &xmer_entry, 8);
+			memcpy_bwamem(&mlt_data[byte_idx], 8 * sizeof(uint8_t), &xmer_entry, 8 * sizeof(uint8_t), __FILE__, __LINE__);
 		}
 		byte_idx += 8;
 		mlt_offset = mlt_byte_idx;
@@ -279,7 +290,7 @@ void ert_build_table(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 
 void addCode(uint8_t* mlt_data, uint64_t* byte_idx, uint8_t code, int step) {
 	if (step == 1) {
-		memcpy(&mlt_data[*byte_idx], &code, sizeof(uint8_t));
+		memcpy_bwamem(&mlt_data[*byte_idx], sizeof(uint8_t), &code, sizeof(uint8_t), __FILE__, __LINE__);
 	}
 	*byte_idx += 1;
 }
@@ -288,17 +299,17 @@ void addUniformNode(uint8_t* mlt_data, uint64_t* byte_idx, uint8_t count, uint8_
 	int numBytesForBP = addBytesForEntry(UNIFORM_BP, count, 0);
 	assert(numBytesForBP < 256);
 	if (step == 1) {
-		memcpy(&mlt_data[*byte_idx], &count, sizeof(uint8_t));
+		memcpy_bwamem(&mlt_data[*byte_idx], sizeof(uint8_t), &count, sizeof(uint8_t), __FILE__, __LINE__);
 	}
 	*byte_idx += 1;
 	if (step == 1) {
 		int j;
 		uint8_t packUniformBases[numBytesForBP];
-		memset(packUniformBases, 0, numBytesForBP);
+		memset_s(packUniformBases, numBytesForBP * sizeof(uint8_t), 0);
 		for (j = 0; j < count; ++j) {
 			_set_pac_orig(packUniformBases, j, uniformBases[j]);
 		}
-		memcpy(&mlt_data[*byte_idx], packUniformBases, numBytesForBP); 
+		memcpy_bwamem(&mlt_data[*byte_idx], numBytesForBP * sizeof(uint8_t), packUniformBases, numBytesForBP * sizeof(uint8_t), __FILE__, __LINE__); 
 	}
 	*byte_idx += numBytesForBP;
 } 
@@ -306,7 +317,7 @@ void addUniformNode(uint8_t* mlt_data, uint64_t* byte_idx, uint8_t count, uint8_
 void addLeafNode(uint8_t* mlt_data, uint64_t* byte_idx, uint64_t ref_pos, int step) {
 	if (step == 1) {
 		uint64_t leaf_data = (ref_pos << 1);
-		memcpy(&mlt_data[*byte_idx], &leaf_data, 5);
+		memcpy_bwamem(&mlt_data[*byte_idx], 5 * sizeof(uint8_t), &leaf_data, 5 * sizeof(uint8_t), __FILE__, __LINE__);
 	}
 	*byte_idx += 5;
 }
@@ -316,7 +327,7 @@ void addMultiHitLeafNode(uint8_t* mlt_data, uint64_t* byte_idx, uint64_t count, 
 	for (k = 0; k < count; ++k) {
 		if (step == 1) {
 			uint64_t leaf_data = (hits[k] << 1) | 1ULL;
-			memcpy(&mlt_data[*byte_idx], &leaf_data, 5);
+			memcpy_bwamem(&mlt_data[*byte_idx], 5 * sizeof(uint8_t), &leaf_data, 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		}
 		*byte_idx += 5;
 	}
@@ -324,7 +335,7 @@ void addMultiHitLeafNode(uint8_t* mlt_data, uint64_t* byte_idx, uint64_t count, 
 
 void addMultiHitLeafCount(uint8_t* mlt_data, uint64_t* byte_idx, uint64_t count, int step) {
 	if (step == 1) {
-		memcpy(&mlt_data[*byte_idx], &count, 2);
+		memcpy_bwamem(&mlt_data[*byte_idx], 2 * sizeof(uint8_t), &count, 2 * sizeof(uint8_t), __FILE__, __LINE__);
 	}
 	*byte_idx += 2;
 }
@@ -332,7 +343,7 @@ void addMultiHitLeafCount(uint8_t* mlt_data, uint64_t* byte_idx, uint64_t count,
 void addMultiHitLeafPtr(uint8_t* mlt_data, uint64_t* byte_idx, uint64_t mh_byte_idx, int step) {
 	if (step == 1) {
 		uint64_t mh_data = (mh_byte_idx << 1) | 1ULL; 
-		memcpy(&mlt_data[*byte_idx], &mh_data, 5);
+		memcpy_bwamem(&mlt_data[*byte_idx], 5 * sizeof(uint8_t), &mh_data, 5 * sizeof(uint8_t), __FILE__, __LINE__);
 	}
 	*byte_idx += 5;
 } 
@@ -390,9 +401,9 @@ void ert_traverse_kmertree(node_t* n, uint8_t* mlt_data, uint8_t* mh_data, uint6
 		addCode(mlt_data, &byte_idx, code, step);
 		uint64_t ptr_byte_idx = byte_idx;
 		uint64_t ptrToOtherNodes[numPointers + 1]; //!< These point to children. We have one more child than number of pointers
-		memset(ptrToOtherNodes, 0, (numPointers + 1)*sizeof(uint64_t));
+		memset_s(ptrToOtherNodes, (numPointers + 1)*sizeof(uint64_t), 0);
 		uint64_t numHitsForChildren[numPointers + 1];
-		memset(numHitsForChildren, 0, (numPointers + 1)*sizeof(uint64_t));
+		memset_s(numHitsForChildren, (numPointers + 1)*sizeof(uint64_t), 0);
 		uint64_t other_idx = 0;
 		if (numPointers > 0) {
 			byte_idx += (numPointers*next_ptr_width);
@@ -443,7 +454,7 @@ void ert_traverse_kmertree(node_t* n, uint8_t* mlt_data, uint8_t* mh_data, uint6
 				else {
 					reseed_data = (pointerToNextNode << 6);
 				}
-				memcpy(&mlt_data[ptr_byte_idx], &reseed_data, next_ptr_width);
+				memcpy_bwamem(&mlt_data[ptr_byte_idx], next_ptr_width * sizeof(uint8_t), &reseed_data, next_ptr_width * sizeof(uint8_t), __FILE__, __LINE__);
 				ptr_byte_idx += next_ptr_width;
 			}
 		}
@@ -486,12 +497,12 @@ void* buildIndex(void *arg) {
 	uint16_t kmer_data = 0;
 
 	// File to write the multi-level tree index
-	char* ml_tbl_file_name = (char*) malloc(strlen(data->filePrefix) + 20);
-	sprintf(ml_tbl_file_name, "%s.mlt_table_%d", data->filePrefix, data->tid);
+	char ml_tbl_file_name[PATH_MAX];
+	snprintf_s_si(ml_tbl_file_name, PATH_MAX, "%s.mlt_table_%d", data->filePrefix, data->tid);
 
 	// Log progress
-	char* log_file_name = (char*) malloc(strlen(data->filePrefix) + 20);
-	sprintf(log_file_name, "%s.log_%d", data->filePrefix, data->tid);
+	char log_file_name[PATH_MAX];
+	snprintf_s_si(log_file_name, PATH_MAX, "%s.log_%d", data->filePrefix, data->tid);
 
 	FILE *ml_tbl_fd = 0, *log_fd = 0;
 
@@ -562,7 +573,7 @@ void* buildIndex(void *arg) {
 				//
 				ref_pos = bwt_sa(data->bid->bwt, ok[c].x[0]);
 				uint64_t leaf_data = ref_pos << 1;
-				memcpy(&mlt_data[byte_idx], &leaf_data, 5);                  
+				memcpy_bwamem(&mlt_data[byte_idx], 5 * sizeof(uint8_t), &leaf_data, 5 * sizeof(uint8_t), __FILE__, __LINE__);
 				fwrite(mlt_data, sizeof(uint8_t), numBytesPerKmer, ml_tbl_fd);
 			}
 			byte_idx += 5;
@@ -578,7 +589,7 @@ void* buildIndex(void *arg) {
 			n->type = DIVERGE;
 			n->pos = 0;
 			n->num_bp = 0;
-			memcpy(n->seq, aq, kmerSize);
+			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), aq, kmerSize * sizeof(uint8_t), __FILE__, __LINE__);
 			n->l_seq = kmerSize;
 			n->parent_node = 0;
 			n->numChildren = 0;
@@ -634,7 +645,7 @@ void* buildIndex(void *arg) {
 			// assert(numBytesForMh < (1 << 24));
 			if (data->step == 1) {
 				if (idx != numKmers-1) assert((numBytesPerKmer+numBytesForMh) == size);
-				memcpy(mlt_data, &numBytesPerKmer, 4*sizeof(uint8_t));
+				memcpy_bwamem(mlt_data, 4*sizeof(uint8_t), &numBytesPerKmer, 4*sizeof(uint8_t), __FILE__, __LINE__);
 				fwrite(mlt_data, sizeof(uint8_t), numBytesPerKmer, ml_tbl_fd);
 				free(mlt_data);
 				fwrite(mh_data, sizeof(uint8_t), numBytesForMh, ml_tbl_fd);
@@ -695,7 +706,7 @@ void* buildIndex(void *arg) {
 			// assert(numBytesForMh < (1 << 24));
 			if (data->step == 1) {
 				if (idx != numKmers-1) assert((numBytesPerKmer+numBytesForMh) == size);
-				memcpy(mlt_data, &numBytesPerKmer, 4*sizeof(uint8_t));
+				memcpy_bwamem(mlt_data, 4*sizeof(uint8_t), &numBytesPerKmer, 4*sizeof(uint8_t), __FILE__, __LINE__);
 				fwrite(mlt_data, sizeof(uint8_t), numBytesPerKmer, ml_tbl_fd);
 				free(mlt_data);
 				fwrite(mh_data, sizeof(uint8_t), numBytesForMh, ml_tbl_fd);
@@ -750,8 +761,6 @@ void* buildIndex(void *arg) {
 		fclose(log_fd);
 	}
 	fclose(ml_tbl_fd);
-	free(ml_tbl_file_name);
-	free(log_file_name);
 	pthread_exit(NULL);
 }
 
@@ -885,8 +894,11 @@ void buildKmerTrees(char* kmer_tbl_file_name, bwaidx_t* bid, char* prefix, int n
 	// 
 	// Merge all per-thread trees
 	//
-	char* ml_tbl_file_name = (char*) malloc(strlen(prefix) + 20);
-	sprintf(ml_tbl_file_name, "%s.mlt_table", prefix);
+	int prefix_len = strlen(prefix);
+	char ml_tbl_file_name[PATH_MAX];
+	strcpy_s(ml_tbl_file_name, PATH_MAX, prefix);
+	strcat_s(ml_tbl_file_name, PATH_MAX, ".mlt_table");
+
 	if (remove(ml_tbl_file_name) == 0) {
 		fprintf(stderr, "[M::%s] Overwriting existing index file (tree)\n", __func__);
 	}
@@ -896,7 +908,7 @@ void buildKmerTrees(char* kmer_tbl_file_name, bwaidx_t* bid, char* prefix, int n
 		exit(1);
 	}
 	for (uint64_t tidx = 0; tidx < num_threads; ++tidx) {
-		sprintf(ml_tbl_file_name, "%s.mlt_table_%d", prefix, tidx);
+		snprintf_s_si(ml_tbl_file_name, PATH_MAX, "%s.mlt_table_%d", prefix, tidx);
 		std::ifstream i_mlt(ml_tbl_file_name, std::ios::binary);
 		if (!i_mlt.is_open()) {
 			fprintf(stderr, "[M::%s] Can't open per-thread index file for thread %d\n", __func__, tidx);
@@ -908,6 +920,5 @@ void buildKmerTrees(char* kmer_tbl_file_name, bwaidx_t* bid, char* prefix, int n
 			exit(1);
 		}
 	}
-	free(ml_tbl_file_name);
 
 }

@@ -85,7 +85,7 @@ static int socket_connect(const char *host, const char *port)
 	int on = 1, fd;
 	struct linger lng = { 0, 0 };
 	struct addrinfo hints, *res = 0;
-	memset(&hints, 0, sizeof(struct addrinfo));
+	memset_s(&hints, sizeof(struct addrinfo), 0);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	if (getaddrinfo(host, port, &hints, &res) != 0) __err_connect("getaddrinfo");
@@ -240,7 +240,7 @@ static int ftp_open(const char *fn)
 	sprintf(retr, "RETR %s\r\n", p);
 	
 	/* connect to ctrl */
-	memset(&aux, 0, sizeof(ftpaux_t));
+	memset_s(&aux, sizeof(ftpaux_t), 0);
 	aux.ctrl_fd = socket_connect(host, port);
 	if (aux.ctrl_fd == -1) goto ftp_open_end; /* fail to connect ctrl */
 

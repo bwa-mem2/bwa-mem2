@@ -5,6 +5,15 @@
 #include <zlib.h>
 #include "rle.h"
 #include "rope.h"
+#include "memcpy_bwamem.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_str_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 /*******************
  *** Memory Pool ***
@@ -82,14 +91,14 @@ static inline rpnode_t *split_node(rope_t *rope, rpnode_t *u, rpnode_t *v)
 	if (u == 0) { // only happens at the root; add a new root
 		u = v = mp_alloc(rope->node);
 		v->n = 1; v->p = rope->root; // the new root has the old root as the only child
-		memcpy(v->c, rope->c, 48);
+		memcpy_bwamem(v->c, 48, rope->c, 48, __FILE__, __LINE__);
 		for (j = 0; j < 6; ++j) v->l += v->c[j];
 		rope->root = v;
 	}
 	if (i != u->n - 1) // then make room for a new node
-		memmove(v + 2, v + 1, sizeof(rpnode_t) * (u->n - i - 1));
+		memmove_s(v + 2, sizeof(rpnode_t) * (u->n - i - 1), v + 1, sizeof(rpnode_t) * (u->n - i - 1));
 	++u->n; w = v + 1;
-	memset(w, 0, sizeof(rpnode_t));
+	memset_s(w, sizeof(rpnode_t), 0);
 	w->p = mp_alloc(u->is_bottom? rope->leaf : rope->node);
 	if (u->is_bottom) { // we are at the bottom level; $v->p is a string instead of a node
 		uint8_t *p = (uint8_t*)v->p, *q = (uint8_t*)w->p;
@@ -98,7 +107,7 @@ static inline rpnode_t *split_node(rope_t *rope, rpnode_t *u, rpnode_t *v)
 	} else { // $v->p is a node, not a string
 		rpnode_t *p = v->p, *q = w->p; // $v and $w are siblings and thus $p and $q are cousins
 		p->n -= rope->max_nodes>>1;
-		memcpy(q, p + p->n, sizeof(rpnode_t) * (rope->max_nodes>>1));
+		memcpy_bwamem(q, sizeof(rpnode_t) * (rope->max_nodes>>1), p + p->n, sizeof(rpnode_t) * (rope->max_nodes>>1), __FILE__, __LINE__);
 		q->n = rope->max_nodes>>1; // NB: this line must below memcpy() as $q->n and $q->is_bottom are modified by memcpy()
 		q->is_bottom = p->is_bottom;
 		for (i = 0; i < q->n; ++i)
@@ -134,7 +143,7 @@ int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl, rpcache_t *c
 	} while (!u->is_bottom);
 	rope->c[a] += rl; // $rope->c should be updated after the loop as adding a new root needs the old $rope->c counts
 	if (cache) {
-		if (cache->p != (uint8_t*)p) memset(cache, 0, sizeof(rpcache_t));
+		if (cache->p != (uint8_t*)p) memset_s(cache, sizeof(rpcache_t), 0);
 		n_runs = rle_insert_cached((uint8_t*)p, x - y, a, rl, cnt, v->c, &cache->beg, cache->bc);
 		cache->p = (uint8_t*)p;
 	} else n_runs = rle_insert((uint8_t*)p, x - y, a, rl, cnt, v->c);
@@ -142,7 +151,7 @@ int64_t rope_insert_run(rope_t *rope, int64_t x, int a, int64_t rl, rpcache_t *c
 	v->c[a] += rl; v->l += rl; // this should be after rle_insert(); otherwise rle_insert() won't work
 	if (n_runs + RLE_MIN_SPACE > rope->block_len) {
 		split_node(rope, u, v);
-		if (cache) memset(cache, 0, sizeof(rpcache_t));
+		if (cache) memset_s(cache, sizeof(rpcache_t), 0);
 	}
 	return z;
 }
@@ -153,7 +162,7 @@ static rpnode_t *rope_count_to_leaf(const rope_t *rope, int64_t x, int64_t cx[6]
 	int64_t y = 0;
 	int a;
 
-	memset(cx, 0, 48);
+	memset_s(cx, 48, 0);
 	do {
 		u = p;
 		if (v && x - y > v->l>>1) {
@@ -184,7 +193,7 @@ void rope_rank2a(const rope_t *rope, int64_t x, int64_t y, int64_t *cx, int64_t 
 	if (y < x || cy == 0) {
 		rle_rank1a((const uint8_t*)v->p, rest, cx, v->c);
 	} else if (rest + (y - x) <= v->l) {
-		memcpy(cy, cx, 48);
+		memcpy_bwamem(cy, 48, cx, 48, __FILE__, __LINE__);
 		rle_rank2a((const uint8_t*)v->p, rest, rest + (y - x), cx, cy, v->c);
 	} else {
 		rle_rank1a((const uint8_t*)v->p, rest, cx, v->c);
@@ -199,7 +208,7 @@ void rope_rank2a(const rope_t *rope, int64_t x, int64_t y, int64_t *cx, int64_t 
 
 void rope_itr_first(const rope_t *rope, rpitr_t *i)
 {
-	memset(i, 0, sizeof(rpitr_t));
+	memset_s(i, sizeof(rpitr_t), 0);
 	i->rope = rope;
 	for (i->pa[i->d] = rope->root; !i->pa[i->d]->is_bottom;) // descend to the leftmost leaf
 		++i->d, i->pa[i->d] = i->pa[i->d - 1]->p;
@@ -296,7 +305,7 @@ rpnode_t *rope_restore_node(const rope_t *r, FILE *fp, int64_t c[6])
 		for (i = 0; i < n; ++i)
 			p[i].p = rope_restore_node(r, fp, p[i].c);
 	}
-	memset(c, 0, 48);
+	memset_s(c, 48, 0);
 	for (i = 0; i < n; ++i) {
 		p[i].l = 0;
 		for (a = 0; a < 6; ++a)

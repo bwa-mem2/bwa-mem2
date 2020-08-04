@@ -41,6 +41,17 @@
 #include "khash.h"
 #include "ertindex.h"
 #include "FMI_search.h"
+#include "memcpy_bwamem.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#include "safe_str_lib.h"
+#include <snprintf_s.h>
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef _DIVBWT
 #include "divsufsort.h"
@@ -84,7 +95,7 @@ bwt_t *bwt_pac2bwt(const char *fn_pac, int use_is)
 	buf2 = (ubyte_t*)calloc(pac_size, 1);
 	err_fread_noeof(buf2, 1, pac_size, fp);
 	err_fclose(fp);
-	memset(bwt->L2, 0, 5 * 4);
+	memset_s(bwt->L2, 5 * 4, 0);
 	buf = (ubyte_t*)calloc(bwt->seq_len + 1, 1);
 	for (i = 0; i < bwt->seq_len; ++i) {
 		buf[i] = buf2[i>>2] >> ((3 - (i&3)) << 1) & 3;
@@ -163,14 +174,14 @@ void bwt_bwtupdate_core(bwt_t *bwt)
 	c[0] = c[1] = c[2] = c[3] = 0;
 	for (i = k = 0; i < bwt->seq_len; ++i) {
 		if (i % OCC_INTERVAL == 0) {
-			memcpy(buf + k, c, sizeof(bwtint_t) * 4);
+			memcpy_bwamem(buf + k, sizeof(bwtint_t) * 4, c, sizeof(bwtint_t) * 4, __FILE__, __LINE__);
 			k += sizeof(bwtint_t); // in fact: sizeof(bwtint_t)=4*(sizeof(bwtint_t)/4)
 		}
 		if (i % 16 == 0) buf[k++] = bwt->bwt[i/16]; // 16 == sizeof(uint32_t)/2
 		++c[bwt_B00(bwt, i)];
 	}
 	// the last element
-	memcpy(buf + k, c, sizeof(bwtint_t) * 4);
+	memcpy_bwamem(buf + k, sizeof(bwtint_t) * 4, c, sizeof(bwtint_t) * 4, __FILE__, __LINE__);
 	xassert(k + sizeof(bwtint_t) == bwt->bwt_size, "inconsistent bwt_size");
 	// update bwt
 	free(bwt->bwt); bwt->bwt = buf;
@@ -256,9 +267,9 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 		return 1;
 	}
 	if (prefix == 0) {
-		prefix = malloc(strlen(argv[optind]) + 4);
-		strcpy(prefix, argv[optind]);
-		if (is_64) strcat(prefix, ".64");
+		prefix = malloc(strnlen_s(argv[optind], PATH_MAX) + 4);
+		strcpy_s(prefix, PATH_MAX, argv[optind]);
+		if (is_64) strcat_s(prefix, PATH_MAX, ".64");
 	}
 	if (algo_type == BWTALGO_MLTS) {
 		if (bwa_verbose >= 3) {
@@ -274,13 +285,12 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 		if (bwa_verbose >= 3) {
 			fprintf(stderr, "[M::%s] Building ERT.. BWT length: %lu threads: %d ...\n", __func__, bid->bwt->seq_len, num_threads);
 		}
-		char* kmer_tbl_file_name = (char*) malloc(strlen(prefix) + 14);
-		strcpy(kmer_tbl_file_name, prefix);
-		strcat(kmer_tbl_file_name, ".kmer_table");
+		char kmer_tbl_file_name[PATH_MAX];
+		strcpy_s(kmer_tbl_file_name, PATH_MAX, prefix);
+		strcat_s(kmer_tbl_file_name, PATH_MAX, ".kmer_table");
 
 		// Build ERT
 		buildKmerTrees(kmer_tbl_file_name, bid, prefix, num_threads, readLength);
-		free(kmer_tbl_file_name);
 
 		// Build reference in .0123 format similar to BWA-MEM2
 		if (bwa_verbose >= 3) {
@@ -327,9 +337,9 @@ int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_s
 	clock_t t;
 	int64_t l_pac;
 
-	str  = (char*)calloc(strlen(prefix) + 10, 1);
-	str2 = (char*)calloc(strlen(prefix) + 10, 1);
-	str3 = (char*)calloc(strlen(prefix) + 10, 1);
+	str  = (char*)calloc(strnlen_s(prefix, PATH_MAX) + 10, 1);
+	str2 = (char*)calloc(strnlen_s(prefix, PATH_MAX) + 10, 1);
+	str3 = (char*)calloc(strnlen_s(prefix, PATH_MAX) + 10, 1);
 
 	{ // nucleotide indexing
 		gzFile fp = xzopen(fa, "r");
@@ -341,8 +351,8 @@ int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_s
 	}
 	if (algo_type == 0) algo_type = l_pac > 50000000? 2 : 3; // set the algorithm for generating BWT
 	{
-		strcpy(str, prefix); strcat(str, ".pac");
-		strcpy(str2, prefix); strcat(str2, ".bwt");
+		strcpy_s(str, PATH_MAX, prefix); strcat_s(str, PATH_MAX, ".pac");
+		strcpy_s(str2, PATH_MAX, prefix); strcat_s(str2, PATH_MAX, ".bwt");
 		t = clock();
 		if (bwa_verbose >= 3) fprintf(stderr, "[bwa_index] Construct BWT for the packed sequence...\n");
 		if (algo_type == 2) bwt_bwtgen2(str, str2, block_size);
@@ -356,7 +366,7 @@ int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_s
 	}
 	{
 		bwt_t *bwt;
-		strcpy(str, prefix); strcat(str, ".bwt");
+		strcpy_s(str, PATH_MAX, prefix); strcat_s(str, PATH_MAX, ".bwt");
 		t = clock();
 		if (bwa_verbose >= 3) fprintf(stderr, "[bwa_index] Update BWT... ");
 		bwt = bwt_restore_bwt(str);
@@ -375,8 +385,8 @@ int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_s
 	}
 	{
 		bwt_t *bwt;
-		strcpy(str, prefix); strcat(str, ".bwt");
-		strcpy(str3, prefix); strcat(str3, ".sa");
+		strcpy_s(str, PATH_MAX, prefix); strcat_s(str, PATH_MAX, ".bwt");
+		strcpy_s(str3, PATH_MAX, prefix); strcat_s(str3, PATH_MAX, ".sa");
 		t = clock();
 		if (bwa_verbose >= 3) fprintf(stderr, "[bwa_index] Construct SA from BWT and Occ... ");
 		bwt = bwt_restore_bwt(str);

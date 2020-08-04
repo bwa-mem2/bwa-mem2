@@ -20,6 +20,19 @@
 #include "macro.h"
 #include "profiling.h"
 
+#include "memcpy_bwamem.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#include "safe_str_lib.h"
+#include <snprintf_s.h>
+#ifdef __cplusplus
+}
+#endif
+
+
 /**
  * Node state to keep track of while traversing ERT.
  */

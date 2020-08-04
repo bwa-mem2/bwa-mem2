@@ -3,6 +3,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "rle.h"
+#include "memcpy_bwamem.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_str_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 const uint8_t rle_auxtab[8] = { 0x01, 0x11, 0x21, 0x31, 0x03, 0x13, 0x07, 0x17 };
 
@@ -14,7 +23,7 @@ int rle_insert_cached(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[
 
 	block += 2; // skip the first 2 counting bytes
 	if (*nptr == 0) {
-		memset(cnt, 0, 48);
+		memset_s(cnt, 48, 0);
 		diff = rle_enc1(block, a, rl);
 	} else {
 		uint8_t *p, *end = block + *nptr, *q;
@@ -25,21 +34,21 @@ int rle_insert_cached(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[
 		tot   = ec[0] + ec[1] + ec[2] + ec[3] + ec[4] + ec[5];
 		if (x < beg_l) {
 			beg_l = 0, *beg = 0;
-			memset(bc, 0, 48);
+			memset_s(bc, 48, 0);
 		}
 		if (x == beg_l) {
 			p = q = block + (*beg); z = beg_l;
-			memcpy(cnt, bc, 48);
+			memcpy_bwamem(cnt, 48, bc, 48, __FILE__, __LINE__);
 		} else if (x - beg_l <= ((tot-beg_l)>>1) + ((tot-beg_l)>>3)) { // forward
 			z = beg_l; p = block + (*beg);
-			memcpy(cnt, bc, 48);
+			memcpy_bwamem(cnt, 48, bc, 48, __FILE__, __LINE__);
 			while (z < x) {
 				rle_dec1(p, c, l);
 				z += l; cnt[c] += l;
 			}
 			for (q = p - 1; *q>>6 == 2; --q);
 		} else { // backward
-			memcpy(cnt, ec, 48);
+			memcpy_bwamem(cnt, 48, ec, 48, __FILE__, __LINE__);
 			z = tot; p = end;
 			while (z >= x) {
 				--p;
@@ -57,7 +66,7 @@ int rle_insert_cached(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[
 			z += l; cnt[c] += l;
 		}
 		*beg = q - block;
-		memcpy(bc, cnt, 48);
+		memcpy_bwamem(bc, 48, cnt, 48, __FILE__, __LINE__);
 		bc[c] -= l;
 		n_bytes = p - q;
 		if (x == z && a != c && p < end) { // then try the next run
@@ -81,8 +90,8 @@ int rle_insert_cached(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[
 			n_bytes2 += rle_enc1(tmp + n_bytes2, c, l - pre);
 		}
 		if (n_bytes != n_bytes2 && end != p + n_bytes) // size changed
-			memmove(p + n_bytes2, p + n_bytes, end - p - n_bytes);
-		memcpy(p, tmp, n_bytes2);
+			memmove_s(p + n_bytes2, end - p - n_bytes, p + n_bytes, end - p - n_bytes);
+		memcpy_bwamem(p, n_bytes2, tmp, n_bytes2, __FILE__, __LINE__);
 		diff = n_bytes2 - n_bytes;
 	}
 	return (*nptr += diff);
@@ -92,7 +101,7 @@ int rle_insert(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[6], con
 {
 	int beg = 0;
 	int64_t bc[6];
-	memset(bc, 0, 48);
+	memset_s(bc, 48, 0);
 	return rle_insert_cached(block, x, a, rl, cnt, ec, &beg, bc);
 }
 
@@ -101,7 +110,7 @@ void rle_split(uint8_t *block, uint8_t *new_block)
 	int n = *(uint16_t*)block;
 	uint8_t *end = block + 2 + n, *q = block + 2 + (n>>1);
 	while (*q>>6 == 2) --q;
-	memcpy(new_block + 2, q, end - q);
+	memcpy_bwamem(new_block + 2, end - q, q, end - q, __FILE__, __LINE__);
 	*(uint16_t*)new_block = end - q;
 	*(uint16_t*)block = q - block - 2;
 }
@@ -143,7 +152,7 @@ void rle_rank2a(const uint8_t *block, int64_t x, int64_t y, int64_t *cx, int64_t
 	if (x <= (tot - y) + (tot>>3)) {
 		int c = 0;
 		int64_t l, z = 0;
-		memset(cnt, 0, 48);
+		memset_s(cnt, 48, 0);
 		p = block + 2;
 		while (z < x) {
 			rle_dec1(p, c, l);
@@ -175,7 +184,7 @@ void rle_rank2a(const uint8_t *block, int64_t x, int64_t y, int64_t *cx, int64_t
 
 		int t = 0;
 		int64_t l = 0, z = tot;
-		memcpy(cnt, ec, 48);
+		memcpy_bwamem(cnt, 48, ec, 48, __FILE__, __LINE__);
 		p = block + 2 + *(const uint16_t*)block;
 		if (cy) {
 			move_backward(y)

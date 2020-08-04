@@ -49,6 +49,15 @@ KHASH_MAP_INIT_STR(str, int)
 #  include "malloc_wrap.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#include "safe_str_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 extern uint64_t tprof[LIM_R][LIM_C];
 
 unsigned char nst_nt4_table[256] = {
@@ -138,7 +147,7 @@ bntseq_t *bns_restore_core(const char *ann_filename, const char* amb_filename, c
 				goto badread;
 			}
 			*q = 0;
-			assert(strlen(str) < 8192);
+			assert(strnlen_s(str, 8192) < 8192);
 			if (q - str > 1 && strcmp(str, " (null)") != 0) p->anno = strdup(str + 1); // skip leading space
 			else p->anno = strdup("");
 			// read the rest
@@ -291,7 +300,7 @@ static uint8_t *add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_
 			if (bns->l_pac == *m_pac) { // double the pac size
 				*m_pac <<= 1;
 				pac = (uint8_t*) realloc(pac, *m_pac/4);
-				memset(pac + bns->l_pac/4, 0, (*m_pac - bns->l_pac)/4);
+				memset_s(pac + bns->l_pac/4, (*m_pac - bns->l_pac)/4, 0);
 			}
 			_set_pac(pac, bns->l_pac, c);
 			++bns->l_pac;
@@ -334,7 +343,7 @@ int64_t bns_fasta2bntseq(gzFile fp_fa, const char *prefix, int for_only)
 	if (!for_only) { // add the reverse complemented sequence
 		int64_t ll_pac = (bns->l_pac * 2 + 3) / 4 * 4;
 		if (ll_pac > m_pac) pac = realloc(pac, ll_pac/4);
-		memset(pac + (bns->l_pac+3)/4, 0, (ll_pac - (bns->l_pac+3)/4*4) / 4);
+		memset_s(pac + (bns->l_pac+3)/4, (ll_pac - (bns->l_pac+3)/4*4) / 4, 0);
 		for (l = bns->l_pac - 1; l >= 0; --l, ++bns->l_pac)
 			_set_pac(pac, bns->l_pac, 3-_get_pac(pac, l));
 	}

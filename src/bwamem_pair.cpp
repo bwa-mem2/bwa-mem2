@@ -84,9 +84,9 @@ void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n,
     int i, d, max;
     uint64_v isize[4];
     
-    memset(pes, 0, 4 * sizeof(mem_pestat_t));
-    // memset(isize, 0, sizeof(kvec_t(int)) * 4);
-    memset(isize, 0, sizeof(uint64_v) * 4);
+    memset_s(pes, 4 * sizeof(mem_pestat_t), 0);
+    // memset_s(isize, sizeof(kvec_t(int)) * 4, 0);
+    memset_s(isize, sizeof(uint64_v) * 4, 0);
     for (i = 0; i < n>>1; ++i) {
         int dir;
         int64_t is;
@@ -209,7 +209,7 @@ int mem_matesw(const mem_opt_t *opt, const bntseq_t *bns,
                              opt->mat, opt->o_del, opt->e_del,
                              opt->o_ins, opt->e_ins, xtra, 0);
             
-            memset(&b, 0, sizeof(mem_alnreg_t));
+            memset_s(&b, sizeof(mem_alnreg_t), 0);
             if (aln.score >= opt->min_seed_len && aln.qb >= 0) { // something goes wrong if aln.qb < 0
                 b.rid = a->rid;
                 b.is_alt = a->is_alt;
@@ -323,7 +323,7 @@ int mem_matesw_orig(const mem_opt_t *opt, const bntseq_t *bns,
                              opt->mat, opt->o_del, opt->e_del,
                              opt->o_ins, opt->e_ins, xtra, 0);
             
-            memset(&b, 0, sizeof(mem_alnreg_t));
+            memset_s(&b, sizeof(mem_alnreg_t), 0);
             if (aln.score >= opt->min_seed_len && aln.qb >= 0) { // something goes wrong if aln.qb < 0
                 b.rid = a->rid;
                 b.is_alt = a->is_alt;
@@ -442,8 +442,8 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
     mem_aln_t h[2], g[2], aa[2][2];
 
     str.l = str.m = 0; str.s = 0;
-    memset(h, 0, sizeof(mem_aln_t) * 2);
-    memset(g, 0, sizeof(mem_aln_t) * 2);
+    memset_s(h, sizeof(mem_aln_t) * 2, 0);
+    memset_s(g, sizeof(mem_aln_t) * 2, 0);
 
     n_aa[0] = n_aa[1] = 0;
     if (!(opt->flag & MEM_F_NO_RESCUE)) { // then perform SW for the best alignment
@@ -641,8 +641,8 @@ int mem_sam_pe_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
     // int tid = omp_get_thread_num();
     
     str.l = str.m = 0; str.s = 0;
-    memset(h, 0, sizeof(mem_aln_t) * 2);
-    memset(g, 0, sizeof(mem_aln_t) * 2);
+    memset_s(h, sizeof(mem_aln_t) * 2, 0);
+    memset_s(g, sizeof(mem_aln_t) * 2, 0);
     n_aa[0] = n_aa[1] = 0;
     
     if (!(opt->flag & MEM_F_NO_RESCUE)) { // then perform SW for the best alignment
@@ -783,8 +783,8 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
     // int tid = omp_get_thread_num();
     
     str.l = str.m = 0; str.s = 0;
-    memset(h, 0, sizeof(mem_aln_t) * 2);
-    memset(g, 0, sizeof(mem_aln_t) * 2);
+    memset_s(h, sizeof(mem_aln_t) * 2, 0);
+    memset_s(g, sizeof(mem_aln_t) * 2, 0);
     n_aa[0] = n_aa[1] = 0;
     
     if (!(opt->flag & MEM_F_NO_RESCUE)) { // then perform SW for the best alignment
@@ -1216,7 +1216,7 @@ int mem_matesw_batch_post_ert(const mem_opt_t *opt, const bntseq_t *bns,
             else
                 aln = *(*myaln + index);
 
-            memset(&b, 0, sizeof(mem_alnreg_t));
+            memset_s(&b, sizeof(mem_alnreg_t), 0);
             if (aln.score >= opt->min_seed_len && aln.qb >= 0) { // something goes wrong if aln.qb < 0
                 b.rid = a->rid;
                 b.is_alt = a->is_alt;
@@ -1347,7 +1347,7 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
             else
                 aln = *(*myaln + index);
 
-            memset(&b, 0, sizeof(mem_alnreg_t));
+            memset_s(&b, sizeof(mem_alnreg_t), 0);
             if (aln.score >= opt->min_seed_len && aln.qb >= 0) { // something goes wrong if aln.qb < 0
                 b.rid = a->rid;
                 b.is_alt = a->is_alt;

@@ -167,12 +167,12 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthread
     fprintf(stderr, "3. Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
     fprintf(stderr, "------------------------------------------\n");
 
-    char* kmer_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
-    strcpy(kmer_tbl_file_name, idx_prefix); 
-    strcat(kmer_tbl_file_name, ".kmer_table");
-    char* ml_tbl_file_name = (char*) malloc(strlen(idx_prefix) + 12);
-    strcpy(ml_tbl_file_name, idx_prefix);
-    strcat(ml_tbl_file_name, ".mlt_table");
+    char kmer_tbl_file_name[PATH_MAX];
+    strcpy_s(kmer_tbl_file_name, PATH_MAX, idx_prefix); 
+    strcat_s(kmer_tbl_file_name, PATH_MAX, ".kmer_table");
+    char ml_tbl_file_name[PATH_MAX];
+    strcpy_s(ml_tbl_file_name, PATH_MAX, idx_prefix);
+    strcat_s(ml_tbl_file_name, PATH_MAX, ".mlt_table");
 
     FILE *kmer_tbl_fd, *ml_tbl_fd;
 
@@ -186,9 +186,6 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthread
         fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
         exit(1);
     }
-
-    free(kmer_tbl_file_name);
-    free(ml_tbl_file_name);
 
     double ctime, rtime;
     ctime = cputime(); rtime = realtime();
@@ -793,14 +790,14 @@ int main_mem(int argc, char *argv[])
     bool          is_o    = 0;
     uint8_t      *ref_string;
     
-    memset(&aux, 0, sizeof(ktp_aux_t));
-    memset(pes, 0, 4 * sizeof(mem_pestat_t));
+    memset_s(&aux, sizeof(ktp_aux_t), 0);
+    memset_s(pes, 4 * sizeof(mem_pestat_t), 0);
     for (i = 0; i < 4; ++i) pes[i].failed = 1;
     
     // opterr = 0;
     aux.fp = stdout;
     aux.opt = opt = mem_opt_init();
-    memset(&opt0, 0, sizeof(mem_opt_t));
+    memset_s(&opt0, sizeof(mem_opt_t), 0);
     
     /* Parse input arguments */
     // comment: added option '5' in the list

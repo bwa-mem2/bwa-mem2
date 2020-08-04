@@ -32,6 +32,4 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 void build_binaryRef(const char* prefix);
 
-int build_index(const char *prefix);
-
 #endif

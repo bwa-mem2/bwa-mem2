@@ -34,6 +34,15 @@
 #include "utils.h"
 #include "bwt.h"
 #include "kvec.h"
+#include "memcpy_bwamem.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_str_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -172,12 +181,12 @@ void bwt_occ4(const bwt_t *bwt, bwtint_t k, bwtint_t cnt[4])
 	bwtint_t x;
 	uint32_t *p, tmp, *end;
 	if (k == (bwtint_t)(-1)) {
-		memset(cnt, 0, 4 * sizeof(bwtint_t));
+		memset_s(cnt, 4 * sizeof(bwtint_t), 0);
 		return;
 	}
 	k -= (k >= bwt->primary); // because $ is not in bwt
 	p = bwt_occ_intv(bwt, k);
-	memcpy(cnt, p, 4 * sizeof(bwtint_t));
+	memcpy_bwamem(cnt, 4 * sizeof(bwtint_t), p, 4 * sizeof(bwtint_t), __FILE__, __LINE__);
 	p += sizeof(bwtint_t); // sizeof(bwtint_t) = 4*(sizeof(bwtint_t)/sizeof(uint32_t))
 	end = p + ((k>>4) - ((k&~OCC_INTV_MASK)>>4)); // this is the end point of the following loop
 	for (x = 0; p < end; ++p) x += __occ_aux4(bwt, *p);
@@ -201,7 +210,7 @@ void bwt_2occ4(const bwt_t *bwt, bwtint_t k, bwtint_t l, bwtint_t cntk[4], bwtin
 		k -= (k >= bwt->primary); // because $ is not in bwt
 		l -= (l >= bwt->primary);
 		p = bwt_occ_intv(bwt, k);
-		memcpy(cntk, p, 4 * sizeof(bwtint_t));
+		memcpy_bwamem(cntk, 4 * sizeof(bwtint_t), p, 4 * sizeof(bwtint_t), __FILE__, __LINE__);
 		p += sizeof(bwtint_t); // sizeof(bwtint_t) = 4*(sizeof(bwtint_t)/sizeof(uint32_t))
 		// prepare cntk[]
 		endk = p + ((k>>4) - ((k&~OCC_INTV_MASK)>>4));
@@ -214,7 +223,7 @@ void bwt_2occ4(const bwt_t *bwt, bwtint_t k, bwtint_t l, bwtint_t cntk[4], bwtin
 		for (; p < endl; ++p) y += __occ_aux4(bwt, *p);
 		tmp = *p & ~((1U<<((~l&15)<<1)) - 1);
 		y += __occ_aux4(bwt, tmp) - (~l&15);
-		memcpy(cntl, cntk, 4 * sizeof(bwtint_t));
+		memcpy_bwamem(cntl, 4 * sizeof(bwtint_t), cntk, 4 * sizeof(bwtint_t), __FILE__, __LINE__);
 		cntk[0] += x&0xff; cntk[1] += x>>8&0xff; cntk[2] += x>>16&0xff; cntk[3] += x>>24;
 		cntl[0] += y&0xff; cntl[1] += y>>8&0xff; cntl[2] += y>>16&0xff; cntl[3] += y>>24;
 	}
@@ -362,7 +371,7 @@ int bwt_seed_strategy1(const bwt_t *bwt, int len, const uint8_t *q, int x, int m
 	int i, c;
 	bwtintv_t ik, ok[4];
 
-	memset(mem, 0, sizeof(bwtintv_t));
+	memset_s(mem, sizeof(bwtintv_t), 0);
 	if (q[x] > 3) return x + 1;
 	bwt_set_intv(bwt, q[x], ik); // the initial interval of a single base
 	for (i = x + 1; i < len; ++i) { // forward search

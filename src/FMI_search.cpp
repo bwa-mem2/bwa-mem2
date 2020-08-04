@@ -212,10 +212,10 @@ int FMI_search::build_fm_index_avx(const char *ref_file_name, char *binary_seq, 
     cp_occ = (CP_OCC_AVX *)_mm_malloc(size, 64);
     index_alloc += size;
     assert_not_null(cp_occ, size, index_alloc);
-    memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC_AVX));
+    memset_s(cp_occ, cp_occ_size * sizeof(CP_OCC_AVX), 0);
     int64_t cp_count[16];
 
-    memset(cp_count, 0, 16 * sizeof(int64_t));
+    memset_s(cp_count, 16 * sizeof(int64_t), 0);
     for(i = 0; i < ref_seq_len; i++)
     {
         if((i & CP_MASK_AVX) == 0)
@@ -328,10 +328,10 @@ int FMI_search::build_fm_index_scalar(const char *ref_file_name, char *binary_se
     size = cp_occ_size * sizeof(CP_OCC_SCALAR);
     cp_occ = (CP_OCC_SCALAR *)_mm_malloc(size, 64);
     assert_not_null(cp_occ, size, index_alloc);
-    memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC_SCALAR));
+    memset_s(cp_occ, cp_occ_size * sizeof(CP_OCC_SCALAR), 0);
     int64_t cp_count[16];
 
-    memset(cp_count, 0, 16 * sizeof(int64_t));
+    memset_s(cp_count, 16 * sizeof(int64_t), 0);
     for(i = 0; i < ref_seq_len; i++)
     {
         if((i & CP_MASK_SCALAR) == 0)
@@ -374,7 +374,7 @@ int FMI_search::build_fm_index_scalar(const char *ref_file_name, char *binary_se
 			cpo.bwt_str_bit1 = bwt_str_bit1;
 			cpo.dollar_mask  = dollar_mask;
 
-            memset(cpo.pad, 0, PADDING_SCALAR);
+            memset_s(cpo.pad, PADDING_SCALAR, 0);
             cp_occ[i >> CP_SHIFT_SCALAR] = cpo;
         }
         cp_count[bwt[i]]++;
@@ -433,7 +433,7 @@ int FMI_search::build_index() {
     fprintf(stderr, "init ticks = %llu\n", __rdtsc() - startTick);
     startTick = __rdtsc();
     int64_t i, count[16];
-	memset(count, 0, sizeof(int64_t) * 16);
+	memset_s(count, sizeof(int64_t) * 16, 0);
     for(i = 0; i < pac_len; i++)
     {
         switch(reference_seq[i])

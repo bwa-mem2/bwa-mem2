@@ -391,7 +391,7 @@ static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
                 if ((auxSeedBuf = (mem_seed_t *) realloc(c->seeds, c->m * sizeof(mem_seed_t))) == NULL) { fprintf(stderr, "ERROR: out of memory auxSeedBuf\n"); exit(1); }
                 c->seeds = auxSeedBuf;
             }
-            memset((char*) (c->seeds + c->n), 0, (c->m - c->n) * sizeof(mem_seed_t));           
+            memset_s((char*) (c->seeds + c->n), (c->m - c->n) * sizeof(mem_seed_t), 0);
         }
         c->seeds[c->n++] = *p;
         return 1;
@@ -747,7 +747,7 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
     int64_t l_pac = bns->l_pac;
     
     int num[nseq];
-    memset(num, 0, nseq*sizeof(int));
+    memset_s(num, nseq*sizeof(int), 0);
     int64_t *sa_coord = (int64_t *) _mm_malloc(sizeof(int64_t) * opt->max_occ, 64);
     int64_t seedBufCount = 0;
     
@@ -842,7 +842,7 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
                         tmp.seeds = seedBuf + seedBufCount;
                         seedBufCount += tmp.m;
                     }
-                    memset((char*) (tmp.seeds), 0, tmp.m * sizeof(mem_seed_t));
+                    memset_s((char*) (tmp.seeds), tmp.m * sizeof(mem_seed_t), 0);
                     tmp.seeds[0] = s;
                     tmp.rid = rid;
                     tmp.seqid = l;
@@ -941,7 +941,7 @@ void mem_chain_new(const mem_opt_t *opt,
                 else {
                     tmp.seeds = seedBuf + seedBufCount;
                     seedBufCount += tmp.m;
-                    memset(tmp.seeds, 0, tmp.m * sizeof(mem_seed_t));
+                    memset_s(tmp.seeds, tmp.m * sizeof(mem_seed_t), 0);
                 }
                 tmp.seeds[0] = s;
                 tmp.rid = rid;
@@ -1842,7 +1842,7 @@ mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *
     int64_t pos, rb, re;
     uint8_t *query;
 
-    memset(&a, 0, sizeof(mem_aln_t));
+    memset_s(&a, sizeof(mem_aln_t), 0);
     if (ar == 0 || ar->rb < 0 || ar->re < 0) { // generate an unmapped record
         a.rid = -1; a.pos = -1; a.flag |= 0x4;
         return a;
@@ -1880,10 +1880,10 @@ mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *
         if ((a.cigar[0]&0xf) == 2) {
             pos += a.cigar[0]>>4;
             --a.n_cigar;
-            memmove(a.cigar, a.cigar + 1, a.n_cigar * 4 + l_MD);
+            memmove_s(a.cigar, a.n_cigar * 4 + l_MD, a.cigar + 1, a.n_cigar * 4 + l_MD);
         } else if ((a.cigar[a.n_cigar-1]&0xf) == 2) {
             --a.n_cigar;
-            memmove(a.cigar + a.n_cigar, a.cigar + a.n_cigar + 1, l_MD); // MD needs to be moved accordingly
+            memmove_s(a.cigar + a.n_cigar, l_MD, a.cigar + a.n_cigar + 1, l_MD); // MD needs to be moved accordingly
         }
     }
     if (qb != 0 || qe != l_query) { // add clipping to CIGAR
@@ -1892,12 +1892,12 @@ mem_aln_t mem_reg2aln(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *
         clip3 = is_rev? qb : l_query - qe;
         a.cigar = (uint32_t*) realloc(a.cigar, 4 * (a.n_cigar + 2) + l_MD);
         if (clip5) {
-            memmove(a.cigar+1, a.cigar, a.n_cigar * 4 + l_MD); // make room for 5'-end clipping
+            memmove_s(a.cigar+1, a.n_cigar * 4 + l_MD, a.cigar, a.n_cigar * 4 + l_MD); // make room for 5'-end clipping
             a.cigar[0] = clip5<<4 | 3;
             ++a.n_cigar;
         }
         if (clip3) {
-            memmove(a.cigar + a.n_cigar + 1, a.cigar + a.n_cigar, l_MD); // make room for 3'-end clipping
+            memmove_s(a.cigar + a.n_cigar + 1, l_MD, a.cigar + a.n_cigar, l_MD); // make room for 3'-end clipping
             a.cigar[a.n_cigar++] = clip3<<4 | 3;
         }
     }
@@ -2238,7 +2238,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                 mem_alnreg_t *a;
                 // a = kv_pushp(mem_alnreg_t, *av);
                 a = &av->a[av->n++];
-                memset(a, 0, sizeof(mem_alnreg_t));
+                memset_s(a, sizeof(mem_alnreg_t), 0);
                 
                 s->aln = av->n-1;
                 

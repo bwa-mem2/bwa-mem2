@@ -1,4 +1,16 @@
 #include "ertseeding.h"
+#include "memcpy_bwamem.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#include "safe_str_lib.h"
+#include <snprintf_s.h>
+#ifdef __cplusplus
+}
+#endif
+
 
 #define smem_lt(a, b) ((a).start == (b).start ? (a).end > (b).end : (a).start < (b).start)
 KSORT_INIT(mem_smem_ert, mem_t, smem_lt)
@@ -477,7 +489,7 @@ void getOffsetToChildNode(read_aux_t* raux, uint8_t* mlt_data, uint8_t code, uin
 	int offset = code_table[((raux->ptr_width - 2) << 8) + code][c];
 	uint32_t reseed_data = 0;
 	nextByteIdx += offset;
-	memcpy(&reseed_data, &mlt_data[nextByteIdx], raux->ptr_width);
+	memcpy_bwamem(&reseed_data, raux->ptr_width * sizeof(uint8_t), &mlt_data[nextByteIdx], raux->ptr_width * sizeof(uint8_t), __FILE__, __LINE__);
 	uint32_t jumpByteIdx = reseed_data >> 6;
 	raux->num_hits = (reseed_data & 0x3F);
 	nextByteIdx = startByteIdx + jumpByteIdx;
@@ -521,14 +533,14 @@ void getNextByteIdx_dfs(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx,
 		int k;
 		uint64_t leaf_data = 0;
 		nextByteIdx += getOffsetToLeafData(raux, code, c);
-		memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
+		memcpy_bwamem(&leaf_data, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		if (leaf_data & 1) { // Found a multi-hit leaf node
 			nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
-			memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
+			memcpy_bwamem(&raux->num_hits, 2 * sizeof(uint8_t), &mlt_data[nextByteIdx], 2 * sizeof(uint8_t), __FILE__, __LINE__);
 			nextByteIdx += 2;
 			mem->hitcount += raux->num_hits;
 			for (k = 0; k < raux->num_hits; ++k) {
-				memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
+				memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 				kv_push(uint64_t, *hits, ref_pos >> 1);
 				nextByteIdx += 5;
 				ref_pos = 0;
@@ -545,7 +557,7 @@ void getNextByteIdx_dfs(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx,
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
-		memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
+		memcpy_bwamem(packedBP, numBytesForBP * sizeof(uint8_t), &mlt_data[nextByteIdx], numBytesForBP * sizeof(uint8_t), __FILE__, __LINE__);
 		nextByteIdx += numBytesForBP;
 		uint8_t k;
 		uint64_t startByteIdx = nextByteIdx;
@@ -618,14 +630,14 @@ void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte
 		int k;
 		uint64_t leaf_data = 0;
 		nextByteIdx += getOffsetToLeafData(raux, code, c);
-		memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
+		memcpy_bwamem(&leaf_data, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		if (leaf_data & 1) { // Found a multi-hit leaf node
 			nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
-			memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
+			memcpy_bwamem(&raux->num_hits, 2 * sizeof(uint8_t), &mlt_data[nextByteIdx], 2 * sizeof(uint8_t), __FILE__, __LINE__);
 			nextByteIdx += 2;
 			mem->hitcount += raux->num_hits;
 			for (k = 0; k < raux->num_hits; ++k) {
-				memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
+				memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 				nextByteIdx += 5;
 				kv_push(uint64_t, *hits, ref_pos >> 1);
 				ref_pos = 0;
@@ -647,7 +659,7 @@ void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
-		memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
+		memcpy_bwamem(packedBP, numBytesForBP * sizeof(uint8_t), &mlt_data[nextByteIdx], numBytesForBP * sizeof(uint8_t), __FILE__, __LINE__);
 		nextByteIdx += numBytesForBP;
 		// Unpack base pairs
 		uint8_t unpackedBP[countBP];
@@ -726,16 +738,16 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
 		int k;
 		uint64_t leaf_data = 0;
 		nextByteIdx += getOffsetToLeafData(raux, code, c);
-		memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
+		memcpy_bwamem(&leaf_data, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		if (leaf_data & 1) { // Found a multi-hit leaf node
 			nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
-			memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
+			memcpy_bwamem(&raux->num_hits, 2 * sizeof(uint8_t), &mlt_data[nextByteIdx], 2 * sizeof(uint8_t), __FILE__, __LINE__);
 			nextByteIdx += 2;
 			// Hits exceed reseeding threshold
 			if (raux->num_hits >= raux->limit) {
 				mem->hitcount += raux->num_hits;
 				for (k = 0; k < raux->num_hits; ++k) {
-					memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
+					memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 					nextByteIdx += 5;
 					kv_push(uint64_t, *hits, ref_pos >> 1);
 					ref_pos = 0;
@@ -756,7 +768,7 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
-		memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
+		memcpy_bwamem(packedBP, numBytesForBP * sizeof(uint8_t), &mlt_data[nextByteIdx], numBytesForBP * sizeof(uint8_t), __FILE__, __LINE__);
 		nextByteIdx += numBytesForBP;
 		// Unpack base pairs
 		uint8_t unpackedBP[countBP];
@@ -857,14 +869,14 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
 		int k;
 		uint64_t leaf_data = 0;
 		nextByteIdx += getOffsetToLeafData(raux, code, c);
-		memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
+		memcpy_bwamem(&leaf_data, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		if (leaf_data & 1) { // Found a multi-hit leaf node
 			nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
-			memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
+			memcpy_bwamem(&raux->num_hits, 2 * sizeof(uint8_t), &mlt_data[nextByteIdx], 2 * sizeof(uint8_t), __FILE__, __LINE__);
 			nextByteIdx += 2;
 			mem->hitcount += raux->num_hits;
 			for (k = 0; k < raux->num_hits; ++k) {
-				memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
+				memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 				kv_push(uint64_t, *hits, ref_pos >> 1);
 				nextByteIdx += 5;
 				ref_pos = 0;
@@ -888,7 +900,7 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
-		memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
+		memcpy_bwamem(packedBP, numBytesForBP * sizeof(uint8_t), &mlt_data[nextByteIdx], numBytesForBP * sizeof(uint8_t), __FILE__, __LINE__);
 		nextByteIdx += numBytesForBP;
 		// Unpack base pairs
 		uint8_t unpackedBP[countBP];
@@ -1009,10 +1021,10 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
 		int k;
 		uint64_t leaf_data = 0;
 		nextByteIdx += getOffsetToLeafData(raux, code, c);
-		memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
+		memcpy_bwamem(&leaf_data, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		if (leaf_data & 1) { // Found a multi-hit leaf node
 			nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
-			memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
+			memcpy_bwamem(&raux->num_hits, 2 * sizeof(uint8_t), &mlt_data[nextByteIdx], 2 * sizeof(uint8_t), __FILE__, __LINE__);
 			nextByteIdx += 2;
 		}
 		else { // Single-hit leaf node
@@ -1022,7 +1034,7 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
 		if (raux->num_hits >= raux->limit) {
 			mem->hitcount += raux->num_hits;
 			for (k = 0; k < raux->num_hits; ++k) {
-				memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
+				memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 				kv_push(uint64_t, *hits, ref_pos >> 1);
 				nextByteIdx += 5;
 				ref_pos = 0;
@@ -1051,7 +1063,7 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
-		memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
+		memcpy_bwamem(packedBP, numBytesForBP * sizeof(uint8_t), &mlt_data[nextByteIdx], numBytesForBP * sizeof(uint8_t), __FILE__, __LINE__);
 		nextByteIdx += numBytesForBP;
 		// Unpack base pairs
 		uint8_t unpackedBP[countBP];
@@ -1175,14 +1187,14 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
 		int k;
 		uint64_t leaf_data = 0;
 		nextByteIdx += getOffsetToLeafData(raux, code, c);
-		memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
+		memcpy_bwamem(&leaf_data, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		if (leaf_data & 1) { // multi-hit leaf
 			nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
-			memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
+			memcpy_bwamem(&raux->num_hits, 2 * sizeof(uint8_t), &mlt_data[nextByteIdx], 2 * sizeof(uint8_t), __FILE__, __LINE__);
 			nextByteIdx += 2;
 			mem->hitcount += raux->num_hits;
 			for (k = 0; k < raux->num_hits; ++k) {
-				memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
+				memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 				kv_push(uint64_t, *hits, ref_pos >> 1);
 				nextByteIdx += 5;
 				ref_pos = 0;
@@ -1201,7 +1213,7 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
-		memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
+		memcpy_bwamem(packedBP, numBytesForBP * sizeof(uint8_t), &mlt_data[nextByteIdx], numBytesForBP * sizeof(uint8_t), __FILE__, __LINE__);
 		nextByteIdx += numBytesForBP;
 		// Unpack base pairs
 		uint8_t unpackedBP[countBP];
@@ -1303,7 +1315,7 @@ void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* h
 	else if (code == SINGLE_HIT_LEAF) { // single-hit k-mer
 		mlt_data = &iaux->mlt_table[start_addr];
 		byte_idx++;
-		memcpy(&ref_pos, &mlt_data[byte_idx], 5);
+		memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[byte_idx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 5;
 		mem->hitcount += 1;
 		kv_push(uint64_t, *hits, ref_pos >> 1);
@@ -1317,7 +1329,7 @@ void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* h
 			//
 			// First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
 			//
-			memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+			memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 			byte_idx += 4;
 			getNextByteIdx_backward(raux, mlt_data, &byte_idx, i, mem, hits);
 		}
@@ -1331,9 +1343,9 @@ void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* h
 		*i += kmerSize;
 		mlt_data = &iaux->mlt_table[start_addr];
 		hashval = getHashKey(&raux->read_buf[*i], xmerSize, *i, raux->l_seq, 0, &idx_first_N);
-		memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+		memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 4;
-		memcpy(&xmer_entry, &mlt_data[byte_idx + (hashval << 3)], 8);
+		memcpy_bwamem(&xmer_entry, 8 * sizeof(uint8_t), &mlt_data[byte_idx + (hashval << 3)], 8 * sizeof(uint8_t), __FILE__, __LINE__);
 		code = xmer_entry & METADATA_MASK;
 		ptr = xmer_entry >> KMER_DATA_BITWIDTH;
 		if (idx_first_N != -1) {
@@ -1348,7 +1360,7 @@ void leftExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* h
 		else if (code == SINGLE_HIT_LEAF) {
 			byte_idx = ptr;
 			byte_idx++;
-			memcpy(&ref_pos, &mlt_data[byte_idx], 5);
+			memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[byte_idx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 			byte_idx += 5; 
 			mem->hitcount += 1;
 			kv_push(uint64_t, *hits, ref_pos >> 1);
@@ -1418,7 +1430,7 @@ void leftExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, 
 				//
 				// First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
 				//
-				memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+				memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 				byte_idx += 4;
 				getNextByteIdx_backward_wlimit(raux, mlt_data, &byte_idx, i, mem, hits);
 			}
@@ -1442,9 +1454,9 @@ void leftExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, 
 		// First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
 		// This helps in decoding nodes and creates compact trees
 		//
-		memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+		memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 4;
-		memcpy(&xmer_entry, &mlt_data[byte_idx + (hashval << 3)], 8);
+		memcpy_bwamem(&xmer_entry, 8 * sizeof(uint8_t), &mlt_data[byte_idx + (hashval << 3)], 8 * sizeof(uint8_t), __FILE__, __LINE__);
 		code = xmer_entry & METADATA_MASK;
 		ptr = xmer_entry >> KMER_DATA_BITWIDTH;
 		raux->num_hits = (xmer_entry >> 17) & 0x1F;
@@ -1514,10 +1526,10 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
 		int k;
 		uint64_t leaf_data = 0;
 		nextByteIdx += getOffsetToLeafData(raux, code, c);
-		memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
+		memcpy_bwamem(&leaf_data, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		if (leaf_data & 1) {
 			nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
-			memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
+			memcpy_bwamem(&raux->num_hits, 2 * sizeof(uint8_t), &mlt_data[nextByteIdx], 2 * sizeof(uint8_t), __FILE__, __LINE__);
 			nextByteIdx += 2;
 		}
 		else {
@@ -1526,7 +1538,7 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
 		if (raux->num_hits >= raux->limit) {
 			mem->hitcount += raux->num_hits;
 			for (k = 0; k < raux->num_hits; ++k) {
-				memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
+				memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 				kv_push(uint64_t, *hits, ref_pos >> 1);
 				nextByteIdx += 5;
 				ref_pos = 0;
@@ -1550,7 +1562,7 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
-		memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
+		memcpy_bwamem(packedBP, numBytesForBP * sizeof(uint8_t), &mlt_data[nextByteIdx], numBytesForBP * sizeof(uint8_t), __FILE__, __LINE__);
 		nextByteIdx += numBytesForBP;
 		// Unpack base pairs
 		uint8_t unpackedBP[countBP];
@@ -1653,14 +1665,14 @@ void getNextByteIdx_fetch_leaves_prefix(read_aux_t* raux, uint8_t* mlt_data, uin
 		int k;
 		uint64_t leaf_data = 0;
 		nextByteIdx += getOffsetToLeafData(raux, code, c);
-		memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
+		memcpy_bwamem(&leaf_data, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		if (leaf_data & 1) {
 			nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
-			memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
+			memcpy_bwamem(&raux->num_hits, 2 * sizeof(uint8_t), &mlt_data[nextByteIdx], 2 * sizeof(uint8_t), __FILE__, __LINE__);
 			nextByteIdx += 2;
 			mem->hitcount += raux->num_hits;
 			for (k = 0; k < raux->num_hits; ++k) {
-				memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
+				memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 				kv_push(uint64_t, *hits, ref_pos >> 1);
 				nextByteIdx += 5;
 				ref_pos = 0;
@@ -1680,7 +1692,7 @@ void getNextByteIdx_fetch_leaves_prefix(read_aux_t* raux, uint8_t* mlt_data, uin
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
-		memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
+		memcpy_bwamem(packedBP, numBytesForBP * sizeof(uint8_t), &mlt_data[nextByteIdx], numBytesForBP * sizeof(uint8_t), __FILE__, __LINE__);
 		nextByteIdx += numBytesForBP;
 		// Unpack base pairs
 		uint8_t unpackedBP[countBP];
@@ -1761,14 +1773,14 @@ void getNextByteIdx_fetch_leaves(read_aux_t* raux, uint8_t* mlt_data, uint64_t* 
 		int k;
 		uint64_t leaf_data = 0;
 		nextByteIdx += getOffsetToLeafData(raux, code, c);
-		memcpy(&leaf_data, &mlt_data[nextByteIdx], 5);
+		memcpy_bwamem(&leaf_data, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		if (leaf_data & 1) {
 			nextByteIdx = raux->mh_start_addr + (leaf_data >> 1);
-			memcpy(&raux->num_hits, &mlt_data[nextByteIdx], 2);
+			memcpy_bwamem(&raux->num_hits, 2 * sizeof(uint8_t), &mlt_data[nextByteIdx], 2 * sizeof(uint8_t), __FILE__, __LINE__);
 			nextByteIdx += 2;
 			mem->hitcount += raux->num_hits;
 			for (k = 0; k < raux->num_hits; ++k) {
-				memcpy(&ref_pos, &mlt_data[nextByteIdx], 5);
+				memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[nextByteIdx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 				kv_push(uint64_t, *hits, ref_pos >> 1);
 				nextByteIdx += 5;
 				ref_pos = 0;
@@ -1787,7 +1799,7 @@ void getNextByteIdx_fetch_leaves(read_aux_t* raux, uint8_t* mlt_data, uint64_t* 
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
-		memcpy(packedBP, &mlt_data[nextByteIdx], numBytesForBP);
+		memcpy_bwamem(packedBP, numBytesForBP * sizeof(uint8_t), &mlt_data[nextByteIdx], numBytesForBP * sizeof(uint8_t), __FILE__, __LINE__);
 		nextByteIdx += numBytesForBP;
 		// Unpack base pairs
 		uint8_t unpackedBP[countBP];
@@ -1874,7 +1886,7 @@ void rightExtend_fetch_leaves_prefix_reseed(index_aux_t* iaux, read_aux_t* raux,
 			//
 			// First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
 			//
-			memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+			memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 			byte_idx += 4;
 			if (i < raux->l_seq) {
 				path_v visited;
@@ -1903,9 +1915,9 @@ void rightExtend_fetch_leaves_prefix_reseed(index_aux_t* iaux, read_aux_t* raux,
 		uint64_t ptr = 0;
 		mlt_data = &iaux->mlt_table[start_addr];
 		hashval = getHashKey(&raux->read_buf[i + kmerSize], xmerSize, i + kmerSize, raux->l_seq, 0, &idx_first_N);
-		memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+		memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 4;
-		memcpy(&xmer_entry, &mlt_data[byte_idx + (hashval << 3)], 8);
+		memcpy_bwamem(&xmer_entry, 8 * sizeof(uint8_t), &mlt_data[byte_idx + (hashval << 3)], 8 * sizeof(uint8_t), __FILE__, __LINE__);
 		code = xmer_entry & METADATA_MASK;
 		ptr = xmer_entry >> KMER_DATA_BITWIDTH;
 		// 5 bits to encode number of hits at each node
@@ -1979,7 +1991,7 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
 	if (code == SINGLE_HIT_LEAF) {
 		mlt_data = &iaux->mlt_table[start_addr];
 		byte_idx++;
-		memcpy(&ref_pos, &mlt_data[byte_idx], 5);
+		memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[byte_idx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		mem->hitcount += 1;
 		kv_push(uint64_t, *hits, ref_pos >> 1);
 		byte_idx += 5;
@@ -1989,10 +2001,10 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
 	else if (code == INFREQUENT) { // k-mer has fewer than 256 hits
 		i += kmerSize;
 		mlt_data = &iaux->mlt_table[start_addr];
-		// 
-	// First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
-  //
-		memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+		//
+		// First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
+		//
+		memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 4;
 		if (i < raux->l_seq) {
 			getNextByteIdx_fetch_leaves_prefix(raux, mlt_data, &byte_idx, i, mem, hits);
@@ -2010,9 +2022,9 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
 		uint64_t ptr = 0;
 		mlt_data = &iaux->mlt_table[start_addr];
 		hashval = getHashKey(&raux->read_buf[i + kmerSize], xmerSize, i + kmerSize, raux->l_seq, 0, &idx_first_N);
-		memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+		memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 4;
-		memcpy(&xmer_entry, &mlt_data[byte_idx + (hashval << 3)], 8);
+		memcpy_bwamem(&xmer_entry, 8 * sizeof(uint8_t), &mlt_data[byte_idx + (hashval << 3)], 8 * sizeof(uint8_t), __FILE__, __LINE__);
 		code = xmer_entry & METADATA_MASK;
 		ptr = xmer_entry >> KMER_DATA_BITWIDTH;
 		if (code == INVALID) {
@@ -2021,7 +2033,7 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
 		else if (code == SINGLE_HIT_LEAF) {
 			byte_idx = ptr;
 			byte_idx++;
-			memcpy(&ref_pos, &mlt_data[byte_idx], 5);
+			memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[byte_idx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 			mem->hitcount += 1;
 			kv_push(uint64_t, *hits, ref_pos >> 1);
 			byte_idx += 5;
@@ -2088,7 +2100,7 @@ void rightExtend_fetch_leaves(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, u
 		//
 		// First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
 		//
-		memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+		memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 4;
 		if (i < end) {
 			getNextByteIdx_fetch_leaves(raux, mlt_data, &byte_idx, i, mem, hits);
@@ -2103,9 +2115,9 @@ void rightExtend_fetch_leaves(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, u
 		i += kmerSize;
 		mlt_data = &iaux->mlt_table[start_addr];
 		hashval = getHashKey(&raux->read_buf[i], xmerSize, i, raux->l_seq, 0, &idx_first_N);
-		memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+		memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 4;
-		memcpy(&xmer_entry, &mlt_data[byte_idx + (hashval << 3)], 8);
+		memcpy_bwamem(&xmer_entry, 8 * sizeof(uint8_t), &mlt_data[byte_idx + (hashval << 3)], 8 * sizeof(uint8_t), __FILE__, __LINE__);
 		code = xmer_entry & METADATA_MASK;
 		ptr = xmer_entry >> KMER_DATA_BITWIDTH;
 		assert(code != INVALID);
@@ -2207,7 +2219,7 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
 	else if (code == SINGLE_HIT_LEAF) {
 		mlt_data = &iaux->mlt_table[start_addr];
 		byte_idx++;
-		memcpy(&ref_pos, &mlt_data[byte_idx], 5);
+		memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[byte_idx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		mem->hitcount += 1;
 		kv_push(uint64_t, *hits, ref_pos >> 1);
 		byte_idx += 5;
@@ -2220,7 +2232,7 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
 			//
 			// First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
 			//
-			memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+			memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 			byte_idx += 4;
 			getNextByteIdx(raux, mlt_data, &byte_idx, i, mem, hits);
 		}
@@ -2238,9 +2250,9 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
 		flag = 0;
 		mlt_data = &iaux->mlt_table[mlt_start_addr];
 		hashval = getHashKey(&raux->read_buf[*i], xmerSize, *i, raux->l_seq, &flag, &idx_first_N);
-		memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+		memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 4;
-		memcpy(&xmer_entry, &mlt_data[byte_idx + (hashval << 3)], 8);
+		memcpy_bwamem(&xmer_entry, 8 * sizeof(uint8_t), &mlt_data[byte_idx + (hashval << 3)], 8 * sizeof(uint8_t), __FILE__, __LINE__);
 		code = xmer_entry & METADATA_MASK;
 		lep_data = (xmer_entry >> METADATA_BITWIDTH) & 0xF;
 		ptr = xmer_entry >> KMER_DATA_BITWIDTH;
@@ -2275,10 +2287,10 @@ void rightExtend(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u64v* 
 		else if (code == SINGLE_HIT_LEAF) {
 			byte_idx = ptr;
 			byte_idx++;
-			memcpy(&ref_pos, &mlt_data[byte_idx], 5);                         
+			memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[byte_idx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 			mem->hitcount += 1;
 			kv_push(uint64_t, *hits, ref_pos >> 1);
-			byte_idx += 5;                                                    
+			byte_idx += 5;
 			*i += xmerSize;
 		}
 		else {
@@ -2397,7 +2409,7 @@ void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem,
 				//
 				// First 4 bytes of tree store the start of all multi-hit leaves for the k-mer
 				//
-				memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+				memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 				byte_idx += 4;
 				getNextByteIdx_wlimit(raux, mlt_data, &byte_idx, i, mem, &visited, hits);
 				kv_destroy(visited);
@@ -2417,9 +2429,9 @@ void rightExtend_wlimit(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem,
 		flag = 0;
 		mlt_data = &iaux->mlt_table[mlt_start_addr];
 		hashval = getHashKey(&raux->read_buf[*i], xmerSize, *i, raux->l_seq, &flag, &idx_first_N);
-		memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+		memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 4;
-		memcpy(&xmer_entry, &mlt_data[byte_idx + (hashval << 3)], 8);
+		memcpy_bwamem(&xmer_entry, 8 * sizeof(uint8_t), &mlt_data[byte_idx + (hashval << 3)], 8 * sizeof(uint8_t), __FILE__, __LINE__);
 		code = xmer_entry & METADATA_MASK;
 		lep_data = (xmer_entry >> METADATA_BITWIDTH) & 0xF;
 		ptr = xmer_entry >> KMER_DATA_BITWIDTH;
@@ -2522,7 +2534,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
 	else if (code == SINGLE_HIT_LEAF) {
 		mlt_data = &iaux->mlt_table[mlt_start_addr];
 		byte_idx++;
-		memcpy(&ref_pos, &mlt_data[byte_idx], 5);
+		memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[byte_idx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 		mem->hitcount += 1;
 		kv_push(uint64_t, *hits, ref_pos >> 1);
 		byte_idx += 5;
@@ -2532,7 +2544,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
 		*i += kmerSize;
 		mlt_data = &iaux->mlt_table[mlt_start_addr];
 		if (*i < raux->l_seq) { // Length <= (kmer + xmer). Need not check num_hits here.
-			memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+			memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 			byte_idx += 4;
 			getNextByteIdx_last(raux, mlt_data, &byte_idx, i, mem, hits);
 		}
@@ -2553,9 +2565,9 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
 			*i = raux->l_seq;
 			return;
 		}
-		memcpy(&raux->mh_start_addr, &mlt_data[byte_idx], 4);
+		memcpy_bwamem(&raux->mh_start_addr, 4 * sizeof(uint8_t), &mlt_data[byte_idx], 4 * sizeof(uint8_t), __FILE__, __LINE__);
 		byte_idx += 4;
-		memcpy(&xmer_entry, &mlt_data[byte_idx + (hashval << 3)], 8);
+		memcpy_bwamem(&xmer_entry, 8 * sizeof(uint8_t), &mlt_data[byte_idx + (hashval << 3)], 8 * sizeof(uint8_t), __FILE__, __LINE__);
 		code = xmer_entry & METADATA_MASK;
 		ptr = xmer_entry >> KMER_DATA_BITWIDTH;
 		raux->num_hits = (xmer_entry >> 17) & 0x1F;
@@ -2565,7 +2577,7 @@ void rightExtend_last(index_aux_t* iaux, read_aux_t* raux, int* i, mem_t* mem, u
 		else if (code == SINGLE_HIT_LEAF) {
 			byte_idx = ptr;
 			byte_idx++;
-			memcpy(&ref_pos, &mlt_data[byte_idx], 5);
+			memcpy_bwamem(&ref_pos, 5 * sizeof(uint8_t), &mlt_data[byte_idx], 5 * sizeof(uint8_t), __FILE__, __LINE__);
 			mem->hitcount += 1;
 			kv_push(uint64_t, *hits, ref_pos >> 1);
 			byte_idx += 5;
@@ -2916,16 +2928,16 @@ void check_and_add_smem(index_aux_t* iaux, read_aux_t* raux, mem_t* mem, smem_he
 void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
 
 	smem_helper_t sh;
-	memset(&sh, 0, sizeof(smem_helper_t));
+	memset_s(&sh, sizeof(smem_helper_t), 0);
 	sh.prevMemStart = raux->l_seq;
 	sh.prevMemEnd = 0;
 	int i = 0, j = 0;
 	sh.prev_pivot = -1;
 	sh.prev_prev_pivot = -1;
-	memset(raux->lep, 0, 5 * sizeof(uint64_t));
+	memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 	while (i < raux->l_seq) { // Begin identifying RMEMs
 		mem_t rm;
-		memset(&rm, 0, sizeof(mem_t));
+		memset_s(&rm, sizeof(mem_t), 0);
 		rm.start = i; 
 		rm.forward = 1;
 		rm.hitbeg = hits->n;
@@ -2970,7 +2982,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
 			else {
 				hits->n -= rm.hitcount;
 			}
-			memset(raux->lep, 0, 5 * sizeof(uint64_t));
+			memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 		}
 		else { // perform all backward extensions
 			hits->n -= rm.hitcount;
@@ -3023,7 +3035,7 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
 		}
 		sh.prev_prev_pivot = sh.prev_pivot;
 		sh.prev_pivot = rm.start;
-		memset(raux->lep, 0, 5 * sizeof(uint64_t));
+		memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 	}
 #ifdef PRINT_SMEM
 	ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); // Sort SMEMs based on start pos in read. For DEBUG.
@@ -3053,16 +3065,16 @@ void get_seeds_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* h
 void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
 
 	smem_helper_t sh;
-	memset(&sh, 0, sizeof(smem_helper_t));
+	memset_s(&sh, sizeof(smem_helper_t), 0);
 	sh.prevMemStart = raux->l_seq;
 	sh.prevMemEnd = 0;
 	int i = 0, j = 0;
 	sh.prev_pivot = -1;
 	sh.prev_prev_pivot = -1;
-	memset(raux->lep, 0, 5 * sizeof(uint64_t));
+	memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 	while (i < raux->l_seq) { // Begin identifying RMEMs
 		mem_t rm;
-		memset(&rm, 0, sizeof(mem_t));
+		memset_s(&rm, sizeof(mem_t), 0);
 		rm.start = i; 
 		rm.forward = 1;
 		rm.hitbeg = hits->n;
@@ -3110,7 +3122,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
 			else {
 				hits->n -= rm.hitcount;
 			}
-			memset(raux->lep, 0, 5 * sizeof(uint64_t));
+			memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 		}
 		else {
 			hits->n -= rm.hitcount;
@@ -3158,7 +3170,7 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
 		}
 		sh.prev_prev_pivot = sh.prev_pivot;
 		sh.prev_pivot = rm.start;
-		memset(raux->lep, 0, 5 * sizeof(uint64_t));
+		memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 	}
 #ifdef PRINT_SMEM
 	ks_introsort(mem_smem_sort_lt_ert, smems->n, smems->a); // Sort SMEMs based on start pos in read. For DEBUG. 
@@ -3191,14 +3203,14 @@ void get_seeds(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, u64v* hits) {
 void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int limit, pivot_t* pt, u64v* hits) {
 
 	smem_helper_t sh;
-	memset(&sh, 0, sizeof(smem_helper_t));
+	memset_s(&sh, sizeof(smem_helper_t), 0);
 	sh.prevMemStart = raux->l_seq;
 	sh.prevMemEnd = 0;
 	int i = start, j = 0;
 	int old_n = smems->n;
-	memset(raux->lep, 0, 5 * sizeof(uint64_t));
+	memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 	mem_t rm;
-	memset(&rm, 0, sizeof(mem_t));
+	memset_s(&rm, sizeof(mem_t), 0);
 	rm.start = i;
 	rm.forward = 1;
 	rm.hitbeg = hits->n;
@@ -3242,7 +3254,7 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start,
 		else {
 			hits->n -= rm.hitcount;
 		}
-		memset(raux->lep, 0, 5 * sizeof(uint64_t));
+		memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 	}
 	// Begin left-extension, i.e., right extension on reverse complemented read
 	else {
@@ -3304,14 +3316,14 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start,
 void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int limit, pivot_t* pt, u64v* hits) {
 
 	smem_helper_t sh;
-	memset(&sh, 0, sizeof(smem_helper_t));
+	memset_s(&sh, sizeof(smem_helper_t), 0);
 	sh.prevMemStart = raux->l_seq;
 	sh.prevMemEnd = 0;
 	int i = start, j = 0;
 	int old_n = smems->n;
-	memset(raux->lep, 0, 5 * sizeof(uint64_t));
+	memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 	mem_t rm;
-	memset(&rm, 0, sizeof(mem_t));
+	memset_s(&rm, sizeof(mem_t), 0);
 	rm.start = i;
 	rm.forward = 1;
 	rm.hitbeg = hits->n;
@@ -3355,7 +3367,7 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int li
 		else {
 			hits->n -= rm.hitcount;
 		}
-		memset(raux->lep, 0, 5 * sizeof(uint64_t));
+		memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 	}
 	// Begin left-extension, i.e., right extension on reverse complemented read
 	else {
