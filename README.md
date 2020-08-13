@@ -94,9 +94,10 @@ Memory: 100GB
 Data download: 
 1. Download SRA toolkit from https://trace.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?view=software#header-global    
 2. tar xfzv sratoolkit.2.10.5-centos_linux64.tar.gz  
-3. Download D1: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRR7733443   
-4. Download D2: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRR9932168   
-5. Download D3: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRX6999918   
+3. Download D2: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRR7733443   
+4. Download D3: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRR9932168   
+5. Download D4: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRX6999918   
+
 
 
 Alignment:   
