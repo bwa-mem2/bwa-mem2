@@ -161,17 +161,37 @@ Processor: Intel(R) Xeon(R) 8280 CPU @ 2.70GHz
 OS: CentOS Linux release 7.6.1810  
 Memory: 100GB  
 
-Notes: 
-- If you are using machine with multiple sockets and numa domains, please use ```numactl``` to run on single socket (numa domain) for maximum performance.   
-E.g: In dual numa and dual socket system: ```numactl -m 0 -N 0 <bwa-mem2>``` command executes bwa-mem2 on first socket and numa domain.  
-- The following charts shows bwa-mem2 performance on 1 thread and 56 threads with single-end and paired-end reads.
+
+We followed the steps below to collect the performance results:  
+A. Data download steps:
+1. Download SRA toolkit from https://trace.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?view=software#header-global    
+2. tar xfzv sratoolkit.2.10.5-centos_linux64.tar.gz  
+3. Download D2: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRR7733443   
+4. Download D3: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRR9932168   
+5. Download D4: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRX6999918   
+
+
+
+B. Alignment steps:   
+1. git clone https://github.com/bwa-mem2/bwa-mem2.git   
+2. cd bwa-mem2   
+3. ```make CXX=icpc multi``` (using intel C/C++ compiler)   
+or   ```make multi``` (using gcc compiler)   
+4. ./bwa-mem2 index <ref.fa>   
+5. ./bwa-mem2 mem [-t <#threads>] <ref.fa> <in_1.fastq> [<in_2.fastq>]  >  <output.sam>   
+
+For example,  in our double socket (56 threads each) and double numa compute node, we used the following command line to align D2 to human_g1k_v37.fasta reference genome.  
+```
+numactl -m 0 -C 0-27,56-83 ./bwa-mem2 index human_g1k_v37.fasta  
+numactl -m 0 -C 0-27,56-83 ./bwa-mem2 mem -t 56 human_g1k_v37.fasta SRR7733443_1.fastq SRR7733443_2.fastq > d3_align.sam
+```
 
 <p align="center">
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-1.png" height="400"/a></br>
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-2.png" height="400"/a></br>
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-3.png" height="400"/a></br>
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-4.png" height="400"/a></br>
-</p>
+</p> 
 
 
 ## Citation
