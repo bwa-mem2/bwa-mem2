@@ -91,7 +91,9 @@ Processor: Intel(R) Xeon(R) 8280 CPU @ 2.70GHz
 OS: CentOS Linux release 7.6.1810  
 Memory: 100GB  
 
-Data download: 
+
+We followed the steps below to collect the performance results:  
+A. Data download steps:
 1. Download SRA toolkit from https://trace.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?view=software#header-global    
 2. tar xfzv sratoolkit.2.10.5-centos_linux64.tar.gz  
 3. Download D2: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRR7733443   
@@ -100,14 +102,13 @@ Data download:
 
 
 
-Alignment:   
-git clone https://github.com/bwa-mem2/bwa-mem2.git   
-cd bwa-mem2   
-```make CXX=icpc multi``` (using intel C/C++ compiler)   
-or   
-```make multi``` (using gcc compiler)   
-./bwa-mem2 index <ref.fa>   
-./bwa-mem2 mem [-t <#threads>] <ref.fa> <in_1.fastq> [<in_2.fastq>]  >  <output.sam>   
+B. Alignment steps:   
+1. git clone https://github.com/bwa-mem2/bwa-mem2.git   
+2. cd bwa-mem2   
+3. ```make CXX=icpc multi``` (using intel C/C++ compiler)   
+or   ```make multi``` (using gcc compiler)   
+4. ./bwa-mem2 index <ref.fa>   
+5. ./bwa-mem2 mem [-t <#threads>] <ref.fa> <in_1.fastq> [<in_2.fastq>]  >  <output.sam>   
 
 For example,  in our double socket (56 threads each) and double numa compute node, we used the following command line to align D2 to human_g1k_v37.fasta reference genome.  
 ```
