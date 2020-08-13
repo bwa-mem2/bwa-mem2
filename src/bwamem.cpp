@@ -640,7 +640,7 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
     int max_readlength = -1;
     
     int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(nseq * sizeof(int32_t), 64);
-        
+    assert(query_cum_len_ar != NULL);
     int offset = 0;
     for (int l=0; l<nseq; l++)
     {
@@ -749,6 +749,7 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
     int num[nseq];
     memset_s(num, nseq*sizeof(int), 0);
     int64_t *sa_coord = (int64_t *) _mm_malloc(sizeof(int64_t) * opt->max_occ, 64);
+    assert(sa_coord != NULL);
     int64_t seedBufCount = 0;
     
     for (int l=0; l<nseq; l++)
@@ -936,6 +937,7 @@ void mem_chain_new(const mem_opt_t *opt,
                 if ((seedBufCount + tmp.m) > seedBufSize) {
                     tmp.m += 1;
                     tmp.seeds = (mem_seed_t *)calloc (tmp.m, sizeof(mem_seed_t));
+                    assert(tmp.seeds != NULL);
                     tprof[PE13][tid]++;
                 }
                 else {
@@ -1281,7 +1283,7 @@ static void worker_aln(void *data, long seq_id, long batch_size, int tid)
 static void worker_bwt(void *data, long seq_id, long batch_size, int tid)
 {
     worker_t *w = (worker_t*) data;
-    printf_(VER, "4. Calling mem_kernel1_core..%d %d\n", seq_id, tid);
+    printf_(VER, "4. Calling mem_kernel1_core..%ld %d\n", seq_id, tid);
     int seedBufSz = w->seedBufSize;
 
     int memSize = w->nreads; 

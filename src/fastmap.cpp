@@ -98,7 +98,6 @@ int HTStatus()
 void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads, char* idx_prefix) {
     mem_opt_t *opt = aux->opt;
     int32_t memSize = nreads;
-    int32_t readLen = READ_LEN;
 
     /* Mem allocation section for core kernels */
     w.regs = NULL; w.chain_ar = NULL; w.hits_ar = NULL; w.seedBuf = NULL;
@@ -195,6 +194,7 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthread
     // Read k-mer index
     //
     w.kmer_offsets = (uint64_t*) malloc(numKmers * sizeof(uint64_t));
+    assert(w.kmer_offsets != NULL);
     if (bwa_verbose >= 3) {
         fprintf(stderr, "[M::%s::ERT] Reading kmer index to memory\n", __func__);
     }
@@ -207,6 +207,7 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthread
     long size = ftell(ml_tbl_fd);
     allocMem += size;
     w.mlt_table = (uint8_t*) malloc(size * sizeof(uint8_t));
+    assert(w.mlt_table != NULL);
     fseek(ml_tbl_fd, 0L, SEEK_SET);
     if (bwa_verbose >= 3) {
         fprintf(stderr, "[M::%s::ERT] Reading multi-level tree index to memory\n", __func__);
@@ -224,8 +225,10 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthread
     allocMem += ((nthreads * BATCH_MUL * READ_LEN * sizeof(mem_t)) + (nthreads * MAX_HITS_PER_READ * sizeof(uint64_t)));
     w.smemBufSize = MAX_LINE_LEN * sizeof(mem_v);
     w.smems = (mem_v*) malloc(nthreads * w.smemBufSize);
+    assert(w.smems != NULL);
     w.hitBufSize = MAX_LINE_LEN * sizeof(u64v);
     w.hits_ar = (u64v*) malloc(nthreads * w.hitBufSize);
+    assert(w.hits_ar != NULL);
     for (int i = 0 ; i < nthreads; ++i) {
         kv_init_base(mem_t, w.smems[i * MAX_LINE_LEN], BATCH_MUL * READ_LEN);
         kv_init_base(uint64_t, w.hits_ar[i * MAX_LINE_LEN], MAX_HITS_PER_READ);
@@ -1045,6 +1048,7 @@ int main_mem(int argc, char *argv[])
     fseek(fr, 0, SEEK_END); 
     rlen = ftell(fr);
     ref_string = (uint8_t*) _mm_malloc(rlen, 64);
+    assert(ref_string != NULL);
     aux.ref_string = ref_string;
     rewind(fr);
     
@@ -1071,6 +1075,7 @@ int main_mem(int argc, char *argv[])
             fclose(aux.fp);
         delete aux.fmi;
         kclose(ko);
+        _mm_free(ref_string);
         return 1;
     }
     // fp = gzopen(argv[optind + 1], "r");
@@ -1099,6 +1104,7 @@ int main_mem(int argc, char *argv[])
                 delete aux.fmi;
                 kclose(ko);
                 kclose(ko2);
+                _mm_free(ref_string);
                 return 1;
             }            
             // fp2 = gzopen(argv[optind + 2], "r");

@@ -67,6 +67,7 @@ int rle_insert_cached(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[
 		}
 		*beg = q - block;
 		memcpy_bwamem(bc, 48, cnt, 48, __FILE__, __LINE__);
+		assert(c >= 0 && c < 6);
 		bc[c] -= l;
 		n_bytes = p - q;
 		if (x == z && a != c && p < end) { // then try the next run
@@ -77,7 +78,10 @@ int rle_insert_cached(uint8_t *block, int64_t x, int a, int64_t rl, int64_t cnt[
 			if (a == tc)
 				c = tc, n_bytes = q - p, l = tl, z += l, p = q, cnt[tc] += tl;
 		}
-		if (z != x) cnt[c] -= z - x;
+		if (z != x) {
+			assert(c >= 0 && c < 6);
+			cnt[c] -= z - x;
+		}
 		pre = x - (z - l); p -= n_bytes;
 		if (a == c) { // insert to the same run
 			n_bytes2 = rle_enc1(tmp, c, l + rl);

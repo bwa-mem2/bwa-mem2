@@ -31,6 +31,7 @@ static mempool_t *mp_init(int size)
 {
 	mempool_t *mp;
 	mp = calloc(1, sizeof(mempool_t));
+	assert(mp != NULL);
 	mp->size = size;
 	mp->i = mp->n_elems = MP_CHUNK_SIZE / size;
 	mp->top = -1;
@@ -65,6 +66,7 @@ rope_t *rope_init(int max_nodes, int block_len)
 {
 	rope_t *rope;
 	rope = calloc(1, sizeof(rope_t));
+	assert(rope != NULL);
 	if (block_len < 32) block_len = 32;
 	rope->max_nodes = (max_nodes+ 1)>>1<<1;
 	rope->block_len = (block_len + 7) >> 3 << 3;
@@ -299,6 +301,7 @@ rpnode_t *rope_restore_node(const rope_t *r, FILE *fp, int64_t c[6])
 			q = rle_nptr(p[i].p);
 			fread(p[i].c, 8, 6, fp);
 			fread(q, 2, 1, fp);
+			assert(*q >= 0 && *q < UINT16_MAX);
 			fread(q + 1, 1, *q, fp);
 		}
 	} else {
@@ -318,8 +321,10 @@ rope_t *rope_restore(FILE *fp)
 {
 	rope_t *r;
 	r = calloc(1, sizeof(rope_t));
+	assert(r != NULL);
 	fread(&r->max_nodes, 4, 1, fp);
 	fread(&r->block_len, 4, 1, fp);
+	assert(r->max_nodes <= INT32_MAX);
 	r->node = mp_init(sizeof(rpnode_t) * r->max_nodes);
 	r->leaf = mp_init(r->block_len);
 	r->root = rope_restore_node(r, fp, r->c);

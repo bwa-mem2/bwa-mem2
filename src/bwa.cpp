@@ -46,6 +46,8 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 extern "C" {
 #endif
 #include "safe_str_lib.h"
+#include "safe_str_lib.h"
+#include <snprintf_s.h>
 #ifdef __cplusplus
 }
 #endif
@@ -374,6 +376,7 @@ char *bwa_idx_infer_prefix(const char *hint)
     FILE *fp;
     l_hint = strlen(hint);
     prefix = (char *) malloc(l_hint + 3 + 4 + 1);
+    assert(prefix != NULL);
     strcpy_s(prefix, l_hint + 3 + 4 + 1, hint);
     strcpy_s(prefix + l_hint, 8, ".64.bwt");
     if ((fp = fopen(prefix, "rb")) != 0) {
@@ -404,6 +407,7 @@ bwt_t *bwa_idx_load_bwt(const char *hint)
     }
     int prefix_len = strnlen_s(prefix, PATH_MAX);
     tmp = (char*) calloc(prefix_len + 5, 1);
+    assert(tmp != NULL);
     strcpy_s(tmp, prefix_len + 5, prefix);
     strcat_s(tmp, prefix_len + 5, ".bwt"); // FM-index
     bwt = bwt_restore_bwt(tmp);
@@ -425,6 +429,7 @@ bwaidx_t *bwa_idx_load_from_disk(const char *hint, int which)
         return 0;
     }
     idx = (bwaidx_t*) calloc(1, sizeof(bwaidx_t));
+    assert(idx != NULL);
     if (which & BWA_IDX_BWT) idx->bwt = bwa_idx_load_bwt(hint);
     if (which & BWA_IDX_BNS) {
         int i, c;
@@ -436,6 +441,7 @@ bwaidx_t *bwa_idx_load_from_disk(const char *hint, int which)
             fprintf(stderr, "[M::%s] read %d ALT contigs\n", __func__, c);
         if (which & BWA_IDX_PAC) {
             idx->pac = (uint8_t*) calloc(idx->bns->l_pac/4+1, 1);
+            assert(idx->pac != NULL);
             err_fread_noeof(idx->pac, 1, idx->bns->l_pac/4+1, idx->bns->fp_pac); // concatenated 2-bit encoded sequence
             err_fclose(idx->bns->fp_pac);
             idx->bns->fp_pac = 0;
@@ -470,14 +476,20 @@ int bwa_mem2idx(int64_t l_mem, uint8_t *mem, bwaidx_t *idx)
     int i;
 
     // generate idx->bwt
-    x = sizeof(bwt_t); idx->bwt = (bwt_t*) malloc(x); memcpy_bwamem(idx->bwt, x, mem + k, x, __FILE__, __LINE__); k += x;
+    x = sizeof(bwt_t); idx->bwt = (bwt_t*) malloc(x);
+    assert(idx->bwt != NULL);
+    memcpy_bwamem(idx->bwt, x, mem + k, x, __FILE__, __LINE__); k += x;
     x = idx->bwt->bwt_size * 4; idx->bwt->bwt = (uint32_t*)(mem + k); k += x;
     x = idx->bwt->n_sa * sizeof(bwtint_t); idx->bwt->sa = (bwtint_t*)(mem + k); k += x;
 
     // generate idx->bns and idx->pac
-    x = sizeof(bntseq_t); idx->bns = (bntseq_t*) malloc(x); memcpy_bwamem(idx->bns, x, mem + k, x, __FILE__, __LINE__); k += x;
+    x = sizeof(bntseq_t); idx->bns = (bntseq_t*) malloc(x); 
+    assert(idx->bns != NULL);
+    memcpy_bwamem(idx->bns, x, mem + k, x, __FILE__, __LINE__); k += x;
     x = idx->bns->n_holes * sizeof(bntamb1_t); idx->bns->ambs = (bntamb1_t*)(mem + k); k += x;
-    x = idx->bns->n_seqs  * sizeof(bntann1_t); idx->bns->anns = (bntann1_t*) malloc(x); memcpy_bwamem(idx->bns->anns, x, mem + k, x, __FILE__, __LINE__); k += x;
+    x = idx->bns->n_seqs  * sizeof(bntann1_t); idx->bns->anns = (bntann1_t*) malloc(x);
+    assert(idx->bns->anns != NULL);
+    memcpy_bwamem(idx->bns->anns, x, mem + k, x, __FILE__, __LINE__); k += x;
     for (i = 0; i < idx->bns->n_seqs; ++i) {
         idx->bns->anns[i].name = (char*)(mem + k); k += strlen(idx->bns->anns[i].name) + 1;
         idx->bns->anns[i].anno = (char*)(mem + k); k += strlen(idx->bns->anns[i].anno) + 1;
@@ -554,10 +566,10 @@ void bwa_print_sam_hdr(const bntseq_t *bns, const char *hdr_line, FILE *fp)
             else err_fputc('\n', stdout);
 #else
             char buf[500];
-            sprintf(buf, "@SQ\tSN:%s\tLN:%d", bns->anns[i].name, bns->anns[i].len);
+            snprintf_s_si(buf, 499, "@SQ\tSN:%s\tLN:%d", bns->anns[i].name, bns->anns[i].len);
             err_fputs(buf, fp);
             if (bns->anns[i].is_alt) {
-                sprintf(buf, "\tAH:*\n");
+                snprintf(buf, 499, "\tAH:*\n");
                 err_fputs(buf, fp);
             } else
                 err_fputc('\n', fp);

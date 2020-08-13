@@ -186,6 +186,7 @@ int mem_matesw(const mem_opt_t *opt, const bntseq_t *bns,
         is_larger = !(r>>1); // whether the mate has larger coordinate
         if (is_rev) {
             rev = (uint8_t*) malloc(l_ms); // this is the reverse complement of $ms
+            assert(rev != NULL);
             for (i = 0; i < l_ms; ++i) rev[l_ms - 1 - i] = ms[i] < 4? 3 - ms[i] : 4;
             seq = rev;
         } else seq = (uint8_t*)ms;
@@ -459,7 +460,7 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
             if (useErt) {
                 sort_alnreg_re(a[!i].n, a[!i].a);
             }
-            int val;
+            int val = 0;
             for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
                 if (useErt) {
                     val = mem_matesw(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
@@ -804,7 +805,7 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
             if (useErt) {
                 sort_alnreg_re(a[!i].n, a[!i].a);
             }
-            int val;
+            int val = 0;
             for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
                 if (useErt) {
                     val = mem_matesw_batch_post_ert(opt, bns, pac, pes, &b[i].a[j],
@@ -1182,6 +1183,7 @@ int mem_matesw_batch_post_ert(const mem_opt_t *opt, const bntseq_t *bns,
         is_larger = !(r>>1); // whether the mate has larger coordinate
         if (is_rev) {
             rev = (uint8_t*) malloc(l_ms); // this is the reverse complement of $ms
+            assert(rev != NULL);
             for (i = 0; i < l_ms; ++i) rev[l_ms - 1 - i] = ms[i] < 4? 3 - ms[i] : 4;
             seq = rev;
         } else seq = (uint8_t*)ms;

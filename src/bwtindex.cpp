@@ -74,6 +74,7 @@ int64_t bwa_seq_len(const char *fn_pac)
 	pac_len = err_ftell(fp);
 	err_fread_noeof(&c, 1, 1, fp);
 	err_fclose(fp);
+	assert(c >= 0 && c <= 255);
 	return (pac_len - 1) * 4 + (int)c;
 }
 
@@ -86,6 +87,7 @@ bwt_t *bwt_pac2bwt(const char *fn_pac, int use_is)
 
 	// initialization
 	bwt = (bwt_t*)calloc(1, sizeof(bwt_t));
+	assert(bwt != NULL);
 	bwt->seq_len = bwa_seq_len(fn_pac);
 	bwt->bwt_size = (bwt->seq_len + 15) >> 4;
 	fp = xopen(fn_pac, "rb");
@@ -93,10 +95,12 @@ bwt_t *bwt_pac2bwt(const char *fn_pac, int use_is)
 	// prepare sequence
 	pac_size = (bwt->seq_len>>2) + ((bwt->seq_len&3) == 0? 0 : 1);
 	buf2 = (ubyte_t*)calloc(pac_size, 1);
+	assert(buf2 != NULL);
 	err_fread_noeof(buf2, 1, pac_size, fp);
 	err_fclose(fp);
 	memset_s(bwt->L2, 5 * 4, 0);
 	buf = (ubyte_t*)calloc(bwt->seq_len + 1, 1);
+	assert(buf != NULL);
 	for (i = 0; i < bwt->seq_len; ++i) {
 		buf[i] = buf2[i>>2] >> ((3 - (i&3)) << 1) & 3;
 		++bwt->L2[1+buf[i]];
@@ -135,6 +139,7 @@ bwt_t *bwt_pac2bwt(const char *fn_pac, int use_is)
 		rope_destroy(r);
 	}
 	bwt->bwt = (uint32_t*)calloc(bwt->bwt_size, 4);
+	assert(bwt->bwt != NULL);
 	for (i = 0; i < bwt->seq_len; ++i)
 		bwt->bwt[i>>4] |= buf[i] << ((15 - (i&15)) << 1);
 	free(buf);
@@ -171,6 +176,7 @@ void bwt_bwtupdate_core(bwt_t *bwt)
 	n_occ = (bwt->seq_len + OCC_INTERVAL - 1) / OCC_INTERVAL + 1;
 	bwt->bwt_size += n_occ * sizeof(bwtint_t); // the new size
 	buf = (uint32_t*)calloc(bwt->bwt_size, 4); // will be the new bwt
+	assert(buf != NULL);
 	c[0] = c[1] = c[2] = c[3] = 0;
 	for (i = k = 0; i < bwt->seq_len; ++i) {
 		if (i % OCC_INTERVAL == 0) {
@@ -211,6 +217,7 @@ int bwa_bwt2sa(int argc, char *argv[]) // the "bwt2sa" command
 		default: return 1;
 		}
 	}
+	assert(sa_intv >= 0 && sa_intv < INT_MAX);
 	if (optind + 2 > argc) {
 		fprintf(stderr, "Usage: bwa bwt2sa [-i %d] <in.bwt> <out.sa>\n", sa_intv);
 		return 1;
@@ -226,7 +233,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 {
 	int c, algo_type = BWTALGO_AUTO, is_64 = 0, block_size = 10000000, readLength = READ_LEN, num_threads = 1;
 	char *prefix = 0, *str;
-	while ((c = getopt(argc, argv, "6a:p:b:t:")) >= 0) {
+	while ((c = getopt(argc, argv, "6a:p:t:")) >= 0) {
 		switch (c) {
 			case 'a': // if -a is not set, algo_type will be determined later
 				if (strcmp(optarg, "rb2") == 0) algo_type = BWTALGO_RB2;
@@ -234,20 +241,15 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 				else if (strcmp(optarg, "is") == 0) algo_type = BWTALGO_IS;
 				else if (strcmp(optarg, "mem2") == 0) algo_type = BWTALGO_MEM2;
 				else if (strcmp(optarg, "ert") == 0) algo_type = BWTALGO_MLTS;
-				else err_fatal(__func__, "unknown algorithm: '%s'.", optarg);
+				else { if (prefix) free(prefix); err_fatal(__func__, "unknown algorithm: '%s'.", optarg); }
 				break;
 			case 'p': prefix = strdup(optarg); break;
 			case '6': is_64 = 1; break;
-			case 'b':
-				block_size = strtol(optarg, &str, 10);
-				if (*str == 'G' || *str == 'g') block_size *= 1024 * 1024 * 1024;
-				else if (*str == 'M' || *str == 'm') block_size *= 1024 * 1024;
-				else if (*str == 'K' || *str == 'k') block_size *= 1024;
-				break;
 			case 't':
 				num_threads = atoi(optarg); 
+				assert(num_threads > 0 && num_threads < MAX_THREADS);
 				break;
-			default: return 1;
+			default: if (prefix) free(prefix); return 1;
 		}
 	}
 
@@ -256,18 +258,20 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 		fprintf(stderr, "Usage:   bwa-mem2 index [options] <in.fasta>\n\n");
 		fprintf(stderr, "Options: -a STR    BWT construction algorithm: bwtsw, is, rb2, mem2 or ert\n");
 		fprintf(stderr, "         -p STR    prefix of the index [same as fasta name]\n");
-		fprintf(stderr, "         -b INT    block size for the bwtsw algorithm (effective with -a bwtsw) [%d]\n", block_size);
-	    fprintf(stderr, "         -t INT    number of threads for ERT index building [%d]\n", num_threads);
+		fprintf(stderr, "         -t INT    number of threads for ERT index building [%d]\n", num_threads);
 		fprintf(stderr, "         -6        index files named as <in.fasta>.64.* instead of <in.fasta>.* \n");
 		fprintf(stderr, "\n");
 		fprintf(stderr,	"Warning: `-a bwtsw' does not work for short genomes, while `-a is' and\n");
 		fprintf(stderr, "         `-a div' do not work not for long genomes.\n\n");
 		fprintf(stderr, "         `-a ert' to build ERT index.\n\n");
-
+		if (prefix) {
+			free(prefix);
+		}
 		return 1;
 	}
 	if (prefix == 0) {
 		prefix = malloc(strnlen_s(argv[optind], PATH_MAX) + 4);
+		assert(prefix != NULL);
 		strcpy_s(prefix, PATH_MAX, argv[optind]);
 		if (is_64) strcat_s(prefix, PATH_MAX, ".64");
 	}
@@ -282,6 +286,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 
 		// Load BWT index
 		bwaidx_t* bid = bwa_idx_load_from_disk(prefix, BWA_IDX_BNS | BWA_IDX_BWT | BWA_IDX_PAC);
+		assert(bid != NULL);
 		if (bwa_verbose >= 3) {
 			fprintf(stderr, "[M::%s] Building ERT.. BWT length: %lu threads: %d ...\n", __func__, bid->bwt->seq_len, num_threads);
 		}
@@ -297,6 +302,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 			fprintf(stderr, "[M::%s] Building binary reference 0123 for BWA-MEM2 ...\n", __func__);
 		}
 		build_binaryRef(prefix);
+		bwa_idx_destroy(bid);
 	}
 	else if (algo_type == BWTALGO_MEM2) {
 		bwa_idx_build_mem2(argv[optind], prefix);
@@ -338,8 +344,11 @@ int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_s
 	int64_t l_pac;
 
 	str  = (char*)calloc(strnlen_s(prefix, PATH_MAX) + 10, 1);
+	assert(str != NULL);
 	str2 = (char*)calloc(strnlen_s(prefix, PATH_MAX) + 10, 1);
+	assert(str2 != NULL);
 	str3 = (char*)calloc(strnlen_s(prefix, PATH_MAX) + 10, 1);
+	assert(str3 != NULL);
 
 	{ // nucleotide indexing
 		gzFile fp = xzopen(fa, "r");

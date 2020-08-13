@@ -460,7 +460,6 @@ uint8_t *get_seq(int64_t l_pac, const uint8_t *pac, int64_t beg, int64_t end,
     if (end > l_pac<<1) end = l_pac<<1;
     if (beg < 0) beg = 0;
     if (beg >= l_pac || end <= l_pac) {
-        int64_t k, l = 0;
         *len = end - beg;
         if (beg >= l_pac) { // reverse strand
             seq = ref_string + beg;
@@ -1856,11 +1855,10 @@ void rightExtend_fetch_leaves_prefix_reseed(index_aux_t* iaux, read_aux_t* raux,
 
 	uint8_t code;
 	uint8_t* mlt_data;
-	uint64_t byte_idx = 0, ref_pos = 0, kmer_entry = 0, start_addr = 0;
+	uint64_t byte_idx = 0, kmer_entry = 0, start_addr = 0;
 	uint32_t hashval = 0;
 	int flag = 0;
 	int i = mem->start;
-	int end = mem->end;
 	int idx_first_N = -1;
 	hashval = getHashKey(&raux->read_buf[i], kmerSize, i, raux->l_seq, &flag, &idx_first_N);
 	// index-table lookup
@@ -1974,7 +1972,6 @@ void rightExtend_fetch_leaves_prefix(index_aux_t* iaux, read_aux_t* raux, mem_t*
 	uint32_t hashval = 0;
 	int flag = 0;
 	int i = mem->start;
-	int end = mem->end;
 	int idx_first_N = -1;
 	hashval = getHashKey(&raux->read_buf[i], kmerSize, i, raux->l_seq, &flag, &idx_first_N);
 	// index-table lookup
@@ -3207,7 +3204,9 @@ void reseed_prefix(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start,
 	sh.prevMemStart = raux->l_seq;
 	sh.prevMemEnd = 0;
 	int i = start, j = 0;
+#ifdef PRINT_SMEM
 	int old_n = smems->n;
+#endif
 	memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 	mem_t rm;
 	memset_s(&rm, sizeof(mem_t), 0);
@@ -3320,7 +3319,9 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int li
 	sh.prevMemStart = raux->l_seq;
 	sh.prevMemEnd = 0;
 	int i = start, j = 0;
+#ifdef PRINT_SMEM
 	int old_n = smems->n;
+#endif
 	memset_s(raux->lep, 5 * sizeof(uint64_t), 0);
 	mem_t rm;
 	memset_s(&rm, sizeof(mem_t), 0);
@@ -3424,7 +3425,9 @@ void reseed(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int start, int li
 void last(index_aux_t* iaux, read_aux_t* raux, mem_v* smems, int limit, u64v* hits) {
 
 	int i = 0;
+#ifdef PRINT_SMEM
 	int old_n = smems->n;
+#endif
 	const uint8_t minSeedLen = raux->min_seed_len + 1; // LAST exits seeding only when seed length >= 20
 	raux->limit = limit;
 	while (i < raux->l_seq) { // Begin identifying RMEMs

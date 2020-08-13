@@ -86,6 +86,7 @@ void handleLeaf(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac, bwtin
 	n->type = LEAF;
 	n->numHits = ik.x[2];
 	n->hits = (uint64_t*) calloc(n->numHits, sizeof(uint64_t));
+	assert(n->hits != NULL);
 	if (step == 1) {
 		uint64_t ref_pos = 0;
 		int j = 0;
@@ -104,6 +105,7 @@ void handleDivergence(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 	memcpy_bwamem(ok_copy, 4*sizeof(bwtintv_t), ok, 4*sizeof(bwtintv_t), __FILE__, __LINE__);
 	for (i = 3; i >= 0; --i) {
 		node_t* n = (node_t*) calloc(1, sizeof(node_t));
+		assert(n != NULL);
 		n->numChildren = 0;
 		memset_s(n->child_nodes, 4*sizeof(node_t*), 0);
 		n->pos = 0;
@@ -118,6 +120,7 @@ void handleDivergence(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 		else if (ok_copy[i].x[2] > 1 && depth != max_depth) {
 			ik_new = ok_copy[i]; ik_new.info = depth+1;
 			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
+			assert(depth >= 0);
 			n->seq[depth] = i;
 			n->pos = depth;
 			n->num_bp = 1;
@@ -153,9 +156,11 @@ void ert_build_kmertree(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pa
 		uint8_t uniformExtend = 1;
 		ik_new = ok[uniform_bp]; ik_new.info = depth+1;
 		node_t* n = (node_t*) calloc(1, sizeof(node_t));
+		assert(n != NULL);
 		n->numChildren = 0;
 		memset_s(n->child_nodes, 4*sizeof(node_t*), 0);
 		memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
+		assert(depth >= 0);
 		n->seq[depth] = uniform_bp;
 		n->numHits = ok[uniform_bp].x[2];
 		n->l_seq = depth + 1;
@@ -224,7 +229,7 @@ void ert_build_table(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 			c = 3 - aq1[j];
 			bwt_extend(bwt, &ik, ok, 0); //!< ok contains the result of BWT extension
 			if (ok[c].x[2] != prevHits) { //!< hit set changes
-				lep1 |= (1 << j);
+				lep1 |= (1ULL << j);
 			}
 			/// Extend right till k-mer has zero hits
 			if (ok[c].x[2] >= 1) { prevHits = ok[c].x[2]; ik = ok[c]; ik.info = kmerSize + j + 1; }
@@ -252,6 +257,7 @@ void ert_build_table(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 		else {
 			xmer_data = ((lep1 & LEP_MASK) << METADATA_BITWIDTH) | (INFREQUENT);
 			node_t* n = (node_t*) calloc(1, sizeof(node_t));
+			assert(n != NULL);
 			n->type = DIVERGE;
 			n->pos = 0;
 			n->num_bp = 0;
@@ -533,18 +539,19 @@ void* buildIndex(void *arg) {
 		numBytesPerKmer = 0;
 		numBytesForMh = 0;
 		kmertoquery(idx, aq, kmerSize); // represent k-mer as uint8_t*
+		assert(aq[0] >= 0 && aq[0] <= 3);
 		bwt_set_intv(data->bid->bwt, aq[0], ik); // the initial interval of a single base
 		ik.info = 1; 
 		prevHits = ik.x[2];
 
-	//
-	// Backward search k-mer
-	//
+		//
+		// Backward search k-mer
+		//
 		for (i = 1; i < kmerSize; ++i) {
 			c = 3 - aq[i]; 
 			bwt_extend(data->bid->bwt, &ik, ok, 0); // ok contains the result of BWT extension
 			if (ok[c].x[2] != prevHits) { // hit set changes
-				lep |= (1 << (i-1));
+				lep |= (1ULL << (i-1));
 			}
 			//
 			// Extend left till k-mer has zero hits
@@ -586,6 +593,7 @@ void* buildIndex(void *arg) {
 		else if (ok[c].x[2] <= HIT_THRESHOLD) {
 			kmer_data = ((lep & LEP_MASK) << METADATA_BITWIDTH) | (INFREQUENT);
 			node_t* n = (node_t*) calloc(1, sizeof(node_t));
+			assert(n != NULL);
 			n->type = DIVERGE;
 			n->pos = 0;
 			n->num_bp = 0;
@@ -610,7 +618,9 @@ void* buildIndex(void *arg) {
 				}
 				next_ptr_width = (((data->byte_offsets[idx] >> 22) & 3) == 0)? 4 : ((data->byte_offsets[idx] >> 22) & 3);  
 				mlt_data = (uint8_t*) calloc(size, sizeof(uint8_t));
+				assert(mlt_data != NULL);
 				mh_data = (uint8_t*) calloc(size, sizeof(uint8_t));
+				assert(mh_data != NULL);
 			}
 			ert_build_kmertree(data->bid->bwt, data->bid->bns, data->bid->pac, ik, ok, i, n, data->step, data->readLength - 1);
 			//
@@ -673,7 +683,9 @@ void* buildIndex(void *arg) {
 				}
 				next_ptr_width = (((data->byte_offsets[idx] >> 22) & 3) == 0)? 4 : ((data->byte_offsets[idx] >> 22) & 3);  
 				mlt_data = (uint8_t*) calloc(size, sizeof(uint8_t));
+				assert(mlt_data != NULL);
 				mh_data = (uint8_t*) calloc(size, sizeof(uint8_t));
+				assert(mh_data != NULL);
 			}
 			numBytesPerKmer = 4;
 			ert_build_table(data->bid->bwt, data->bid->bns, data->bid->pac, ik, ok, mlt_data, mh_data, &numBytesPerKmer,
@@ -788,7 +800,9 @@ void buildKmerTrees(char* kmer_tbl_file_name, bwaidx_t* bid, char* prefix, int n
 		thr_data[i].filePrefix = prefix;
 		uint64_t numKmersToProcess = thr_data[i].endKmer - thr_data[i].startKmer;
 		thr_data[i].kmer_table = (uint64_t*) calloc(numKmersToProcess, sizeof(uint64_t));
+		assert(thr_data[i].kmer_table != NULL);
 		thr_data[i].numHits = (uint64_t*) calloc(numKmersToProcess, sizeof(uint64_t));
+		assert(thr_data[i].numHits != NULL);
 		if ((rc = pthread_create(&thr[i], NULL, buildIndex, &thr_data[i]))) {
 			fprintf(stderr, "[M::%s] error: pthread_create, rc: %d\n", __func__, rc);
 			return;
@@ -805,7 +819,9 @@ void buildKmerTrees(char* kmer_tbl_file_name, bwaidx_t* bid, char* prefix, int n
 	// Compute absolute offsets for each kmer's tree from per-thread relative offsets
 	//
 	uint64_t* kmer_table = (uint64_t*) calloc(numKmers, sizeof(uint64_t));
-	uint64_t tidx, kidx;
+	assert(kmer_table != NULL);
+	int tidx;
+	uint64_t kidx;
 	uint64_t numProcessed = 0;
 	uint64_t offset = 0;
 	for (tidx = 0; tidx < num_threads; ++tidx) {
@@ -894,7 +910,6 @@ void buildKmerTrees(char* kmer_tbl_file_name, bwaidx_t* bid, char* prefix, int n
 	// 
 	// Merge all per-thread trees
 	//
-	int prefix_len = strlen(prefix);
 	char ml_tbl_file_name[PATH_MAX];
 	strcpy_s(ml_tbl_file_name, PATH_MAX, prefix);
 	strcat_s(ml_tbl_file_name, PATH_MAX, ".mlt_table");

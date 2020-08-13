@@ -78,6 +78,7 @@ int64_t pac_seq_len(const char *fn_pac)
 	pac_len = err_ftell(fp);
 	err_fread_noeof(&c, 1, 1, fp);
 	err_fclose(fp);
+	assert(c >= 0 && c <= 255);
 	return (pac_len - 1) * 4 + (int)c;
 }
 
@@ -89,11 +90,14 @@ void pac2nt(const char *fn_pac, std::string &reference_seq)
 
 	// initialization
 	seq_len = pac_seq_len(fn_pac);
+	assert(seq_len > 0);
+	assert(seq_len <= 0x7fffffffffL);
 	fp = xopen(fn_pac, "rb");
 
 	// prepare sequence
 	pac_size = (seq_len>>2) + ((seq_len&3) == 0? 0 : 1);
 	buf2 = (uint8_t*)calloc(pac_size, 1);
+	assert(buf2 != NULL);
 	err_fread_noeof(buf2, 1, pac_size, fp);
 	err_fclose(fp);
 	for (i = 0; i < seq_len; ++i) {

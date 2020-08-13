@@ -82,6 +82,7 @@ void bwt_cal_sa(bwt_t *bwt, int intv)
 	bwt->sa_intv = intv;
 	bwt->n_sa = (bwt->seq_len + intv) / intv;
 	bwt->sa = (bwtint_t*)calloc(bwt->n_sa, sizeof(bwtint_t));
+	assert(bwt->sa != NULL);
 	// calculate SA value
 	isa = 0; sa = bwt->seq_len;
 	for (i = 0; i < bwt->seq_len; ++i) {
@@ -309,6 +310,7 @@ int bwt_smem1a(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_intv,
 	kv_init(a[0]); kv_init(a[1]);
 	prev = tmpvec && tmpvec[0]? tmpvec[0] : &a[0]; // use the temporary vector if provided
 	curr = tmpvec && tmpvec[1]? tmpvec[1] : &a[1];
+	assert(q[x] >= 0);
 	bwt_set_intv(bwt, q[x], ik); // the initial interval of a single base
 	ik.info = x + 1;
 
@@ -319,6 +321,7 @@ int bwt_smem1a(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_intv,
 		} else if (q[i] < 4) { // an A/C/G/T base
 			c = 3 - q[i]; // complement of q[i]
 			bwt_extend(bwt, &ik, ok, 0);
+			assert(c >= 0);
 			if (ok[c].x[2] != ik.x[2]) { // change of the interval size
 				kv_push(bwtintv_t, *curr, ik);
 				if (ok[c].x[2] < min_intv) break; // the interval size is too small to be extended further
@@ -373,11 +376,13 @@ int bwt_seed_strategy1(const bwt_t *bwt, int len, const uint8_t *q, int x, int m
 
 	memset_s(mem, sizeof(bwtintv_t), 0);
 	if (q[x] > 3) return x + 1;
+	assert(q[x] >= 0);
 	bwt_set_intv(bwt, q[x], ik); // the initial interval of a single base
 	for (i = x + 1; i < len; ++i) { // forward search
 		if (q[i] < 4) { // an A/C/G/T base
 			c = 3 - q[i]; // complement of q[i]
 			bwt_extend(bwt, &ik, ok, 0);
+			assert(c >= 0);
 			if (ok[c].x[2] < max_intv && i - x >= min_len) {
 				*mem = ok[c];
 				mem->info = (uint64_t)x<<32 | (i + 1);
@@ -445,6 +450,7 @@ void bwt_restore_sa(const char *fn, bwt_t *bwt)
 
 	bwt->n_sa = (bwt->seq_len + bwt->sa_intv) / bwt->sa_intv;
 	bwt->sa = (bwtint_t*)calloc(bwt->n_sa, sizeof(bwtint_t));
+	assert(bwt->sa != NULL);
 	bwt->sa[0] = -1;
 
 	fread_fix(fp, sizeof(bwtint_t) * (bwt->n_sa - 1), bwt->sa + 1);
@@ -457,10 +463,12 @@ bwt_t *bwt_restore_bwt(const char *fn)
 	FILE *fp;
 
 	bwt = (bwt_t*)calloc(1, sizeof(bwt_t));
+	assert(bwt != NULL);
 	fp = xopen(fn, "rb");
 	err_fseek(fp, 0, SEEK_END);
 	bwt->bwt_size = (err_ftell(fp) - sizeof(bwtint_t) * 5) >> 2;
 	bwt->bwt = (uint32_t*)calloc(bwt->bwt_size, 4);
+	assert(bwt->bwt != NULL);
 	err_fseek(fp, 0, SEEK_SET);
 	err_fread_noeof(&bwt->primary, sizeof(bwtint_t), 1, fp);
 	err_fread_noeof(bwt->L2+1, sizeof(bwtint_t), 4, fp);

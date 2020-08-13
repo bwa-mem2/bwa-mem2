@@ -30,6 +30,18 @@
 #include <errno.h>
 #include "bwt.h"
 #include "QSufSort.h"
+#include "memcpy_bwamem.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_str_lib.h"
+#include "safe_str_lib.h"
+#include <snprintf_s.h>
+#ifdef __cplusplus
+}
+#endif
+
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -219,12 +231,15 @@ unsigned int leadingZero(const unsigned int input)
 
 	if (input & 0xFFFF0000) {
 		if (input & 0xFF000000) {
+			assert((input >> 24) < 256);
 			l = leadingZero8bit[input >> 24];
 		} else {
+			assert((input >> 16) < 256);
 			l = 8 + leadingZero8bit[input >> 16];
 		}
 	} else {
 		if (input & 0x0000FF00) {
+			assert((input >> 8) < 256);
 			l = 16 + leadingZero8bit[input >> 8];
 		} else {
 			l = 24 + leadingZero8bit[input];
@@ -245,6 +260,7 @@ static unsigned int BitPerBytePackedChar(const unsigned int alphabetSize)
 {
 	unsigned int bitPerChar;
 	bitPerChar = ceilLog2(alphabetSize);
+	assert(bitPerChar != 0);
 	// Return the largest number of bit that does not affect packing efficiency
 	if (BITS_IN_BYTE / (BITS_IN_BYTE / bitPerChar) > bitPerChar)
 		bitPerChar = BITS_IN_BYTE / (BITS_IN_BYTE / bitPerChar);
@@ -271,9 +287,12 @@ static void ConvertBytePackedToWordPacked(const unsigned char *input, unsigned i
 	unsigned int mask, shift;
 	
 	unsigned int buffer[BITS_IN_WORD];
+	memset_s(buffer, BITS_IN_WORD * sizeof(unsigned int), 0);
 
 	bitPerBytePackedChar = BitPerBytePackedChar(alphabetSize);
 	bitPerWordPackedChar = BitPerWordPackedChar(alphabetSize);
+	assert(bitPerBytePackedChar != 0);
+	assert(bitPerWordPackedChar != 0);
 	charPerByte = BITS_IN_BYTE / bitPerBytePackedChar;
 	charPerWord = BITS_IN_WORD / bitPerWordPackedChar;
 
@@ -489,6 +508,7 @@ static void ForwardDNAAllOccCountNoLimit(const unsigned int*  dna, const bgint_t
 	}
 
 	if (charToCount > 0) {
+		assert(charToCount < 16);
 		c = *dna & truncateRightMask[charToCount];	// increase count of 'a' by 16 - c;
 		sum += dnaDecodeTable[c >> 16];
 		sum += dnaDecodeTable[c & 0xFFFF];
@@ -572,6 +592,7 @@ static unsigned int ForwardDNAOccCount(const unsigned int*  dna, const unsigned 
 	}
 
 	if (charToCount > 0) {
+		assert(charToCount < 16);
 		c = dna[i] & truncateRightMask[charToCount];	// increase count of 'a' by 16 - c;
 		sum += dnaDecodeTable[c >> 16];
 		sum += dnaDecodeTable[c & 0xFFFF];
@@ -1473,6 +1494,7 @@ BWTInc *BWTIncConstructFromPacked(const char *inputFileName, bgint_t initialMaxB
 				ferror(packedFile)? strerror(errno) : "Unexpected end of file");
 		exit(1);
 	}
+	assert(lastByteLength >= 0 && lastByteLength <= 255);
 	totalTextLength = TextLengthFromBytePacked(packedFileLen, BIT_PER_CHAR, lastByteLength);
 
 	bwtInc = BWTIncCreate(totalTextLength, initialMaxBuildSize, incMaxBuildSize);

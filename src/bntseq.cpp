@@ -334,6 +334,7 @@ int64_t bns_fasta2bntseq(gzFile fp_fa, const char *prefix, int for_only)
 	bns->ambs = (bntamb1_t*)calloc(m_holes, sizeof(bntamb1_t));
     assert(bns->ambs != NULL);
 	pac = (uint8_t*) calloc(m_pac/4, 1);
+	assert(pac != NULL);
 	q = bns->ambs;
 	//assert(strlen(prefix) + 4 < 1024);
 	strcpy_s(name, PATH_MAX, prefix); strcat_s(name, PATH_MAX, ".pac");
@@ -445,7 +446,6 @@ uint8_t *bns_get_seq_v2(int64_t l_pac, const uint8_t *pac, int64_t beg, int64_t 
     if (end > l_pac<<1) end = l_pac<<1;
     if (beg < 0) beg = 0;
     if (beg >= l_pac || end <= l_pac) {
-        int64_t k, l = 0;
         *len = end - beg;
         
         //seq = (uint8_t*) malloc(end - beg);

@@ -55,7 +55,7 @@ typedef struct {
 	// occurance array, separated to two parts
 	uint32_t cnt_table[256];
 	// suffix array
-	int sa_intv;
+	bwtint_t sa_intv;
 	bwtint_t n_sa;
 	bwtint_t *sa;
 } bwt_t;

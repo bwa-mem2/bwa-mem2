@@ -230,7 +230,7 @@ static void QSufSortInsertSortSplit(qsint_t* __restrict V, qsint_t* __restrict I
 	qsint_t i, j;
 	qsint_t tmpKey, tmpPos;
 	qsint_t numItem;
-	qsint_t key[INSERT_SORT_NUM_ITEM], pos[INSERT_SORT_NUM_ITEM];
+	qsint_t key[INSERT_SORT_NUM_ITEM], pos[INSERT_SORT_NUM_ITEM] = {};
 	qsint_t negativeSortedLength;
 	qsint_t groupNum;
 
