@@ -58,11 +58,12 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define ALIGN_OFF 1
 
 #define MAX_THREADS 256
-
-
 #define LIM_R 128
 #define LIM_C 128
 
+#define SA_COMPRESSION 1
+#define SA_COMPX 02 // (= power of 2)
+#define SA_COMPX_MASK 0x3    // 0x7 or 0x3 or 0x1
 
 /*** Runtime profiling macros ***/
 #define INDEX 0

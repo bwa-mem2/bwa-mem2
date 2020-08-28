@@ -31,6 +31,8 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include "sais.h"
 #include "FMI_search.h"
 #include "memcpy_bwamem.h"
+#include "profiling.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -171,12 +173,14 @@ int FMI_search::build_fm_index_avx(const char *ref_file_name, char *binary_seq, 
     index_alloc += size;
     assert_not_null(bwt, size, index_alloc);
 
+    int64_t sentinel_index = -1;
     for(i=0; i< ref_seq_len; i++)
     {
         if(sa_bwt[i] == 0)
         {
             bwt[i] = 4;
             printf("BWT[%ld] = 4\n", i);
+            sentinel_index = i;
         }
         else
         {
@@ -225,7 +229,7 @@ int FMI_search::build_fm_index_avx(const char *ref_file_name, char *binary_seq, 
             cpo.cp_count[1] = cp_count[1];
             cpo.cp_count[2] = cp_count[2];
             cpo.cp_count[3] = cp_count[3];
-			memcpy_bwamem(cpo.bwt_str, CP_BLOCK_SIZE_AVX * sizeof(uint8_t), bwt + i, CP_BLOCK_SIZE_AVX * sizeof(uint8_t), __FILE__, __LINE__);
+			memcpy_s(cpo.bwt_str, CP_BLOCK_SIZE_AVX * sizeof(uint8_t), bwt + i, CP_BLOCK_SIZE_AVX * sizeof(uint8_t));
 
             cp_occ[i >> CP_SHIFT_AVX] = cpo;
         }
@@ -236,6 +240,30 @@ int FMI_search::build_fm_index_avx(const char *ref_file_name, char *binary_seq, 
     _mm_free(bwt);
     index_alloc -= (ref_seq_len_aligned * sizeof(uint8_t) + cp_occ_size * sizeof(CP_OCC_AVX));
 
+    #if SA_COMPRESSION
+
+    size = ((ref_seq_len >> SA_COMPX) + 1) * sizeof(uint32_t);
+    uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
+    index_alloc += size;
+    assert_not_null(sa_ls_word, size, index_alloc);
+    size = ((ref_seq_len >> SA_COMPX) + 1) * sizeof(int8_t);
+    int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
+    index_alloc += size;
+    assert_not_null(sa_ms_byte, size, index_alloc);
+    int64_t pos = 0;
+    for(i = 0; i < ref_seq_len; i++)
+    {
+        if ((i & SA_COMPX_MASK) == 0) {        
+            sa_ls_word[pos] = sa_bwt[i] & 0xffffffff;
+            sa_ms_byte[pos] = (sa_bwt[i] >> 32) & 0xff;
+            pos++;
+        }
+    }
+    outstream.write((char*)sa_ms_byte, ((ref_seq_len >> SA_COMPX) + 1) * sizeof(int8_t));
+    outstream.write((char*)sa_ls_word, ((ref_seq_len >> SA_COMPX) + 1) * sizeof(uint32_t));
+    
+    #else
+    
     size = ref_seq_len * sizeof(uint32_t);
     uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
     index_alloc += size;
@@ -251,6 +279,10 @@ int FMI_search::build_fm_index_avx(const char *ref_file_name, char *binary_seq, 
     }
     outstream.write((char*)sa_ms_byte, ref_seq_len * sizeof(int8_t));
     outstream.write((char*)sa_ls_word, ref_seq_len * sizeof(uint32_t));
+
+    #endif
+
+    outstream.write((char *)(&sentinel_index), 1 * sizeof(int64_t));
     outstream.close();
     printf("max_occ_ind = %ld\n", i >> CP_SHIFT_AVX);    
     fflush(stdout);
@@ -288,12 +320,14 @@ int FMI_search::build_fm_index_scalar(const char *ref_file_name, char *binary_se
     bwt = (uint8_t *)_mm_malloc(size, 64);
     assert_not_null(bwt, size, index_alloc);
 
+    int64_t sentinel_index = -1;
     for(i=0; i< ref_seq_len; i++)
     {
         if(sa_bwt[i] == 0)
         {
             bwt[i] = 4;
             printf("BWT[%ld] = 4\n", i);
+            sentinel_index = i;
         }
         else
         {
@@ -383,6 +417,30 @@ int FMI_search::build_fm_index_scalar(const char *ref_file_name, char *binary_se
     _mm_free(cp_occ);
     _mm_free(bwt);
 
+    #if SA_COMPRESSION  
+
+    size = ((ref_seq_len >> SA_COMPX)+ 1)  * sizeof(uint32_t);
+    uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
+    assert_not_null(sa_ls_word, size, index_alloc);
+    size = ((ref_seq_len >> SA_COMPX) + 1) * sizeof(int8_t);
+    int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
+    assert_not_null(sa_ms_byte, size, index_alloc);
+    int64_t pos = 0;
+    for(i = 0; i < ref_seq_len; i++)
+    {
+        if ((i & SA_COMPX_MASK) == 0)
+        {
+            sa_ls_word[pos] = sa_bwt[i] & 0xffffffff;
+            sa_ms_byte[pos] = (sa_bwt[i] >> 32) & 0xff;
+            pos++;
+        }
+    }
+    fprintf(stderr, "pos: %d, ref_seq_len__: %ld\n", pos, ref_seq_len >> SA_COMPX);
+    outstream.write((char*)sa_ms_byte, ((ref_seq_len >> SA_COMPX) + 1) * sizeof(int8_t));
+    outstream.write((char*)sa_ls_word, ((ref_seq_len >> SA_COMPX) + 1) * sizeof(uint32_t));
+    
+    #else
+    
     size = ref_seq_len * sizeof(uint32_t);
     uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
     assert_not_null(sa_ls_word, size, index_alloc);
@@ -396,6 +454,10 @@ int FMI_search::build_fm_index_scalar(const char *ref_file_name, char *binary_se
     }
     outstream.write((char*)sa_ms_byte, ref_seq_len * sizeof(int8_t));
     outstream.write((char*)sa_ls_word, ref_seq_len * sizeof(uint32_t));
+    
+    #endif
+
+    outstream.write((char *)(&sentinel_index), 1 * sizeof(int64_t));
     outstream.close();
     printf("max_occ_ind = %ld\n", i >> CP_SHIFT_SCALAR);    
     fflush(stdout);
@@ -485,17 +547,33 @@ int FMI_search::build_index() {
 
 void FMI_search::load_index()
 {
+#if ((!__AVX2__))
+    base_mask[0][0] = 0;
+    base_mask[0][1] = 0;
+    base_mask[1][0] = 0xffffffffffffffffL;
+    base_mask[1][1] = 0;
+    base_mask[2][0] = 0;
+    base_mask[2][1] = 0xffffffffffffffffL;
+    base_mask[3][0] = 0xffffffffffffffffL;
+    base_mask[3][1] = 0xffffffffffffffffL;
+#else
+    c_bcast_array = (uint8_t *)_mm_malloc(256 * sizeof(uint8_t), 64);
+    for(auto ii = 0; ii < 4; ii++)
+    {
+        int32_t j;
+        for(j = 0; j < 64; j++)
+        {
+            c_bcast_array[ii * 64 + j] = ii;
+        }
+    }
+#endif
+
     char *ref_file_name = file_name;
     //beCalls = 0;
     char cp_file_name[PATH_MAX];
     strcpy_s(cp_file_name, PATH_MAX, ref_file_name);
     strcat_s(cp_file_name, PATH_MAX, CP_FILENAME_SUFFIX);
-//    assert(strnlen(ref_file_name, 1000) + 12 < 1000);
-//#if ((!__AVX2__))
-//    sprintf(cp_file_name, "%s.bwt.2bit.%d", ref_file_name, CP_BLOCK_SIZE_SCALAR);
-//#else
-//    sprintf(cp_file_name, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE_AVX);
-//#endif
+
     // Read the BWT and FM index of the reference sequence
     FILE *cpstream = NULL;
     cpstream = fopen(cp_file_name,"rb");
@@ -531,19 +609,50 @@ void FMI_search::load_index()
     {
         count[ii] = count[ii] + 1;
     }
+
+    #if SA_COMPRESSION
+
+    int64_t reference_seq_len_ = (reference_seq_len >> SA_COMPX) + 1;
+    sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len_ * sizeof(int8_t), 64);
+    sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len_ * sizeof(uint32_t), 64);
+    err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len_, cpstream);
+    err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len_, cpstream);
+    
+    #else
+    
     sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len * sizeof(int8_t), 64);
     sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len * sizeof(uint32_t), 64);
     err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len, cpstream);
     err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len, cpstream);
-    fclose(cpstream);
+
+    #endif
 
     sentinel_index = -1;
+    #if SA_COMPRESSION
+    err_fread_noeof(&sentinel_index, sizeof(int64_t), 1, cpstream);
+    fprintf(stderr, "* sentinel-index: %ld\n", sentinel_index);
+    #endif
+    fclose(cpstream);
+
     int64_t x;
+    #if !SA_COMPRESSION
     for(x = 0; x < reference_seq_len; x++)
     {
-        if(get_sa_entry(x) == 0)
+        // fprintf(stderr, "x: %ld\n", x);
+        #if SA_COMPRESSION
+        if(get_sa_entry_compressed(x) == 0) {
             sentinel_index = x;
+            break;
+        }
+        #else
+        if(get_sa_entry(x) == 0) {
+            sentinel_index = x;
+            break;
+        }
+        #endif
     }
+    fprintf(stderr, "\nsentinel_index: %ld\n", x);    
+    #endif
 
     fprintf(stderr, "* Count:\n");
     for(x = 0; x < 5; x++)
@@ -556,26 +665,6 @@ void FMI_search::load_index()
             ref_file_name);
     bwa_idx_load_ele(ref_file_name, BWA_IDX_ALL);
 
-#if ((!__AVX2__))
-    base_mask[0][0] = 0;
-    base_mask[0][1] = 0;
-    base_mask[1][0] = 0xffffffffffffffffL;
-    base_mask[1][1] = 0;
-    base_mask[2][0] = 0;
-    base_mask[2][1] = 0xffffffffffffffffL;
-    base_mask[3][0] = 0xffffffffffffffffL;
-    base_mask[3][1] = 0xffffffffffffffffL;
-#else
-    c_bcast_array = (uint8_t *)_mm_malloc(256 * sizeof(uint8_t), 64);
-    for(ii = 0; ii < 4; ii++)
-    {
-        int32_t j;
-        for(j = 0; j < 64; j++)
-        {
-            c_bcast_array[ii * 64 + j] = ii;
-        }
-    }
-#endif
     fprintf(stderr, "* Done reading Index!!\n");
 }
 
@@ -1190,4 +1279,300 @@ void FMI_search::get_sa_entries(SMEM *smemArray, int64_t *coordArray, int32_t *c
         coordCountArray[i] = c;
         totalCoordCount += c;
     }
+}
+
+// sa_compression
+int64_t FMI_search::get_sa_entry_compressed(int64_t pos, int tid)
+{
+    if ((pos & SA_COMPX_MASK) == 0) {
+        
+        #if  SA_COMPRESSION
+        int64_t sa_entry = sa_ms_byte[pos >> SA_COMPX];
+        #else
+        int64_t sa_entry = sa_ms_byte[pos];     // simulation
+        #endif
+        
+        sa_entry = sa_entry << 32;
+        
+        #if  SA_COMPRESSION
+        sa_entry = sa_entry + sa_ls_word[pos >> SA_COMPX];
+        #else
+        sa_entry = sa_entry + sa_ls_word[pos];   // simulation
+        #endif
+        
+        return sa_entry;        
+    }
+    else {
+        // tprof[MEM_CHAIN][tid] ++;
+        int64_t offset = 0; 
+        int64_t sp = pos;
+        while(true)
+        {
+            #if ((!__AVX2__))
+            
+            int64_t occ_id_pp_ = sp >> CP_SHIFT_SCALAR;
+            int64_t y_pp_ = CP_BLOCK_SIZE_SCALAR - (sp & CP_MASK_SCALAR) - 1; 
+            BIT_DATA_TYPE bwt_str_bit0_pp_ = cp_occ[occ_id_pp_].bwt_str_bit0; 
+            BIT_DATA_TYPE bwt_str_bit1_pp_ = cp_occ[occ_id_pp_].bwt_str_bit1; 
+            uint8_t b = ((bwt_str_bit0_pp_ >> y_pp_) & 0x1)| (((bwt_str_bit1_pp_ >> y_pp_) & 0x1) << 1);
+
+            GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, bwt_str_bit0_sp, bwt_str_bit1_sp, bit0_cmp_sp, bit1_cmp_sp, mismatch_mask_sp);
+
+            sp = count[b] + occ_sp;
+            
+            #else
+            
+            int64_t occ_id_pp = sp >> CP_SHIFT_AVX;
+            uint8_t b = (cp_occ[occ_id_pp].bwt_str)[sp & CP_MASK_AVX];
+            __m256i b256 = _mm256_load_si256((const __m256i *)(c_bcast_array + b * 64));
+            GET_OCC(sp, b, b256, occ_id_sp, y_sp, occ_sp, bwt_str_sp, bwt_sp_vec, mask_sp_vec, mask_sp);
+            sp = count[b] + occ_sp;
+            assert(sp != 2668688548);
+            if (b >= 5 || b == 4) {
+                fprintf(stderr, "b: %d, sp: %ld, occ_id_pp: %ld, pos: %ld\n", b, sp, occ_id_pp, pos);
+                assert(b < 5);
+            }
+            #endif
+            
+            offset ++;
+            // tprof[ALIGN1][tid] ++;
+            if ((sp & SA_COMPX_MASK) == 0) break;
+        }
+        // assert((reference_seq_len >> SA_COMPX) - 1 >= (sp >> SA_COMPX));
+        #if  SA_COMPRESSION
+        int64_t sa_entry = sa_ms_byte[sp >> SA_COMPX];
+        #else
+        int64_t sa_entry = sa_ms_byte[sp];      // simultion
+        #endif
+        
+        sa_entry = sa_entry << 32;
+
+        #if  SA_COMPRESSION
+        sa_entry = sa_entry + sa_ls_word[sp >> SA_COMPX];
+        #else
+        sa_entry = sa_entry + sa_ls_word[sp];      // simulation
+        #endif
+        
+        sa_entry += offset;
+        return sa_entry;
+    }
+}
+
+void FMI_search::get_sa_entries(SMEM *smemArray, int64_t *coordArray, int32_t *coordCountArray, uint32_t count, int32_t max_occ, int tid)
+{
+    
+    uint32_t i;
+    int32_t totalCoordCount = 0;
+    for(i = 0; i < count; i++)
+    {
+        int32_t c = 0;
+        SMEM smem = smemArray[i];
+        int64_t hi = smem.k + smem.s;
+        int64_t step = (smem.s > max_occ) ? smem.s / max_occ : 1;
+        int64_t j;
+        for(j = smem.k; (j < hi) && (c < max_occ); j+=step, c++)
+        {
+            int64_t pos = j;
+            int64_t sa_entry = get_sa_entry_compressed(pos, tid);
+            coordArray[totalCoordCount + c] = sa_entry;
+        }
+        // coordCountArray[i] = c;
+        *coordCountArray += c;
+        totalCoordCount += c;
+    }
+}
+
+// SA_COPMRESSION w PREFETCH
+int64_t FMI_search::call_one_step(int64_t pos, int64_t &sa_entry, int64_t &offset)
+{
+    if ((pos & SA_COMPX_MASK) == 0) {        
+        sa_entry = sa_ms_byte[pos >> SA_COMPX];        
+        sa_entry = sa_entry << 32;        
+        sa_entry = sa_entry + sa_ls_word[pos >> SA_COMPX];        
+        // return sa_entry;
+        return 1;
+    }
+    else {
+        // int64_t offset = 0; 
+        int64_t sp = pos;
+
+        #if ((!__AVX2__))
+        
+        int64_t occ_id_pp_ = sp >> CP_SHIFT_SCALAR;
+        int64_t y_pp_ = CP_BLOCK_SIZE_SCALAR - (sp & CP_MASK_SCALAR) - 1; 
+        BIT_DATA_TYPE bwt_str_bit0_pp_ = cp_occ[occ_id_pp_].bwt_str_bit0; 
+        BIT_DATA_TYPE bwt_str_bit1_pp_ = cp_occ[occ_id_pp_].bwt_str_bit1; 
+        uint8_t b = ((bwt_str_bit0_pp_ >> y_pp_) & 0x1)| (((bwt_str_bit1_pp_ >> y_pp_) & 0x1) << 1);
+        
+        GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, bwt_str_bit0_sp, bwt_str_bit1_sp, bit0_cmp_sp, bit1_cmp_sp, mismatch_mask_sp);
+        
+        sp = count[b] + occ_sp;
+        
+        #else
+        
+        int64_t occ_id_pp = sp >> CP_SHIFT_AVX;
+        uint8_t b = (cp_occ[occ_id_pp].bwt_str)[sp & CP_MASK_AVX];
+        __m256i b256 = _mm256_load_si256((const __m256i *)(c_bcast_array + b * 64));
+        GET_OCC(sp, b, b256, occ_id_sp, y_sp, occ_sp, bwt_str_sp, bwt_sp_vec, mask_sp_vec, mask_sp);
+        sp = count[b] + occ_sp;
+
+        if (b >= 5 || b == 4) {
+            fprintf(stderr, "b: %d, sp: %ld, occ_id_pp: %ld, pos: %ld\n", b, sp, occ_id_pp, pos);
+            exit(EXIT_FAILURE);
+        }
+        #endif
+        
+        offset ++;
+        if ((sp & SA_COMPX_MASK) == 0) {
+    
+            sa_entry = sa_ms_byte[sp >> SA_COMPX];        
+            sa_entry = sa_entry << 32;
+            sa_entry = sa_entry + sa_ls_word[sp >> SA_COMPX];
+            
+            sa_entry += offset;
+            // return sa_entry;
+            return 1;
+        }
+        else {
+            sa_entry = sp;
+            return 0;
+        }
+    } // else
+}
+
+void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
+                                         int32_t *coordCountArray, uint32_t count,
+                                         int32_t max_occ, int tid, int64_t &id_)
+{
+    
+    // uint32_t i;
+    int32_t totalCoordCount = 0;
+    int32_t mem_lim = 0, id = 0;
+    
+    for(auto i = 0; i < count; i++)
+    {
+        int32_t c = 0;
+        SMEM smem = smemArray[i];
+        mem_lim += smem.s;
+    }
+    // goto label;    
+    int64_t *pos_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
+    int64_t *map_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
+
+    for(auto i = 0; i < count; i++)
+    {
+        int32_t c = 0;
+        SMEM smem = smemArray[i];
+        int64_t hi = smem.k + smem.s;
+        int64_t step = (smem.s > max_occ) ? smem.s / max_occ : 1;
+        int64_t j;
+        for(j = smem.k; (j < hi) && (c < max_occ); j+=step, c++)
+        {
+            int64_t pos = j;
+             pos_ar[id]  = pos;
+             map_ar[id++] = totalCoordCount + c;
+            // int64_t sa_entry = get_sa_entry_compressed(pos, tid);
+            // coordArray[totalCoordCount + c] = sa_entry;
+        }
+        //coordCountArray[i] = c;
+        *coordCountArray += c;
+        totalCoordCount += c;
+    }
+    
+    id_ += id;
+    
+    const int32_t sa_batch_size = 20;
+    int64_t working_set[sa_batch_size], map_pos[sa_batch_size];;
+    int64_t offset[sa_batch_size] = {-1};
+    
+    auto i = 0, j = 0;    
+    while(i<id && j<sa_batch_size)
+    {
+        int64_t pos =  pos_ar[i];
+        working_set[j] = pos;
+        map_pos[j] = map_ar[i];
+        offset[j] = 0;
+        
+        if (pos & SA_COMPX_MASK == 0) {
+            _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
+            _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
+        }
+        else {
+            #if ((__AVX__))
+            int64_t occ_id_pp = pos >> CP_SHIFT_AVX;
+            _mm_prefetch(&cp_occ[occ_id_pp], _MM_HINT_T0);
+            #else
+            int64_t occ_id_pp_ = pos >> CP_SHIFT_SCALAR;
+            _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+            #endif
+        }
+        i++;
+        j++;
+    }
+        
+    int lim = j, all_quit = 0;
+    while (all_quit < id)
+    {
+        
+        for (auto k=0; k<lim; k++)
+        {
+            int64_t sp = 0, pos = 0;
+            bool quit;
+            if (offset[k] >= 0) {
+                quit = call_one_step(working_set[k], sp, offset[k]);
+                // printf("quit: %d\n", quit);
+            }
+            else
+                continue;
+            
+            if (quit) {
+                coordArray[map_pos[k]] = sp;
+                all_quit ++;
+                
+                if (i < id)
+                {
+                    pos = pos_ar[i];
+                    working_set[k] = pos;
+                    map_pos[k] = map_ar[i++];
+                    offset[k] = 0;
+                    
+                    if (pos & SA_COMPX_MASK == 0) {
+                        _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
+                        _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
+                    }
+                    else {
+                        #if ((__AVX__))
+                        int64_t occ_id_pp = pos >> CP_SHIFT_AVX;
+                        _mm_prefetch(&cp_occ[occ_id_pp], _MM_HINT_T0);
+                        #else
+                        int64_t occ_id_pp_ = pos >> CP_SHIFT_SCALAR;
+                        _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+                        #endif
+                    }
+                }
+                else
+                    offset[k] = -1;
+            }
+            else {
+                working_set[k] = sp;
+                if (sp & SA_COMPX_MASK == 0) {
+                    _mm_prefetch(&sa_ms_byte[sp >> SA_COMPX], _MM_HINT_T0);
+                    _mm_prefetch(&sa_ls_word[sp >> SA_COMPX], _MM_HINT_T0);
+                }
+                else {
+                    #if ((__AVX__))
+                    int64_t occ_id_pp = sp >> CP_SHIFT_AVX;
+                    _mm_prefetch(&cp_occ[occ_id_pp], _MM_HINT_T0);
+                    #else
+                    int64_t occ_id_pp_ = sp >> CP_SHIFT_SCALAR;
+                    _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+                    #endif
+                }                
+            }
+        }
+    }
+    
+label:
+    _mm_free(pos_ar);
+    _mm_free(map_ar);
 }

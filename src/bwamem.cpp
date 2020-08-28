@@ -729,8 +729,14 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
             step = p->s > opt->max_occ? p->s / opt->max_occ : 1;
 
             // uint64_t tim = __rdtsc();
-            int cnt = 0;            
+            int cnt = 0;
+            #if SA_COMPRESSION
+            fmi->get_sa_entries(p, sa_coord, &cnt, 1, opt->max_occ, tid);  // sa compressed
+            // fmi->get_sa_entries_prefetch(p, sa_coord, &cnt, 1, opt->max_occ, tid);  // sa compressed prefetch
+            #else            
             fmi->get_sa_entries(p, sa_coord, &cnt, 1, opt->max_occ);
+            #endif
+            
             cnt = 0;
             // tprof[MEM_SA][tid] += __rdtsc() - tim;
             
