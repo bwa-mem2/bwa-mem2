@@ -91,7 +91,7 @@ void pac2nt(const char *fn_pac, std::string &reference_seq)
 	// initialization
 	seq_len = pac_seq_len(fn_pac);
 	assert(seq_len > 0);
-	assert(seq_len <= 0x7fffffffffL);
+	assert(seq_len <= 0x7fffffffffffffffL);
 	fp = xopen(fn_pac, "rb");
 
 	// prepare sequence
