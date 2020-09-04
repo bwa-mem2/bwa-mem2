@@ -31,8 +31,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "macro.h"
 #include <stdint.h>
 #include <assert.h>
-
-extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
+#include "profiling.h"
 
 int find_opt(uint64_t *a, int len, uint64_t *max, uint64_t *min, double *avg)
 {
@@ -170,6 +169,25 @@ int display_stats(int nthreads)
                 agg1, agg2, agg1*1.0/agg2);
     }
 
+    double res, max_ = 0, min_=1e10;
+    for (int i=0; i<nthreads; i++) {
+        double val = (tprof[ALIGN1][i]*1.0) / tprof[MEM_CHAIN][i];
+        res += val;
+        if (max_ < val) max_ = val;
+        if (min_ > val) min_ = val;
+    }
+    fprintf(stderr, "\tAvg. FM-index traversal per get_sa_entry(): avg: %lf, max: %lf, min: %lf\n",
+            res/nthreads, max_, min_);
+
+    int64_t tot_inst1 = 0, tot_inst2 = 0;
+    for (int i=0; i<nthreads; i++) {
+        tot_inst1 += tprof[SAM1][i];
+        tot_inst2 += tprof[SAM2][i];
+    }
+    
+    fprintf(stderr, "\ttot_inst1: %ld, tot_inst2: %ld, over %d threads\n",
+            tot_inst1, tot_inst2, nthreads);
+    
 #if HIDE
     fprintf(stderr, "\n BSW Perf.:\n");
     find_opt(tprof[MEM_ALN2_B], 1, &max, &min, &avg);

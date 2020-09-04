@@ -70,7 +70,7 @@ If you use BWA-Mich, please cite the following [paper](https://biorxiv.org/cgi/c
 ### BWA-MEM2 (old)
 ## Important Information
 
-***Index structure has changed since commit 6743183. Rebuild the Index if you are using a later commit.***
+***Index structure has changed (in commit 494a441, 28/08/2020) due to compression of the suffix array in the Index. Rebuild the Index***
 
 ***Added MC flag in the output sam file in commit a591e22. Output should match original bwa-mem version 0.7.17.***
 
