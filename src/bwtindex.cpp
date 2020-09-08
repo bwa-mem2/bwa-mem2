@@ -217,7 +217,7 @@ int bwa_bwt2sa(int argc, char *argv[]) // the "bwt2sa" command
 		default: return 1;
 		}
 	}
-	assert(sa_intv >= 0 && sa_intv < INT_MAX);
+	assert(sa_intv >= 0 && sa_intv <= INT_MAX);
 	if (optind + 2 > argc) {
 		fprintf(stderr, "Usage: bwa bwt2sa [-i %d] <in.bwt> <out.sa>\n", sa_intv);
 		return 1;
