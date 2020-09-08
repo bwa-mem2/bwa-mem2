@@ -1,6 +1,9 @@
 ## Important Information
 
-***Index strucutre has changed (8th September 2020) due to 8x compression of suffix array. Please rebuild the index***
+***Index strucutre has changed (in commit f687b1, 8th September 2020) due to 8x compression of suffix array. Please rebuild the index.***
+***The index size on disk and memory footprint is down to ~16GB from ~42GB earlier (without SA compression).***
+***we see performance impact (non-index-IO time) of 3%-7%. But there is a substantial reduction in index IO time for the obvious reasons.***
+
 ***Ignore this msg for latest commit: Index structure has changed (in commit 494a441, 28/08/2020) due to 4x compression of the suffix array in the Index. Rebuild the Index***
 
 ***Added MC flag in the output sam file in commit a591e22. Output should match original bwa-mem version 0.7.17.***
