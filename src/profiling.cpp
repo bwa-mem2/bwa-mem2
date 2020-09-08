@@ -143,11 +143,11 @@ int display_stats(int nthreads)
     fprintf(stderr, "\t\tSAL compute avg: %0.2lf, (%0.2lf, %0.2lf)\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
     
-#if HIDE
+    #if 1 //HIDE
     find_opt(tprof[MEM_SA], nthreads, &max, &min, &avg);
     fprintf(stderr, "\t\t\t\tMEM_SA avg: %0.2lf, (%0.2lf, %0.2lf)\n\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
-#endif
+    #endif
     
     // printf("\n\t BSW compute time (sec):\n");
     find_opt(tprof[MEM_ALN2], nthreads, &max, &min, &avg);
