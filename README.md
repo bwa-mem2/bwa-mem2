@@ -1,6 +1,7 @@
 ## Important Information
 
-***Index structure has changed (in commit 494a441, 28/08/2020) due to compression of the suffix array in the Index. Rebuild the Index***
+***Index strucutre has changed (8th September 2020) due to 8x compression of suffix array. Please rebuild the index***
+***Ignore this msg for latest commit: Index structure has changed (in commit 494a441, 28/08/2020) due to 4x compression of the suffix array in the Index. Rebuild the Index***
 
 ***Added MC flag in the output sam file in commit a591e22. Output should match original bwa-mem version 0.7.17.***
 

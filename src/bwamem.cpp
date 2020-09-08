@@ -682,7 +682,8 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
     
     int num[nseq];
     memset(num, 0, nseq*sizeof(int));
-    int64_t *sa_coord = (int64_t *) _mm_malloc(sizeof(int64_t) * opt->max_occ, 64);
+    int smem_buf_size = 6000;
+    int64_t *sa_coord = (int64_t *) _mm_malloc(sizeof(int64_t) * opt->max_occ * smem_buf_size, 64);
     int64_t seedBufCount = 0;
     
     for (int l=0; l<nseq; l++)
@@ -720,6 +721,23 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
         } while (pos < num_smem - 1 && matchArray[pos].rid == matchArray[pos + 1].rid);
         l_rep += e - b;
 
+        // bwt_sa
+        // assert(pos - smem_ptr + 1 < 6000);
+        if (pos - smem_ptr + 1 >= smem_buf_size)
+        {
+            int csize = smem_buf_size;
+            smem_buf_size *= 2;
+            sa_coord = (int64_t *) _mm_realloc(sa_coord, csize, opt->max_occ * smem_buf_size,
+                                               sizeof(int64_t));
+            assert(sa_coord != NULL);
+        }
+        int64_t id = 0, cnt_ = 0, mypos = 0;
+        uint64_t tim = __rdtsc();
+        fmi->get_sa_entries_prefetch(&matchArray[smem_ptr], sa_coord, &cnt_,
+                                     pos - smem_ptr + 1, opt->max_occ, tid, id);  // sa compressed prefetch
+        tprof[MEM_SA][tid] += __rdtsc() - tim;
+        
+        
         for (i = smem_ptr; i <= pos; i++)
         {
             SMEM *p = &matchArray[i];
@@ -731,7 +749,7 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
             // uint64_t tim = __rdtsc();
             int cnt = 0;
             #if SA_COMPRESSION
-            fmi->get_sa_entries(p, sa_coord, &cnt, 1, opt->max_occ, tid);  // sa compressed
+            // fmi->get_sa_entries(p, sa_coord, &cnt, 1, opt->max_occ, tid);  // sa compressed
             // fmi->get_sa_entries_prefetch(p, sa_coord, &cnt, 1, opt->max_occ, tid);  // sa compressed prefetch
             #else            
             fmi->get_sa_entries(p, sa_coord, &cnt, 1, opt->max_occ);
@@ -745,8 +763,9 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
                 mem_chain_t tmp, *lower, *upper;
                 mem_seed_t s;
                 int rid, to_add = 0;
-                                
-                s.rbeg = tmp.pos = sa_coord[cnt++];
+
+                s.rbeg = tmp.pos = sa_coord[mypos++];
+                // s.rbeg = tmp.pos = sa_coord[cnt++];
                 s.qbeg = p->m;
                 s.score= s.len = slen;
                 if (s.rbeg < 0 || s.len < 0) 

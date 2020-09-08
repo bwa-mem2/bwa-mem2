@@ -1327,11 +1327,11 @@ int64_t FMI_search::get_sa_entry_compressed(int64_t pos, int tid)
             __m256i b256 = _mm256_load_si256((const __m256i *)(c_bcast_array + b * 64));
             GET_OCC(sp, b, b256, occ_id_sp, y_sp, occ_sp, bwt_str_sp, bwt_sp_vec, mask_sp_vec, mask_sp);
             sp = count[b] + occ_sp;
-            assert(sp != 2668688548);
-            if (b >= 5 || b == 4) {
-                fprintf(stderr, "b: %d, sp: %ld, occ_id_pp: %ld, pos: %ld\n", b, sp, occ_id_pp, pos);
-                assert(b < 5);
-            }
+            // assert(sp != 2668688548);
+            // if (b >= 5 || b == 4) {
+            //     fprintf(stderr, "b: %d, sp: %ld, occ_id_pp: %ld, pos: %ld\n", b, sp, occ_id_pp, pos);
+            //     assert(b < 5);
+            // }
             #endif
             
             offset ++;
@@ -1382,7 +1382,7 @@ void FMI_search::get_sa_entries(SMEM *smemArray, int64_t *coordArray, int32_t *c
     }
 }
 
-// SA_COPMRESSION w PREFETCH
+// SA_COPMRESSION w/ PREFETCH
 int64_t FMI_search::call_one_step(int64_t pos, int64_t &sa_entry, int64_t &offset)
 {
     if ((pos & SA_COMPX_MASK) == 0) {        
@@ -1441,8 +1441,8 @@ int64_t FMI_search::call_one_step(int64_t pos, int64_t &sa_entry, int64_t &offse
 }
 
 void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
-                                         int32_t *coordCountArray, uint32_t count,
-                                         int32_t max_occ, int tid, int64_t &id_)
+                                         int64_t *coordCountArray, int64_t count,
+                                         const int32_t max_occ, int tid, int64_t &id_)
 {
     
     // uint32_t i;
@@ -1455,7 +1455,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         SMEM smem = smemArray[i];
         mem_lim += smem.s;
     }
-    // goto label;    
+
     int64_t *pos_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
     int64_t *map_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
 
@@ -1520,7 +1520,6 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
             bool quit;
             if (offset[k] >= 0) {
                 quit = call_one_step(working_set[k], sp, offset[k]);
-                // printf("quit: %d\n", quit);
             }
             else
                 continue;
@@ -1572,7 +1571,6 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         }
     }
     
-label:
     _mm_free(pos_ar);
     _mm_free(map_ar);
 }

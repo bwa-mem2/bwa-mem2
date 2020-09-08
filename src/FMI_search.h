@@ -216,9 +216,9 @@ class FMI_search: public indexEle
                         int tid);
     int64_t call_one_step(int64_t pos, int64_t &sa_entry, int64_t &offset);
     void get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
-                                 int32_t *coordCountArray, uint32_t count,
-                                 int32_t max_occ, int tid, int64_t &id_);
-
+                                 int64_t *coordCountArray, int64_t count,
+                                 const int32_t max_occ, int tid, int64_t &id_);
+    
     int64_t reference_seq_len;
     int64_t sentinel_index;
 private:

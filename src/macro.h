@@ -62,8 +62,8 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define LIM_C 128
 
 #define SA_COMPRESSION 1
-#define SA_COMPX 02 // (= power of 2)
-#define SA_COMPX_MASK 0x3    // 0x7 or 0x3 or 0x1
+#define SA_COMPX 03 // (= power of 2)
+#define SA_COMPX_MASK 0x7    // 0x7 or 0x3 or 0x1
 
 /*** Runtime profiling macros ***/
 #define INDEX 0
