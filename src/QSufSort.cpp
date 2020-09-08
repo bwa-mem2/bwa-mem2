@@ -33,6 +33,17 @@
 #include <stdlib.h>
 #include <limits.h>
 #include "QSufSort.h"
+#include "memcpy_bwamem.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#include "safe_str_lib.h"
+#include <snprintf_s.h>
+#ifdef __cplusplus
+}
+#endif
 
 #define min(value1, value2)						( ((value1) < (value2)) ? (value1) : (value2) )
 #define med3(a, b, c)							( a<b ? (b<c ? b : a<c ? c : a) : (b>c ? b : a>c ? c : a))
@@ -231,6 +242,7 @@ static void QSufSortInsertSortSplit(qsint_t* __restrict V, qsint_t* __restrict I
 	qsint_t tmpKey, tmpPos;
 	qsint_t numItem;
 	qsint_t key[INSERT_SORT_NUM_ITEM], pos[INSERT_SORT_NUM_ITEM] = {};
+	memset_s(pos, INSERT_SORT_NUM_ITEM * sizeof(qsint_t), 0);
 	qsint_t negativeSortedLength;
 	qsint_t groupNum;
 

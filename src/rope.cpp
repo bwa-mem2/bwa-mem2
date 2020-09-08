@@ -301,7 +301,7 @@ rpnode_t *rope_restore_node(const rope_t *r, FILE *fp, int64_t c[6])
 			q = rle_nptr(p[i].p);
 			fread(p[i].c, 8, 6, fp);
 			fread(q, 2, 1, fp);
-			assert(*q >= 0 && *q < UINT16_MAX);
+			assert(*q >= 0 && *q <= UINT16_MAX);
 			fread(q + 1, 1, *q, fp);
 		}
 	} else {
