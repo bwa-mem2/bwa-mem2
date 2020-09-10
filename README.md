@@ -1,3 +1,6 @@
+[![GitHub Downloads](https://img.shields.io/github/downloads/bwa-mem2/bwa-mem2/total?label=GitHub%20Downloads)](https://github.com/bwa-mem2/bwa-mem2/releases)
+[![BioConda Install](https://img.shields.io/conda/dn/bioconda/bwa-mem2?label=BioConda%20Installs)](https://anaconda.org/bioconda/bwa-mem2)
+
 ## Important Information
 
 ***Index strucutre has changed (in commit f687b1, 8th September 2020) due to 8x compression of suffix array. Please rebuild the index.***
