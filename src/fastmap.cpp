@@ -740,8 +740,6 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads, char
     if (ert_idx_prefix) {
         closeMemoryMappedFile(&w.kmerOffsetsFile);
         closeMemoryMappedFile(&w.mltTableFile);
-        // free(w.kmer_offsets);
-        // free(w.mlt_table);
         for (int i = 0 ; i < nthreads; ++i) {
             kv_destroy(w.smems[i * MAX_LINE_LEN]);
             kv_destroy(w.hits_ar[i * MAX_LINE_LEN]);
