@@ -213,6 +213,12 @@ typedef struct
     int64_t wsize_mem[MAX_THREADS];
 } mem_cache;
 
+typedef struct memory_mapped_file_t {
+    void* contents;
+    size_t size;
+    int fd;
+} memory_mapped_file_t;
+
 // chain moved to .h
 typedef struct worker_t {
     const mem_opt_t      *opt;
@@ -229,6 +235,8 @@ typedef struct worker_t {
     int64_t           seedBufSize;
     mem_seed_t       *auxSeedBuf;
     int64_t           auxSeedBufSize;
+    memory_mapped_file_t kmerOffsetsFile;
+    memory_mapped_file_t mltTableFile;
     uint64_t         *kmer_offsets;
     uint8_t          *mlt_table;
     uint8_t          *lep;

@@ -32,6 +32,12 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+
 #if NUMA_ENABLED
 #include <numa.h>
 #endif
@@ -93,6 +99,72 @@ int HTStatus()
         fprintf(stderr, "CPUs support hyperThreading !!\n");
 
     return ht;
+}
+
+int64_t prefetchMemoryMappedFile(memory_mapped_file_t* mmFile) {
+    // Read out mapped file sequentially to pre-fault and populate page table
+    if (madvise(mmFile->contents, mmFile->size, MADV_SEQUENTIAL)) {
+        fprintf(stderr, "madvise MADV_SEQUENTIAL failed (since it's only an optimization, this is OK).  Errno %d\n", errno);
+    }
+    if (madvise(mmFile->contents, mmFile->size, MADV_WILLNEED)) {
+        fprintf(stderr, "madvise MADV_WILLNEED failed (since it's only an optimization, this is OK).  Errno %d\n", errno);
+    }
+    int64_t total = 0;
+
+    for (size_t offset = 0; offset < mmFile->size / sizeof (int64_t); offset += 4 ) {
+        total += ((int64_t*)mmFile->contents)[offset];
+    }
+
+    return total;		// We're returning this just to keep the compiler from optimizing away the whole thing.
+}
+
+void openMemoryMappedFile(const char *filename, memory_mapped_file_t* mmFile) {
+    int fd = open(filename, O_RDONLY, S_IRUSR | S_IWUSR);
+    if (fd < 0) {
+        fprintf(stderr, "OpenMemoryMappedFile %s failed", filename);
+        exit(EXIT_FAILURE);
+    }
+    struct stat buf;
+    int status = fstat(fd, &buf);
+    if (status != 0) {
+        fprintf(stderr, "Cannot stat file %s", filename);
+        close(fd);
+        exit(EXIT_FAILURE);
+
+    }
+    size_t size = buf.st_size;
+
+    // Memory map file
+    void* map = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (map == NULL || map == MAP_FAILED) {
+        fprintf(stderr, "OpenMemoryMappedFile %s mmap failed", filename);
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    mmFile->fd = fd;
+    mmFile->contents = map;
+    mmFile->size = size;
+}
+
+
+void closeMemoryMappedFile(memory_mapped_file_t* mmFile) {
+    int e = munmap(mmFile->contents, mmFile->size);
+    int e2 = close(mmFile->fd);
+    if (e != 0 || e2 != 0) {
+        fprintf(stderr, "CloseMemoryMappedFile failed\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+int64_t ioPrefetch(FILE *fd) {
+    const size_t bufSize = 128 * 1024 * 1024;
+    char* buffer = new char[bufSize];
+    while (1) {
+        if (0 == fread(buffer, 1, bufSize, fd)) {
+            delete [] buffer;
+            return 0;
+        }
+    }
 }
 
 void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads, char* idx_prefix) {
@@ -173,49 +245,34 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthread
     strcpy_s(ml_tbl_file_name, PATH_MAX, idx_prefix);
     strcat_s(ml_tbl_file_name, PATH_MAX, ".mlt_table");
 
-    FILE *kmer_tbl_fd, *ml_tbl_fd;
+    double ctime, rtime;
+    ctime = cputime(); rtime = realtime();
+    allocMem = 0;
 
+#ifdef ERT_INDEX_PREFETCH
+    FILE *kmer_tbl_fd, *ml_tbl_fd;
     kmer_tbl_fd = fopen(kmer_tbl_file_name, "rb");
     if (kmer_tbl_fd == NULL) {
         fprintf(stderr, "[M::%s::ERT] Can't open k-mer index\n.", __func__);
         exit(1);
     }
+    ioPrefetch(kmer_tbl_fd);
+    fclose(kmer_tbl_fd);
     ml_tbl_fd = fopen(ml_tbl_file_name, "rb");
     if (ml_tbl_fd == NULL) {
         fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
         exit(1);
     }
-
-    double ctime, rtime;
-    ctime = cputime(); rtime = realtime();
-    allocMem = numKmers * 8L; 
-
-    //
-    // Read k-mer index
-    //
-    w.kmer_offsets = (uint64_t*) malloc(numKmers * sizeof(uint64_t));
-    assert(w.kmer_offsets != NULL);
-    if (bwa_verbose >= 3) {
-        fprintf(stderr, "[M::%s::ERT] Reading kmer index to memory\n", __func__);
-    }
-    fread(w.kmer_offsets, sizeof(uint64_t), numKmers, kmer_tbl_fd);
-
-    //
-    // Read multi-level tree index
-    //
-    fseek(ml_tbl_fd, 0L, SEEK_END);
-    long size = ftell(ml_tbl_fd);
-    allocMem += size;
-    w.mlt_table = (uint8_t*) malloc(size * sizeof(uint8_t));
-    assert(w.mlt_table != NULL);
-    fseek(ml_tbl_fd, 0L, SEEK_SET);
-    if (bwa_verbose >= 3) {
-        fprintf(stderr, "[M::%s::ERT] Reading multi-level tree index to memory\n", __func__);
-    }
-    fread(w.mlt_table, sizeof(uint8_t), size, ml_tbl_fd); 
-
-    fclose(kmer_tbl_fd);
+    ioPrefetch(ml_tbl_fd);
     fclose(ml_tbl_fd);
+#endif
+
+    openMemoryMappedFile(kmer_tbl_file_name, &w.kmerOffsetsFile);
+    w.kmer_offsets = (uint64_t*)(w.kmerOffsetsFile.contents);
+    prefetchMemoryMappedFile(&w.kmerOffsetsFile);
+    openMemoryMappedFile(ml_tbl_file_name, &w.mltTableFile);
+    w.mlt_table = (uint8_t*)(w.mltTableFile.contents);
+    prefetchMemoryMappedFile(&w.mltTableFile);
 
     if (bwa_verbose >= 3) {
         fprintf(stderr, "[M::%s::ERT] Index tables loaded in %.3f CPU sec, %.3f real sec...\n", __func__, cputime() - ctime, realtime() - rtime);
@@ -681,8 +738,10 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads, char
     }
 
     if (ert_idx_prefix) {
-        free(w.kmer_offsets);
-        free(w.mlt_table);
+        closeMemoryMappedFile(&w.kmerOffsetsFile);
+        closeMemoryMappedFile(&w.mltTableFile);
+        // free(w.kmer_offsets);
+        // free(w.mlt_table);
         for (int i = 0 ; i < nthreads; ++i) {
             kv_destroy(w.smems[i * MAX_LINE_LEN]);
             kv_destroy(w.hits_ar[i * MAX_LINE_LEN]);

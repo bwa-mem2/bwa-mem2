@@ -231,7 +231,7 @@ int bwa_bwt2sa(int argc, char *argv[]) // the "bwt2sa" command
 
 int bwa_index(int argc, char *argv[]) // the "index" command
 {
-	int c, algo_type = BWTALGO_AUTO, is_64 = 0, block_size = 10000000, readLength = READ_LEN, num_threads = 1;
+	int c, algo_type = BWTALGO_MEM2, is_64 = 0, block_size = 10000000, readLength = READ_LEN, num_threads = 1;
 	char *prefix = 0, *str;
 	while ((c = getopt(argc, argv, "6a:p:t:")) >= 0) {
 		switch (c) {
