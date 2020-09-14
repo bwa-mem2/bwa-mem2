@@ -31,8 +31,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "macro.h"
 #include <stdint.h>
 #include <assert.h>
-
-extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
+#include "profiling.h"
 
 int find_opt(uint64_t *a, int len, uint64_t *max, uint64_t *min, double *avg)
 {
@@ -57,7 +56,7 @@ int display_stats(int nthreads)
     uint64_t max, min;
     double avg;
     fprintf(stderr, "No. of OMP threads: %d\n", nthreads);
-    fprintf(stderr, "Processor is runnig @%lf MHz\n", proc_freq*1.0/1e6);
+    fprintf(stderr, "Processor is running @%lf MHz\n", proc_freq*1.0/1e6);
     fprintf(stderr, "Runtime profile:\n");
 
     fprintf(stderr, "\n\tTime taken for main_mem function: %0.2lf sec\n\n",
@@ -140,11 +139,11 @@ int display_stats(int nthreads)
     fprintf(stderr, "\t\tSAL compute avg: %0.2lf, (%0.2lf, %0.2lf)\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
     
-#if HIDE
+    #if 1 //HIDE
     find_opt(tprof[MEM_SA], nthreads, &max, &min, &avg);
     fprintf(stderr, "\t\t\t\tMEM_SA avg: %0.2lf, (%0.2lf, %0.2lf)\n\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
-#endif
+    #endif
     
     // printf("\n\t BSW compute time (sec):\n");
     find_opt(tprof[MEM_ALN2], nthreads, &max, &min, &avg);
@@ -160,10 +159,31 @@ int display_stats(int nthreads)
     if (agg1 != agg3) 
         fprintf(stderr, "There is a discrepancy re-allocs, plz rectify!!\n");
 
-    assert(agg2 != 0);
-    fprintf(stderr, "\n\tTotal re-allocs: %d out of total requests: %d, Rate: %0.2f\n",
-            agg1, agg2, agg1*1.0/agg2);
+    if(agg2 > 0)
+    {
+        fprintf(stderr, "\n\tTotal re-allocs: %d out of total requests: %d, Rate: %0.2f\n",
+                agg1, agg2, agg1*1.0/agg2);
+    }
 
+    double res, max_ = 0, min_=1e10;
+    for (int i=0; i<nthreads; i++) {
+        double val = (tprof[ALIGN1][i]*1.0) / tprof[MEM_CHAIN][i];
+        res += val;
+        if (max_ < val) max_ = val;
+        if (min_ > val) min_ = val;
+    }
+    fprintf(stderr, "\tAvg. FM-index traversal per get_sa_entry(): avg: %lf, max: %lf, min: %lf\n",
+            res/nthreads, max_, min_);
+
+    int64_t tot_inst1 = 0, tot_inst2 = 0;
+    for (int i=0; i<nthreads; i++) {
+        tot_inst1 += tprof[SAM1][i];
+        tot_inst2 += tprof[SAM2][i];
+    }
+    
+    fprintf(stderr, "\ttot_inst1: %ld, tot_inst2: %ld, over %d threads\n",
+            tot_inst1, tot_inst2, nthreads);
+    
 #if HIDE
     fprintf(stderr, "\n BSW Perf.:\n");
     find_opt(tprof[MEM_ALN2_B], 1, &max, &min, &avg);

@@ -1,6 +1,13 @@
+[![GitHub Downloads](https://img.shields.io/github/downloads/bwa-mem2/bwa-mem2/total?label=GitHub%20Downloads)](https://github.com/bwa-mem2/bwa-mem2/releases)
+[![BioConda Install](https://img.shields.io/conda/dn/bioconda/bwa-mem2?label=BioConda%20Installs)](https://anaconda.org/bioconda/bwa-mem2)
+
 ## Important Information
 
-***Index structure has changed since commit 6743183. Rebuild the Index if you are using a later commit.***
+***Index strucutre has changed (in commit f687b1, 8th September 2020) due to 8x compression of suffix array. Please rebuild the index.***
+***The index size on disk and memory footprint is down to ~16GB from ~42GB earlier (without SA compression).***
+***we see performance impact (non-index-IO time) of 3%-7%. But there is a substantial reduction in index IO time for the obvious reasons.***
+
+***Ignore this msg for latest commit: Index structure has changed (in commit 494a441, 28/08/2020) due to 4x compression of the suffix array in the Index. Rebuild the Index***
 
 ***Added MC flag in the output sam file in commit a591e22. Output should match original bwa-mem version 0.7.17.***
 
@@ -74,8 +81,8 @@ Where <prefix> is the prefix specified when creating the index or the path to th
 
 ## Performance
 
-Datasets:
-
+Datasets:  
+Reference Genome: human_g1k_v37.fasta
 
  Alias	    |  Dataset source				|  No. of reads	| Read length 
  --------- | --------- | --------- | --------- 
@@ -92,12 +99,36 @@ OS: CentOS Linux release 7.6.1810
 Memory: 100GB  
 
 
+We followed the steps below to collect the performance results:  
+A. Data download steps:
+1. Download SRA toolkit from https://trace.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?view=software#header-global    
+2. tar xfzv sratoolkit.2.10.5-centos_linux64.tar.gz  
+3. Download D2: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRR7733443   
+4. Download D3: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRR9932168   
+5. Download D4: sratoolkit.2.10.5-centos_linux64/bin/fastq-dump --split-files SRX6999918   
+
+
+
+B. Alignment steps:   
+1. git clone https://github.com/bwa-mem2/bwa-mem2.git   
+2. cd bwa-mem2   
+3. ```make CXX=icpc multi``` (using intel C/C++ compiler)   
+or   ```make multi``` (using gcc compiler)   
+4. ./bwa-mem2 index <ref.fa>   
+5. ./bwa-mem2 mem [-t <#threads>] <ref.fa> <in_1.fastq> [<in_2.fastq>]  >  <output.sam>   
+
+For example,  in our double socket (56 threads each) and double numa compute node, we used the following command line to align D2 to human_g1k_v37.fasta reference genome.  
+```
+numactl -m 0 -C 0-27,56-83 ./bwa-mem2 index human_g1k_v37.fasta  
+numactl -m 0 -C 0-27,56-83 ./bwa-mem2 mem -t 56 human_g1k_v37.fasta SRR7733443_1.fastq SRR7733443_2.fastq > d3_align.sam
+```
+
 <p align="center">
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-1.png" height="400"/a></br>
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-2.png" height="400"/a></br>
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-3.png" height="400"/a></br>
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-4.png" height="400"/a></br>
-</p>
+</p> 
 
 
 ## Citation

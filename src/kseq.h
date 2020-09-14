@@ -35,13 +35,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include "safe_mem_lib.h"
-#ifdef __cplusplus
-}
-#endif
+#include "memcpy_bwamem.h"
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -138,7 +132,7 @@ typedef struct __kstring_t {
 				str->s = (char*)realloc(str->s, str->m);				\
 			}															\
 			gotany = 1;													\
-			memcpy_s(str->s + str->l, str->m - str->l, ks->buf + ks->begin, i - ks->begin); \
+			memcpy_bwamem(str->s + str->l, str->m - str->l, ks->buf + ks->begin, i - ks->begin, __FILE__, __LINE__); \
 			str->l = str->l + (i - ks->begin);							\
 			ks->begin = i + 1;											\
 			if (i < ks->end) {											\

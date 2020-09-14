@@ -48,10 +48,10 @@
 #  include "malloc_wrap.h"
 #endif
 
+#include "memcpy_bwamem.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "safe_mem_lib.h"
 #include "safe_str_lib.h"
 #ifdef __cplusplus
 }
@@ -254,7 +254,7 @@ static int ftp_open(const char *fn)
 	if (*p != '(') goto ftp_open_end;
 	++p;
 	sscanf(p, "%d,%d,%d,%d,%d,%d", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5]);
-	memcpy_s(pasv_ip, 4 * sizeof(int), v, 4 * sizeof(int));
+	memcpy_bwamem(pasv_ip, 4 * sizeof(int), v, 4 * sizeof(int), __FILE__, __LINE__);
 	pasv_port = (v[4]<<8&0xff00) + v[5];
 	kftp_send_cmd(&aux, retr, 0);
 	sprintf(host2, "%d.%d.%d.%d", pasv_ip[0], pasv_ip[1], pasv_ip[2], pasv_ip[3]);

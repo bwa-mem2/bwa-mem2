@@ -30,13 +30,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 #include "bwamem.h"
 #include "FMI_search.h"
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include "safe_mem_lib.h"
-#ifdef __cplusplus
-}
-#endif
+#include "memcpy_bwamem.h"
 
 //----------------
 extern uint64_t tprof[LIM_R][LIM_C];
@@ -323,7 +317,7 @@ static int test_and_merge(const mem_opt_t *opt, int64_t l_pac, mem_chain_t *c,
             c->m <<= 1;
             if (pm == SEEDS_PER_CHAIN) {  // re-new memory
                 if ((auxSeedBuf = (mem_seed_t *) calloc(c->m, sizeof(mem_seed_t))) == NULL) { fprintf(stderr, "ERROR: out of memory auxSeedBuf\n"); exit(1); }
-                memcpy_s((char*) (auxSeedBuf), c->m * sizeof(mem_seed_t), c->seeds, c->n * sizeof(mem_seed_t));
+                memcpy_bwamem((char*) (auxSeedBuf), c->m * sizeof(mem_seed_t), c->seeds, c->n * sizeof(mem_seed_t), __FILE__, __LINE__);
                 c->seeds = auxSeedBuf;
                 tprof[PE13][tid]++;
             } else {  // new memory
@@ -688,7 +682,8 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
     
     int num[nseq];
     memset(num, 0, nseq*sizeof(int));
-    int64_t *sa_coord = (int64_t *) _mm_malloc(sizeof(int64_t) * opt->max_occ, 64);
+    int smem_buf_size = 6000;
+    int64_t *sa_coord = (int64_t *) _mm_malloc(sizeof(int64_t) * opt->max_occ * smem_buf_size, 64);
     int64_t seedBufCount = 0;
     
     for (int l=0; l<nseq; l++)
@@ -726,6 +721,23 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
         } while (pos < num_smem - 1 && matchArray[pos].rid == matchArray[pos + 1].rid);
         l_rep += e - b;
 
+        // bwt_sa
+        // assert(pos - smem_ptr + 1 < 6000);
+        if (pos - smem_ptr + 1 >= smem_buf_size)
+        {
+            int csize = smem_buf_size;
+            smem_buf_size *= 2;
+            sa_coord = (int64_t *) _mm_realloc(sa_coord, csize, opt->max_occ * smem_buf_size,
+                                               sizeof(int64_t));
+            assert(sa_coord != NULL);
+        }
+        int64_t id = 0, cnt_ = 0, mypos = 0;
+        uint64_t tim = __rdtsc();
+        fmi->get_sa_entries_prefetch(&matchArray[smem_ptr], sa_coord, &cnt_,
+                                     pos - smem_ptr + 1, opt->max_occ, tid, id);  // sa compressed prefetch
+        tprof[MEM_SA][tid] += __rdtsc() - tim;
+        
+        
         for (i = smem_ptr; i <= pos; i++)
         {
             SMEM *p = &matchArray[i];
@@ -735,8 +747,14 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
             step = p->s > opt->max_occ? p->s / opt->max_occ : 1;
 
             // uint64_t tim = __rdtsc();
-            int cnt = 0;            
+            int cnt = 0;
+            #if SA_COMPRESSION
+            // fmi->get_sa_entries(p, sa_coord, &cnt, 1, opt->max_occ, tid);  // sa compressed
+            // fmi->get_sa_entries_prefetch(p, sa_coord, &cnt, 1, opt->max_occ, tid);  // sa compressed prefetch
+            #else            
             fmi->get_sa_entries(p, sa_coord, &cnt, 1, opt->max_occ);
+            #endif
+            
             cnt = 0;
             // tprof[MEM_SA][tid] += __rdtsc() - tim;
             
@@ -745,8 +763,9 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
                 mem_chain_t tmp, *lower, *upper;
                 mem_seed_t s;
                 int rid, to_add = 0;
-                                
-                s.rbeg = tmp.pos = sa_coord[cnt++];
+
+                s.rbeg = tmp.pos = sa_coord[mypos++];
+                // s.rbeg = tmp.pos = sa_coord[cnt++];
                 s.qbeg = p->m;
                 s.score= s.len = slen;
                 if (s.rbeg < 0 || s.len < 0) 
@@ -1202,7 +1221,7 @@ void mem_process_seqs(mem_opt_t *opt,
     // PAIRED_END
     if (opt->flag & MEM_F_PE) { // infer insert sizes if not provided
         if (pes0)
-            memcpy_s(pes, 4 * sizeof(mem_pestat_t), pes0, 4 * sizeof(mem_pestat_t)); // if pes0 != NULL, set the insert-size
+            memcpy_bwamem(pes, 4 * sizeof(mem_pestat_t), pes0, 4 * sizeof(mem_pestat_t), __FILE__, __LINE__); // if pes0 != NULL, set the insert-size
                                                          // distribution as pes0
         else {
             fprintf(stderr, "[0000] Inferring insert size distribution of PE reads from data, "
@@ -1674,7 +1693,7 @@ void* _mm_realloc(void *ptr, int64_t csize, int64_t nsize, int16_t dsize) {
     }
     void *nptr = _mm_malloc(nsize * dsize, 64);
     assert(nptr != NULL);
-    memcpy_s(nptr, nsize * dsize, ptr, csize);
+    memcpy_bwamem(nptr, nsize * dsize, ptr, csize, __FILE__, __LINE__);
     _mm_free(ptr);
     
     return nptr;
