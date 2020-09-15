@@ -298,7 +298,7 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthread
     if (bwa_verbose >= 3) {
         fprintf(stderr, "[M::%s::ERT] Reading kmer index to memory\n", __func__);
     }
-    fread(w.kmer_offsets, sizeof(uint64_t), numKmers, kmer_tbl_fd);
+    err_fread_noeof(w.kmer_offsets, sizeof(uint64_t), numKmers, kmer_tbl_fd);
 
     //
     // Read multi-level tree index
@@ -312,7 +312,7 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthread
     if (bwa_verbose >= 3) {
         fprintf(stderr, "[M::%s::ERT] Reading multi-level tree index to memory\n", __func__);
     }
-    fread(w.mlt_table, sizeof(uint8_t), size, ml_tbl_fd); 
+    err_fread_noeof(w.mlt_table, sizeof(uint8_t), size, ml_tbl_fd);
 
     fclose(kmer_tbl_fd);
     fclose(ml_tbl_fd);
