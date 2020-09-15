@@ -1328,6 +1328,10 @@ int64_t FMI_search::get_sa_entry_compressed(int64_t pos, int tid)
             BIT_DATA_TYPE bwt_str_bit1_pp_ = cp_occ[occ_id_pp_].bwt_str_bit1; 
             uint8_t b = ((bwt_str_bit0_pp_ >> y_pp_) & 0x1)| (((bwt_str_bit1_pp_ >> y_pp_) & 0x1) << 1);
 
+            if (b == 4) {
+                return offset;
+            }
+
             GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, bwt_str_bit0_sp, bwt_str_bit1_sp, bit0_cmp_sp, bit1_cmp_sp, mismatch_mask_sp);
 
             sp = count[b] + occ_sp;
@@ -1336,14 +1340,12 @@ int64_t FMI_search::get_sa_entry_compressed(int64_t pos, int tid)
             
             int64_t occ_id_pp = sp >> CP_SHIFT_AVX;
             uint8_t b = (cp_occ[occ_id_pp].bwt_str)[sp & CP_MASK_AVX];
+            if (b == 4) {
+                return offset;
+            }            
             __m256i b256 = _mm256_load_si256((const __m256i *)(c_bcast_array + b * 64));
             GET_OCC(sp, b, b256, occ_id_sp, y_sp, occ_sp, bwt_str_sp, bwt_sp_vec, mask_sp_vec, mask_sp);
             sp = count[b] + occ_sp;
-            // assert(sp != 2668688548);
-            // if (b >= 5 || b == 4) {
-            //     fprintf(stderr, "b: %d, sp: %ld, occ_id_pp: %ld, pos: %ld\n", b, sp, occ_id_pp, pos);
-            //     assert(b < 5);
-            // }
             #endif
             
             offset ++;
@@ -1415,6 +1417,10 @@ int64_t FMI_search::call_one_step(int64_t pos, int64_t &sa_entry, int64_t &offse
         BIT_DATA_TYPE bwt_str_bit0_pp_ = cp_occ[occ_id_pp_].bwt_str_bit0; 
         BIT_DATA_TYPE bwt_str_bit1_pp_ = cp_occ[occ_id_pp_].bwt_str_bit1; 
         uint8_t b = ((bwt_str_bit0_pp_ >> y_pp_) & 0x1)| (((bwt_str_bit1_pp_ >> y_pp_) & 0x1) << 1);
+        if (b == 4) {
+            sa_entry = 0;
+            return 1;
+        }
         
         GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, bwt_str_bit0_sp, bwt_str_bit1_sp, bit0_cmp_sp, bit1_cmp_sp, mismatch_mask_sp);
         
@@ -1424,6 +1430,10 @@ int64_t FMI_search::call_one_step(int64_t pos, int64_t &sa_entry, int64_t &offse
         
         int64_t occ_id_pp = sp >> CP_SHIFT_AVX;
         uint8_t b = (cp_occ[occ_id_pp].bwt_str)[sp & CP_MASK_AVX];
+        if (b == 4) {
+            sa_entry = 0;
+            return 1;
+        }        
         __m256i b256 = _mm256_load_si256((const __m256i *)(c_bcast_array + b * 64));
         GET_OCC(sp, b, b256, occ_id_sp, y_sp, occ_sp, bwt_str_sp, bwt_sp_vec, mask_sp_vec, mask_sp);
         sp = count[b] + occ_sp;
