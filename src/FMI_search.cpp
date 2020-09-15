@@ -565,7 +565,7 @@ void FMI_search::load_index()
     base_mask[3][1] = 0xffffffffffffffffL;
 #else
     c_bcast_array = (uint8_t *)_mm_malloc(256 * sizeof(uint8_t), 64);
-    for(auto ii = 0; ii < 4; ii++)
+    for(int ii = 0; ii < 4; ii++)
     {
         int32_t j;
         for(j = 0; j < 64; j++)
@@ -1471,7 +1471,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
     int32_t totalCoordCount = 0;
     int32_t mem_lim = 0, id = 0;
     
-    for(auto i = 0; i < count; i++)
+    for(int i = 0; i < count; i++)
     {
         int32_t c = 0;
         SMEM smem = smemArray[i];
@@ -1481,7 +1481,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
     int64_t *pos_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
     int64_t *map_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
 
-    for(auto i = 0; i < count; i++)
+    for(int i = 0; i < count; i++)
     {
         int32_t c = 0;
         SMEM smem = smemArray[i];
@@ -1507,7 +1507,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
     int64_t working_set[sa_batch_size], map_pos[sa_batch_size];;
     int64_t offset[sa_batch_size] = {-1};
     
-    auto i = 0, j = 0;    
+    int i = 0, j = 0;    
     while(i<id && j<sa_batch_size)
     {
         int64_t pos =  pos_ar[i];
@@ -1536,7 +1536,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
     while (all_quit < id)
     {
         
-        for (auto k=0; k<lim; k++)
+        for (int k=0; k<lim; k++)
         {
             int64_t sp = 0, pos = 0;
             bool quit;
