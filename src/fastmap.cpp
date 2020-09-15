@@ -245,34 +245,79 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthread
     strcpy_s(ml_tbl_file_name, PATH_MAX, idx_prefix);
     strcat_s(ml_tbl_file_name, PATH_MAX, ".mlt_table");
 
+
+#if MMAP_ERT_INDEX
     double ctime, rtime;
     ctime = cputime(); rtime = realtime();
     allocMem = 0;
-
-#ifdef ERT_INDEX_PREFETCH
-    FILE *kmer_tbl_fd, *ml_tbl_fd;
-    kmer_tbl_fd = fopen(kmer_tbl_file_name, "rb");
-    if (kmer_tbl_fd == NULL) {
-        fprintf(stderr, "[M::%s::ERT] Can't open k-mer index\n.", __func__);
-        exit(1);
-    }
-    ioPrefetch(kmer_tbl_fd);
-    fclose(kmer_tbl_fd);
-    ml_tbl_fd = fopen(ml_tbl_file_name, "rb");
-    if (ml_tbl_fd == NULL) {
-        fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
-        exit(1);
-    }
-    ioPrefetch(ml_tbl_fd);
-    fclose(ml_tbl_fd);
-#endif
-
+    #if ERT_INDEX_PREFETCH
+        FILE *kmer_tbl_fd, *ml_tbl_fd;
+        kmer_tbl_fd = fopen(kmer_tbl_file_name, "rb");
+        if (kmer_tbl_fd == NULL) {
+            fprintf(stderr, "[M::%s::ERT] Can't open k-mer index\n.", __func__);
+            exit(1);
+        }
+        ioPrefetch(kmer_tbl_fd);
+        fclose(kmer_tbl_fd);
+        ml_tbl_fd = fopen(ml_tbl_file_name, "rb");
+        if (ml_tbl_fd == NULL) {
+            fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
+            exit(1);
+        }
+        ioPrefetch(ml_tbl_fd);
+        fclose(ml_tbl_fd);
+    #endif
     openMemoryMappedFile(kmer_tbl_file_name, &w.kmerOffsetsFile);
     w.kmer_offsets = (uint64_t*)(w.kmerOffsetsFile.contents);
     prefetchMemoryMappedFile(&w.kmerOffsetsFile);
     openMemoryMappedFile(ml_tbl_file_name, &w.mltTableFile);
     w.mlt_table = (uint8_t*)(w.mltTableFile.contents);
     prefetchMemoryMappedFile(&w.mltTableFile);
+#else
+    FILE *kmer_tbl_fd, *ml_tbl_fd;
+    kmer_tbl_fd = fopen(kmer_tbl_file_name, "rb");
+    if (kmer_tbl_fd == NULL) {
+        fprintf(stderr, "[M::%s::ERT] Can't open k-mer index\n.", __func__);
+        exit(1);
+    }
+    ml_tbl_fd = fopen(ml_tbl_file_name, "rb");
+    if (ml_tbl_fd == NULL) {
+        fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
+        exit(1);
+    }
+
+    double ctime, rtime;
+    ctime = cputime(); rtime = realtime();
+    allocMem = numKmers * 8L; 
+
+    //
+    // Read k-mer index
+    //
+    w.kmer_offsets = (uint64_t*) malloc(numKmers * sizeof(uint64_t));
+    assert(w.kmer_offsets != NULL);
+    if (bwa_verbose >= 3) {
+        fprintf(stderr, "[M::%s::ERT] Reading kmer index to memory\n", __func__);
+    }
+    fread(w.kmer_offsets, sizeof(uint64_t), numKmers, kmer_tbl_fd);
+
+    //
+    // Read multi-level tree index
+    //
+    fseek(ml_tbl_fd, 0L, SEEK_END);
+    long size = ftell(ml_tbl_fd);
+    allocMem += size;
+    w.mlt_table = (uint8_t*) malloc(size * sizeof(uint8_t));
+    assert(w.mlt_table != NULL);
+    fseek(ml_tbl_fd, 0L, SEEK_SET);
+    if (bwa_verbose >= 3) {
+        fprintf(stderr, "[M::%s::ERT] Reading multi-level tree index to memory\n", __func__);
+    }
+    fread(w.mlt_table, sizeof(uint8_t), size, ml_tbl_fd); 
+
+    fclose(kmer_tbl_fd);
+    fclose(ml_tbl_fd);
+
+#endif
 
     if (bwa_verbose >= 3) {
         fprintf(stderr, "[M::%s::ERT] Index tables loaded in %.3f CPU sec, %.3f real sec...\n", __func__, cputime() - ctime, realtime() - rtime);
@@ -738,8 +783,13 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads, char
     }
 
     if (ert_idx_prefix) {
+#if MMAP_ERT_INDEX
         closeMemoryMappedFile(&w.kmerOffsetsFile);
         closeMemoryMappedFile(&w.mltTableFile);
+#else
+        free(w.kmer_offsets);
+        free(w.mlt_table);
+#endif
         for (int i = 0 ; i < nthreads; ++i) {
             kv_destroy(w.smems[i * MAX_LINE_LEN]);
             kv_destroy(w.hits_ar[i * MAX_LINE_LEN]);
