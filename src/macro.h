@@ -197,8 +197,8 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define LEAF_TBL_BASE_PTR_WIDTH 3
 #define LEAF_TBL_HIT_COUNT_WIDTH 3
 #define MAX_HITS_PER_READ 2000000
-#define MMAP_ERT_INDEX 0
-#define ERT_INDEX_PREFETCH 0
+#define MMAP_ERT_INDEX 1
+#define ERT_INDEX_PREFETCH 1
 
 #define log_file(fd, M, ...) \
 	fprintf(fd, M "\n", ##__VA_ARGS__); \
