@@ -37,7 +37,7 @@ else ifeq ($(CXX), g++)
 endif		
 ARCH_FLAGS=	-msse4.1
 MEM_FLAGS=	-DSAIS=1
-CPPFLAGS=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
+CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
 INCLUDES=   -Isrc -Iext/safestringlib/include
 LIBS=		-lpthread -lm -lz -L. -lbwa  -Lext/safestringlib -lsafestring
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
@@ -72,7 +72,7 @@ else ifneq ($(arch),)
 	ARCH_FLAGS=$(arch)
 endif
 
-CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
+CXXFLAGS+=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 
 .PHONY:all clean depend multi
 .SUFFIXES:.cpp .o
@@ -92,7 +92,7 @@ multi:
 	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring -o bwa-mem2
 
 $(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main.o
-	$(CXX) $(CXXFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
 
 $(BWA_LIB):$(OBJS)
 	ar rcs $(BWA_LIB) $(OBJS)

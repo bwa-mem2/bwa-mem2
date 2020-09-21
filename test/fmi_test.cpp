@@ -40,6 +40,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #endif
 
 #define QUERY_DB_SIZE 1280000000
+
 int myrank, num_ranks;
 
 int main(int argc, char **argv) {
@@ -88,8 +89,9 @@ int main(int argc, char **argv) {
     assert(max_readlength > 0);
     assert(max_readlength < 10000);
     assert(numReads > 0);
-    assert(numReads * max_readlength < QUERY_DB_SIZE);
     printf("numReads = %d, max_readlength = %d, min_readlength = %d\n", numReads, max_readlength, min_readlength);
+    assert(numReads * max_readlength < QUERY_DB_SIZE);
+
     uint8_t *enc_qdb=(uint8_t *)malloc(numReads * max_readlength * sizeof(uint8_t));
 
     int64_t cind,st;
@@ -246,7 +248,7 @@ int main(int argc, char **argv) {
     }
     printf("totalSmems = %ld\n", totalSmem);
 
-#ifdef PRINT_OUTPUT
+    #ifdef PRINT_OUTPUT
     int32_t prevRid = -1;
     for(batch_id = 0; batch_id < num_batches; batch_id++)
     {
@@ -271,7 +273,7 @@ int main(int argc, char **argv) {
             u2 = smem.k + smem.s;
             for(u3 = u1; u3 < u2; u3++)
             {
-                printf("%ld,", fmiSearch->get_sa_entry(u3));
+                //printf("%ld,", fmiSearch->get_sa_entry(u3));
             }
             printf("]"); 
 #endif
