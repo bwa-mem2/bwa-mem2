@@ -28,6 +28,10 @@
 ##                                Heng Li <hli@jimmy.harvard.edu> 
 ##*****************************************************************************************/
 
+ifneq ($(portable),)
+	STATIC_GCC=-static-libgcc -static-libstdc++
+endif
+
 EXE=		bwa-mem2
 #CXX=		icpc
 ifeq ($(CXX), icpc)
@@ -39,17 +43,13 @@ ARCH_FLAGS=	-msse4.1
 MEM_FLAGS=	-DSAIS=1
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
 INCLUDES=   -Isrc -Iext/safestringlib/include
-LIBS=		-lpthread -lm -lz -L. -lbwa  -Lext/safestringlib -lsafestring
+LIBS=		-lpthread -lm -lz -L. -lbwa -Lext/safestringlib -lsafestring $(STATIC_GCC)
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
 			src/bwamem_extra.o src/kopen.o
 BWA_LIB=    libbwa.a
 SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
-
-ifneq ($(portable),)
-	LIBS+=-static-libgcc -static-libstdc++
-endif
 
 ifeq ($(arch),sse)
 		ARCH_FLAGS=-msse4.1
@@ -89,7 +89,7 @@ multi:
 	$(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
-	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring -o bwa-mem2
+	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring $(STATIC_GCC) -o bwa-mem2
 
 $(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
