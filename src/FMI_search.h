@@ -70,7 +70,7 @@ typedef struct checkpoint_occ_avx
     int64_t cp_count[4];
 }CP_OCC_AVX;
 
-#if ((!__AVX2__))
+//#if ((!__AVX2__))
 
 typedef CP_OCC_SCALAR CP_OCC;
 #define CP_SHIFT CP_SHIFT_SCALAR
@@ -90,7 +90,8 @@ GET_OCC(pp, c, occ_id_pp, y_pp, occ_pp, one_hot_bwt_str_c_pp, match_mask_pp) \
                 uint64_t one_hot_bwt_str_c_pp = cp_occ[occ_id_pp].one_hot_bwt_str[c]; \
                 uint64_t match_mask_pp = one_hot_bwt_str_c_pp & one_hot_mask_array[y_pp]; \
                 occ_pp += _mm_countbits_64(match_mask_pp);
-                
+
+/*                
 #else
 
 typedef CP_OCC_AVX CP_OCC;
@@ -116,6 +117,7 @@ GET_OCC(pp, c, c256, occ_id_pp, y_pp, occ_pp, bwt_str_pp, bwt_pp_vec, mask_pp_ve
                 occ_pp += _mm_countbits_32(mask_pp);
 
 #endif
+*/
 
 typedef struct smem_struct
 {
@@ -219,12 +221,11 @@ private:
         int8_t *sa_ms_byte;
         CP_OCC *cp_occ;
 
-#if ((!__AVX2__))
-        BIT_DATA_TYPE base_mask[4][2];
+//#if ((!__AVX2__))
         uint64_t *one_hot_mask_array;
-#else
+/*#else
         uint8_t *c_bcast_array;
-#endif
+#endif*/
 
         int64_t pac_seq_len(const char *fn_pac);
         void pac2nt(const char *fn_pac,

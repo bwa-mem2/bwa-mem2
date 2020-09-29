@@ -52,9 +52,9 @@ FMI_search::FMI_search(const char *fname)
     sa_ls_word = NULL;
     sa_ms_byte = NULL;
     cp_occ = NULL;
-#if ((__AVX2__))
-    c_bcast_array = NULL;
-#endif
+//#if ((__AVX2__))
+    one_hot_mask_array = NULL;
+//#endif
 }
 
 FMI_search::~FMI_search()
@@ -65,10 +65,10 @@ FMI_search::~FMI_search()
         _mm_free(sa_ls_word);
     if(cp_occ)
         _mm_free(cp_occ);
-#if ((__AVX2__))
-    if(c_bcast_array)
-        _mm_free(c_bcast_array);
-#endif
+//#if ((__AVX2__))
+    if(one_hot_mask_array)
+        _mm_free(one_hot_mask_array);
+//#endif
 }
 
 int64_t FMI_search::pac_seq_len(const char *fn_pac)
@@ -145,6 +145,7 @@ void FMI_search::pac2nt(const char *fn_pac, std::string &reference_seq)
 	free(buf2);
 }
 
+/*
 int FMI_search::build_fm_index_avx(const char *ref_file_name, char *binary_seq, int64_t ref_seq_len, int64_t *sa_bwt, int64_t *count) {
     printf("ref_seq_len = %ld\n", ref_seq_len);
     fflush(stdout);
@@ -291,6 +292,7 @@ int FMI_search::build_fm_index_avx(const char *ref_file_name, char *binary_seq, 
     _mm_free(sa_ls_word);
     return 0;
 }
+*/
 
 int FMI_search::build_fm_index_scalar(const char *ref_file_name, char *binary_seq, int64_t ref_seq_len, int64_t *sa_bwt, int64_t *count) {
     printf("ref_seq_len = %ld\n", ref_seq_len);
@@ -525,7 +527,7 @@ int FMI_search::build_index() {
     fprintf(stderr, "build index ticks = %llu\n", __rdtsc() - startTick);
     startTick = __rdtsc();
 
-    build_fm_index_avx(prefix, binary_ref_seq, pac_len, suffix_array, count);
+    //build_fm_index_avx(prefix, binary_ref_seq, pac_len, suffix_array, count);
 	build_fm_index_scalar(prefix, binary_ref_seq, pac_len, suffix_array, count);
     _mm_free(binary_ref_seq);
     _mm_free(suffix_array);
@@ -534,15 +536,7 @@ int FMI_search::build_index() {
 
 void FMI_search::load_index()
 {
-#if ((!__AVX2__))
-    base_mask[0][0] = 0;
-    base_mask[0][1] = 0;
-    base_mask[1][0] = 0xffffffffffffffffL;
-    base_mask[1][1] = 0;
-    base_mask[2][0] = 0;
-    base_mask[2][1] = 0xffffffffffffffffL;
-    base_mask[3][0] = 0xffffffffffffffffL;
-    base_mask[3][1] = 0xffffffffffffffffL;
+//#if ((!__AVX2__))
     one_hot_mask_array = (uint64_t *)_mm_malloc(64 * sizeof(uint64_t), 64);
     one_hot_mask_array[0] = 0;
     uint64_t base = 0x8000000000000000L;
@@ -552,7 +546,7 @@ void FMI_search::load_index()
     {
         one_hot_mask_array[i] = (one_hot_mask_array[i - 1] >> 1) | base;
     }
-#else
+/*#else
     c_bcast_array = (uint8_t *)_mm_malloc(256 * sizeof(uint8_t), 64);
     for(int ii = 0; ii < 4; ii++)
     {
@@ -562,7 +556,7 @@ void FMI_search::load_index()
             c_bcast_array[ii * 64 + j] = ii;
         }
     }
-#endif
+#endif*/
 
     char *ref_file_name = file_name;
     //beCalls = 0;
@@ -1203,15 +1197,17 @@ SMEM FMI_search::backwardExt(SMEM smem, uint8_t a)
     {
         int64_t sp = (int64_t)(smem.k);
         int64_t ep = (int64_t)(smem.k) + (int64_t)(smem.s);
-#if ((!__AVX2__))
+//#if ((!__AVX2__))
         GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, one_hot_bwt_str_c_sp, match_mask_sp);
         GET_OCC(ep, b, occ_id_ep, y_ep, occ_ep, one_hot_bwt_str_c_ep, match_mask_ep);
+/*
 #else
         __m256i b256;
         b256 = _mm256_load_si256((const __m256i *)(c_bcast_array + b * 64));
         GET_OCC(sp, b, b256, occ_id_sp, y_sp, occ_sp, bwt_str_sp, bwt_sp_vec, mask_sp_vec, mask_sp);
         GET_OCC(ep, b, b256, occ_id_ep, y_ep, occ_ep, bwt_str_ep, bwt_ep_vec, mask_ep_vec, mask_ep);
 #endif
+        */
         k[b] = count[b] + occ_sp;
         s[b] = occ_ep - occ_sp;
     }
@@ -1304,7 +1300,7 @@ int64_t FMI_search::get_sa_entry_compressed(int64_t pos, int tid)
         int64_t sp = pos;
         while(true)
         {
-            #if ((!__AVX2__))
+            //#if ((!__AVX2__))
             
             int64_t occ_id_pp_ = sp >> CP_SHIFT_SCALAR;
             int64_t y_pp_ = CP_BLOCK_SIZE_SCALAR - (sp & CP_MASK_SCALAR) - 1; 
@@ -1330,7 +1326,7 @@ int64_t FMI_search::get_sa_entry_compressed(int64_t pos, int tid)
 
             sp = count[b] + occ_sp;
             
-            #else
+            /*#else
             
             int64_t occ_id_pp = sp >> CP_SHIFT_AVX;
             uint8_t b = (cp_occ[occ_id_pp].bwt_str)[sp & CP_MASK_AVX];
@@ -1340,7 +1336,7 @@ int64_t FMI_search::get_sa_entry_compressed(int64_t pos, int tid)
             __m256i b256 = _mm256_load_si256((const __m256i *)(c_bcast_array + b * 64));
             GET_OCC(sp, b, b256, occ_id_sp, y_sp, occ_sp, bwt_str_sp, bwt_sp_vec, mask_sp_vec, mask_sp);
             sp = count[b] + occ_sp;
-            #endif
+            #endif*/
             
             offset ++;
             // tprof[ALIGN1][tid] ++;
@@ -1404,7 +1400,7 @@ int64_t FMI_search::call_one_step(int64_t pos, int64_t &sa_entry, int64_t &offse
         // int64_t offset = 0; 
         int64_t sp = pos;
 
-        #if ((!__AVX2__))
+        //#if ((!__AVX2__))
         
         int64_t occ_id_pp_ = sp >> CP_SHIFT_SCALAR;
         int64_t y_pp_ = CP_BLOCK_SIZE_SCALAR - (sp & CP_MASK_SCALAR) - 1; 
@@ -1430,7 +1426,7 @@ int64_t FMI_search::call_one_step(int64_t pos, int64_t &sa_entry, int64_t &offse
         
         sp = count[b] + occ_sp;
         
-        #else
+        /*#else
         
         int64_t occ_id_pp = sp >> CP_SHIFT_AVX;
         uint8_t b = (cp_occ[occ_id_pp].bwt_str)[sp & CP_MASK_AVX];
@@ -1446,7 +1442,7 @@ int64_t FMI_search::call_one_step(int64_t pos, int64_t &sa_entry, int64_t &offse
             fprintf(stderr, "b: %d, sp: %ld, occ_id_pp: %ld, pos: %ld\n", b, sp, occ_id_pp, pos);
             exit(EXIT_FAILURE);
         }
-        #endif
+        #endif */
         
         offset ++;
         if ((sp & SA_COMPX_MASK) == 0) {
