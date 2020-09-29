@@ -376,39 +376,26 @@ int FMI_search::build_fm_index_scalar(const char *ref_file_name, char *binary_se
             cpo.cp_count[2] = cp_count[2];
             cpo.cp_count[3] = cp_count[3];
 
-			BIT_DATA_TYPE bwt_str_bit0 = 0;
-			BIT_DATA_TYPE bwt_str_bit1 = 0;
-			BIT_DATA_TYPE dollar_mask = 0;
 			int32_t j;
+            cpo.one_hot_bwt_str[0] = 0;
+            cpo.one_hot_bwt_str[1] = 0;
+            cpo.one_hot_bwt_str[2] = 0;
+            cpo.one_hot_bwt_str[3] = 0;
+
 			for(j = 0; j < CP_BLOCK_SIZE_SCALAR; j++)
 			{
+                cpo.one_hot_bwt_str[0] = cpo.one_hot_bwt_str[0] << 1;
+                cpo.one_hot_bwt_str[1] = cpo.one_hot_bwt_str[1] << 1;
+                cpo.one_hot_bwt_str[2] = cpo.one_hot_bwt_str[2] << 1;
+                cpo.one_hot_bwt_str[3] = cpo.one_hot_bwt_str[3] << 1;
 				uint8_t c = bwt[i + j];
-				if((c == 4) || (c == DUMMY_CHAR))
-				{
-					dollar_mask <<= 1;
-					dollar_mask += 1;
-					c = 0;
-				}
-				else if(c > 3)
-				{
-					fprintf(stderr, "ERROR! [%ld, %d] c = %u\n", (long)i, j, c);
-					exit(EXIT_FAILURE);
-				}
-				else
-				{
-					dollar_mask <<= 1;
-					dollar_mask += 0;
-				}
-				bwt_str_bit0 = bwt_str_bit0 << 1;
-				bwt_str_bit0 += (c & 1);
-				bwt_str_bit1 = bwt_str_bit1 << 1;
-				bwt_str_bit1 += ((c >> 1) & 1);
+                //printf("c = %d\n", c);
+                if(c < 4)
+                {
+                    cpo.one_hot_bwt_str[c] += 1;
+                }
 			}
-			cpo.bwt_str_bit0 = bwt_str_bit0;
-			cpo.bwt_str_bit1 = bwt_str_bit1;
-			cpo.dollar_mask  = dollar_mask;
 
-            memset(cpo.pad, 0, PADDING_SCALAR);
             cp_occ[i >> CP_SHIFT_SCALAR] = cpo;
         }
         cp_count[bwt[i]]++;
@@ -556,6 +543,15 @@ void FMI_search::load_index()
     base_mask[2][1] = 0xffffffffffffffffL;
     base_mask[3][0] = 0xffffffffffffffffL;
     base_mask[3][1] = 0xffffffffffffffffL;
+    one_hot_mask_array = (uint64_t *)_mm_malloc(64 * sizeof(uint64_t), 64);
+    one_hot_mask_array[0] = 0;
+    uint64_t base = 0x8000000000000000L;
+    one_hot_mask_array[1] = base;
+    int64_t i = 0;
+    for(i = 2; i < 64; i++)
+    {
+        one_hot_mask_array[i] = (one_hot_mask_array[i - 1] >> 1) | base;
+    }
 #else
     c_bcast_array = (uint8_t *)_mm_malloc(256 * sizeof(uint8_t), 64);
     for(int ii = 0; ii < 4; ii++)
@@ -1208,8 +1204,8 @@ SMEM FMI_search::backwardExt(SMEM smem, uint8_t a)
         int64_t sp = (int64_t)(smem.k);
         int64_t ep = (int64_t)(smem.k) + (int64_t)(smem.s);
 #if ((!__AVX2__))
-        GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, bwt_str_bit0_sp, bwt_str_bit1_sp, bit0_cmp_sp, bit1_cmp_sp, mismatch_mask_sp);
-        GET_OCC(ep, b, occ_id_ep, y_ep, occ_ep, bwt_str_bit0_ep, bwt_str_bit1_ep, bit0_cmp_ep, bit1_cmp_ep, mismatch_mask_ep);
+        GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, one_hot_bwt_str_c_sp, match_mask_sp);
+        GET_OCC(ep, b, occ_id_ep, y_ep, occ_ep, one_hot_bwt_str_c_ep, match_mask_ep);
 #else
         __m256i b256;
         b256 = _mm256_load_si256((const __m256i *)(c_bcast_array + b * 64));
@@ -1312,15 +1308,25 @@ int64_t FMI_search::get_sa_entry_compressed(int64_t pos, int tid)
             
             int64_t occ_id_pp_ = sp >> CP_SHIFT_SCALAR;
             int64_t y_pp_ = CP_BLOCK_SIZE_SCALAR - (sp & CP_MASK_SCALAR) - 1; 
-            BIT_DATA_TYPE bwt_str_bit0_pp_ = cp_occ[occ_id_pp_].bwt_str_bit0; 
-            BIT_DATA_TYPE bwt_str_bit1_pp_ = cp_occ[occ_id_pp_].bwt_str_bit1; 
-            uint8_t b = ((bwt_str_bit0_pp_ >> y_pp_) & 0x1)| (((bwt_str_bit1_pp_ >> y_pp_) & 0x1) << 1);
+            uint64_t *one_hot_bwt_str = cp_occ[occ_id_pp_].one_hot_bwt_str;
+            uint8_t b;
+
+            if((one_hot_bwt_str[0] >> y_pp_) & 1)
+                b = 0;
+            else if((one_hot_bwt_str[1] >> y_pp_) & 1)
+                b = 1;
+            else if((one_hot_bwt_str[2] >> y_pp_) & 1)
+                b = 2;
+            else if((one_hot_bwt_str[3] >> y_pp_) & 1)
+                b = 3;
+            else
+                b = 4;
 
             if (b == 4) {
                 return offset;
             }
 
-            GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, bwt_str_bit0_sp, bwt_str_bit1_sp, bit0_cmp_sp, bit1_cmp_sp, mismatch_mask_sp);
+            GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, one_hot_bwt_str_c_sp, match_mask_sp);
 
             sp = count[b] + occ_sp;
             
@@ -1402,15 +1408,25 @@ int64_t FMI_search::call_one_step(int64_t pos, int64_t &sa_entry, int64_t &offse
         
         int64_t occ_id_pp_ = sp >> CP_SHIFT_SCALAR;
         int64_t y_pp_ = CP_BLOCK_SIZE_SCALAR - (sp & CP_MASK_SCALAR) - 1; 
-        BIT_DATA_TYPE bwt_str_bit0_pp_ = cp_occ[occ_id_pp_].bwt_str_bit0; 
-        BIT_DATA_TYPE bwt_str_bit1_pp_ = cp_occ[occ_id_pp_].bwt_str_bit1; 
-        uint8_t b = ((bwt_str_bit0_pp_ >> y_pp_) & 0x1)| (((bwt_str_bit1_pp_ >> y_pp_) & 0x1) << 1);
+        uint64_t *one_hot_bwt_str = cp_occ[occ_id_pp_].one_hot_bwt_str;
+        uint8_t b;
+
+        if((one_hot_bwt_str[0] >> y_pp_) & 1)
+            b = 0;
+        else if((one_hot_bwt_str[1] >> y_pp_) & 1)
+            b = 1;
+        else if((one_hot_bwt_str[2] >> y_pp_) & 1)
+            b = 2;
+        else if((one_hot_bwt_str[3] >> y_pp_) & 1)
+            b = 3;
+        else
+            b = 4;
         if (b == 4) {
             sa_entry = 0;
             return 1;
         }
         
-        GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, bwt_str_bit0_sp, bwt_str_bit1_sp, bit0_cmp_sp, bit1_cmp_sp, mismatch_mask_sp);
+        GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, one_hot_bwt_str_c_sp, match_mask_sp);
         
         sp = count[b] + occ_sp;
         

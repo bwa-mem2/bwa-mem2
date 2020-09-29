@@ -60,11 +60,8 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 
 typedef struct checkpoint_occ_scalar
 {
-    BIT_DATA_TYPE bwt_str_bit0;
-    BIT_DATA_TYPE bwt_str_bit1;
-    BIT_DATA_TYPE dollar_mask;
     int64_t cp_count[4];
-    uint8_t  pad[PADDING_SCALAR];
+    uint64_t one_hot_bwt_str[4];
 }CP_OCC_SCALAR;
 
 typedef struct checkpoint_occ_avx
@@ -86,21 +83,14 @@ static inline int _mm_countbits_64(unsigned long x) {
 #endif
 
 #define \
-GET_OCC(pp, c, occ_id_pp, y_pp, occ_pp, bwt_str_bit0_pp, bwt_str_bit1_pp, bit0_cmp_pp, bit1_cmp_pp, mismatch_mask_pp) \
+GET_OCC(pp, c, occ_id_pp, y_pp, occ_pp, one_hot_bwt_str_c_pp, match_mask_pp) \
                 int64_t occ_id_pp = pp >> CP_SHIFT_SCALAR; \
                 int64_t y_pp = pp & CP_MASK_SCALAR; \
                 int64_t occ_pp = cp_occ[occ_id_pp].cp_count[c]; \
-                if(y_pp > 0) \
-                { \
-                BIT_DATA_TYPE bwt_str_bit0_pp = cp_occ[occ_id_pp].bwt_str_bit0; \
-                BIT_DATA_TYPE bwt_str_bit1_pp = cp_occ[occ_id_pp].bwt_str_bit1; \
-                BIT_DATA_TYPE bit0_cmp_pp = bwt_str_bit0_pp ^ base_mask[c][0]; \
-                BIT_DATA_TYPE bit1_cmp_pp = bwt_str_bit1_pp ^ base_mask[c][1]; \
-                uint64_t mismatch_mask_pp = bit0_cmp_pp | bit1_cmp_pp | cp_occ[occ_id_pp].dollar_mask; \
-                mismatch_mask_pp = mismatch_mask_pp >> (CP_BLOCK_SIZE_SCALAR - y_pp); \
-                occ_pp += y_pp - _mm_countbits_64(mismatch_mask_pp); \
-                }
-
+                uint64_t one_hot_bwt_str_c_pp = cp_occ[occ_id_pp].one_hot_bwt_str[c]; \
+                uint64_t match_mask_pp = one_hot_bwt_str_c_pp & one_hot_mask_array[y_pp]; \
+                occ_pp += _mm_countbits_64(match_mask_pp);
+                
 #else
 
 typedef CP_OCC_AVX CP_OCC;
@@ -231,6 +221,7 @@ private:
 
 #if ((!__AVX2__))
         BIT_DATA_TYPE base_mask[4][2];
+        uint64_t *one_hot_mask_array;
 #else
         uint8_t *c_bcast_array;
 #endif
