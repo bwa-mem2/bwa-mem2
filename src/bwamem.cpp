@@ -732,11 +732,12 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
             assert(sa_coord != NULL);
         }
         int64_t id = 0, cnt_ = 0, mypos = 0;
+        #if SA_COMPRESSION
         uint64_t tim = __rdtsc();
         fmi->get_sa_entries_prefetch(&matchArray[smem_ptr], sa_coord, &cnt_,
                                      pos - smem_ptr + 1, opt->max_occ, tid, id);  // sa compressed prefetch
         tprof[MEM_SA][tid] += __rdtsc() - tim;
-        
+        #endif
         
         for (i = smem_ptr; i <= pos; i++)
         {
@@ -746,26 +747,29 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
             int64_t k;
             step = p->s > opt->max_occ? p->s / opt->max_occ : 1;
 
-            // uint64_t tim = __rdtsc();
             int cnt = 0;
             #if SA_COMPRESSION
             // fmi->get_sa_entries(p, sa_coord, &cnt, 1, opt->max_occ, tid);  // sa compressed
             // fmi->get_sa_entries_prefetch(p, sa_coord, &cnt, 1, opt->max_occ, tid);  // sa compressed prefetch
-            #else            
+            #else
+            uint64_t tim = __rdtsc();
             fmi->get_sa_entries(p, sa_coord, &cnt, 1, opt->max_occ);
+            tprof[MEM_SA][tid] += __rdtsc() - tim;
             #endif
             
-            cnt = 0;
-            // tprof[MEM_SA][tid] += __rdtsc() - tim;
-            
+            cnt = 0;            
             for (k = count = 0; k < p->s && count < opt->max_occ; k += step, ++count)
             {
                 mem_chain_t tmp, *lower, *upper;
                 mem_seed_t s;
                 int rid, to_add = 0;
 
+                #if SA_COMPRESSION
                 s.rbeg = tmp.pos = sa_coord[mypos++];
-                // s.rbeg = tmp.pos = sa_coord[cnt++];
+                #else
+                s.rbeg = tmp.pos = sa_coord[cnt++];
+                #endif
+                
                 s.qbeg = p->m;
                 s.score= s.len = slen;
                 if (s.rbeg < 0 || s.len < 0) 
