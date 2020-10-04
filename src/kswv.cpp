@@ -566,7 +566,7 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
     _mm512_store_si512((__m512i *) qe, qe512);
 
     int live = 0;
-    for (int l=0; l<SIMD_WIDTH8; l++) {
+    for (int l=0; l<SIMD_WIDTH8 && (po_ind + l) < numPairs; l++) {
         int ind = po_ind + l;
         int16_t *te;
         if (i < SIMD_WIDTH16) te = te1;
@@ -680,16 +680,18 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
     int16_t temp4[SIMD_WIDTH8] __attribute((aligned(64)));
     _mm512_store_si512((__m512i *) temp, max512);
     _mm512_store_si512((__m512i *) temp4, te512);
-    _mm512_store_si512((__m512i *) (temp4 + SIMD_WIDTH16), te512_);     
-    for (int i=0; i<SIMD_WIDTH8; i++)
+    _mm512_store_si512((__m512i *) (temp4 + SIMD_WIDTH16), te512_);
+    
+    for (int i=0; i<SIMD_WIDTH8  && (po_ind + i) < numPairs; i++)
     {
         int ind = po_ind + i;
         int16_t *te2;
-        if (i < SIMD_WIDTH16) te2 = temp4;
-        else te2 = temp4;
+        // if (i < SIMD_WIDTH16) te2 = temp4;
+        // else te2 = temp4;
+        te2 = temp4;
 #if !MAINY
         ind = p[i].regid;    // index of corr. aln
-        assert(ind == po_ind + i);
+        // assert(ind == po_ind + i);
 #endif
         if (qe[i]) {
             aln[ind].score2 = (temp[i] == 0? (int)-1: (uint8_t) temp[i]);
@@ -1123,7 +1125,7 @@ int kswv::kswv512_16(int16_t seq1SoA[],
     _mm512_store_si512((__m512i *) te, te512);
     _mm512_store_si512((__m512i *) qe, qe512);
 
-    for (int l=0; l<SIMD_WIDTH16; l++) {
+    for (int l=0; l<SIMD_WIDTH16 && (po_ind + l) < numPairs; l++) {
         int ind = po_ind + l;
 #if !MAINY
         ind = p[l].regid;    // index of corr. aln
@@ -1200,12 +1202,11 @@ int kswv::kswv512_16(int16_t seq1SoA[],
     // _mm512_store_si512((__m512i *) temp, max512_);
     _mm512_store_si512((__m512i *) temp1, max512);
     _mm512_store_si512((__m512i *) temp2, te512);
-    
-    for (int i=0; i<SIMD_WIDTH16; i++) {
+
+    for (int i=0; i<SIMD_WIDTH16 && (po_ind + i) < numPairs; i++) {    
         int ind = po_ind + i;
 #if !MAINY
         ind = p[i].regid;    // index of corr. aln
-        assert(ind == po_ind + i);
 #endif      
         aln[ind].score2 = temp1[i];
         aln[ind].te2 = temp2[i];

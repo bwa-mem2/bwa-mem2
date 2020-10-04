@@ -714,9 +714,15 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc,
     kswv *pwsw = new kswv(opt->o_del, opt->e_del, opt->o_ins, opt->e_ins, opt->a, -1*opt->b, nthreads,
                           maxRefLen, maxQerLen);
 
+    // Shift 16-bit 
+    for (int i=0; i<pcnt-pcnt8; i++)
+        seqPairArray[pcnt + MAX_LINE_LEN - 1 - i] = seqPairArray[pcnt-i-1];
+    
 #if __AVX512BW__    
     pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pcnt8, nthreads, 0);
-    pwsw->getScores16(seqPairArray + pcnt8, seqBufRef, seqBufQer, aln, pcnt-pcnt8, nthreads, 0);
+    // pwsw->getScores16(seqPairArray + pcnt8, seqBufRef, seqBufQer, aln, pcnt-pcnt8, nthreads, 0);
+    pwsw->getScores16(seqPairArray + pcnt8 + MAX_LINE_LEN, seqBufRef, seqBufQer,
+                      aln, pcnt-pcnt8, nthreads, 0);
 #else
     fprintf(stderr, "Error: This should not have happened!! \nPlease look in to AVX512 macros\n");
     exit(EXIT_FAILURE);
@@ -724,6 +730,7 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc,
 
     // Post-processing
     int pos = 0, pos8 = 0, pos16 = 0;
+    #if 0
     for (int i=0; i<pcnt; i++) {
         kswr_t r = aln[i];
         SeqPair sp = seqPairArray[i];
@@ -740,14 +747,51 @@ int mem_sam_pe_batch(const mem_opt_t *opt, mem_cache *mmc,
         if (i < pcnt8) pos8 ++;
         else pos16 ++;
     }
+    #else
+
+    for (int i=0; i<pcnt8; i++)
+    {
+        SeqPair sp = seqPairArray[i];
+        int ind = sp.regid;
+        kswr_t r = aln[ind];
+        int xtra = sp.h0;
+        if ((xtra & KSW_XSTART) == 0 || ((xtra & KSW_XSUBO) && r.score < (xtra & 0xffff))) continue; 
+        
+        sp.h0 = KSW_XSTOP | r.score;
+        sp.len2 = r.qe + 1;
+        uint8_t *qs = seqBufQer + sp.idq;
+        uint8_t *rs = seqBufRef + sp.idr;
+        revseq(r.qe + 1, qs); revseq(r.te + 1, rs);
+        seqPairArray[pos++] = sp;        
+        pos8 ++;
+    }
+    
+    int id = pcnt8 + MAX_LINE_LEN;
+    for (int i=0; i<pcnt-pcnt8; i++)
+    {
+        SeqPair sp = seqPairArray[i + id];
+        int ind = sp.regid;
+        kswr_t r = aln[ind];
+        int xtra = sp.h0;
+        if ((xtra & KSW_XSTART) == 0 || ((xtra & KSW_XSUBO) && r.score < (xtra & 0xffff))) continue; 
+        
+        sp.h0 = KSW_XSTOP | r.score;
+        sp.len2 = r.qe + 1;
+        uint8_t *qs = seqBufQer + sp.idq;
+        uint8_t *rs = seqBufRef + sp.idr;
+        revseq(r.qe + 1, qs); revseq(r.te + 1, rs);
+        seqPairArray[pos++] = sp;        
+        pos16 ++;
+    }
+
+    #endif
 
     int pcnt2 = pos;
     assert(pos8 + pos16 == pcnt2);
 
 #if __AVX512BW__
-    pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pos8, nthreads, 1);
     pwsw->getScores16(seqPairArray + pos8, seqBufRef, seqBufQer, aln, pos16, nthreads, 1);
-    // pwsw->kswvScalarWrapper(seqPairArray, seqBufRef, seqBufQer, aln, pos, nthreads, 0); //debug
+    pwsw->getScores8(seqPairArray, seqBufRef, seqBufQer, aln, pos8, nthreads, 1);
 #else
     fprintf(stderr, "Error: This should not have happened!! \nPlease look in to AVX512 macros\n");
     exit(EXIT_FAILURE);

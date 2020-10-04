@@ -28,6 +28,10 @@
 ##                                Heng Li <hli@jimmy.harvard.edu> 
 ##*****************************************************************************************/
 
+ifneq ($(portable),)
+	STATIC_GCC=-static-libgcc -static-libstdc++
+endif
+
 EXE=		bwa-mem2
 #CXX=		icpc
 ifeq ($(CXX), icpc)
@@ -37,19 +41,15 @@ else ifeq ($(CXX), g++)
 endif		
 ARCH_FLAGS=	-msse4.1
 MEM_FLAGS=	-DSAIS=1
-CPPFLAGS=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
+CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
 INCLUDES=   -Isrc -Iext/safestringlib/include
-LIBS=		-lpthread -lm -lz -L. -lbwa  -Lext/safestringlib -lsafestring
+LIBS=		-lpthread -lm -lz -L. -lbwa  -Lext/safestringlib -lsafestring $(STATIC_GCC)
 OBJS=		src/fastmap.o src/main.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bwt.o src/ertindex.o src/bntseq.o src/bwamem.o src/ertseeding.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
 			src/bwamem_extra.o src/bwtbuild.o src/QSufSort.o src/bwt_gen.o src/rope.o src/rle.o src/is.o src/kopen.o src/bwtindex.o
 BWA_LIB=    libbwa.a
 SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
-
-ifneq ($(portable),)
-	LIBS+=-static-libgcc -static-libstdc++
-endif
 
 ifeq ($(arch),sse)
 		ARCH_FLAGS=-msse4.1
@@ -72,7 +72,7 @@ else ifneq ($(arch),)
 	ARCH_FLAGS=$(arch)
 endif
 
-CXXFLAGS=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
+CXXFLAGS+=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 
 .PHONY:all clean depend multi
 .SUFFIXES:.cpp .o
@@ -89,10 +89,10 @@ multi:
 	$(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
-	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring -o bwa-mem2
+	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring $(STATIC_GCC) -o bwa-mem2
 
 $(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main.o
-	$(CXX) $(CXXFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
 
 $(BWA_LIB):$(OBJS)
 	ar rcs $(BWA_LIB) $(OBJS)
