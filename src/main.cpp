@@ -77,15 +77,14 @@ int main(int argc, char* argv[])
         fprintf(stderr, "-----------------------------\n");
 #if __AVX512BW__
         fprintf(stderr, "Executing in AVX512 mode!!\n");
-#endif
-#if ((!__AVX512BW__) & (__AVX2__))
+#elif __AVX2__
         fprintf(stderr, "Executing in AVX2 mode!!\n");
-#endif
-#if ((!__AVX512BW__) && (!__AVX2__) && (__SSE2__))
-        fprintf(stderr, "Executing in SSE4.1 mode!!\n");
-#endif
-#if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
-        fprintf(stderr, "Executing in Scalar mode!!\n");
+#elif __AVX__
+        fprintf(stderr, "Executing in AVX mode!!\n");        
+#elif __SSE4_2__
+        fprintf(stderr, "Executing in SSE4.2 mode!!\n");
+#elif __SSE4_1__
+        fprintf(stderr, "Executing in SSE4.1 mode!!\n");        
 #endif
         fprintf(stderr, "-----------------------------\n");
 
