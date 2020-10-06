@@ -690,7 +690,6 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
         te2 = temp4;
 #if !MAINY
         ind = p[i].regid;    // index of corr. aln
-        // assert(ind == po_ind + i);
 #endif
         if (qe[i]) {
             aln[ind].score2 = (temp[i] == 0? (int)-1: (uint8_t) temp[i]);
@@ -1128,7 +1127,6 @@ int kswv::kswv512_16(int16_t seq1SoA[],
         int ind = po_ind + l;
 #if !MAINY
         ind = p[l].regid;    // index of corr. aln
-        // assert(ind == po_ind + l);
         if (phase) {
             if (aln[ind].score == score[l]) {
                 aln[ind].tb = aln[ind].te - te[l];

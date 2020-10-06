@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "-----------------------------\n");
 
         #if SA_COMPRESSION
-        fprintf(stderr, "SA compression enable with xfactor (2^): %d !!!\n", SA_COMPX);
+        fprintf(stderr, "* SA compression enable with xfactor: %d\n", 0x1 << SA_COMPX);
         #endif
         
         ksprintf(&pg, "@PG\tID:bwa-mem2\tPN:bwa-mem2\tVN:%s\tCL:%s", PACKAGE_VERSION, argv[0]);
