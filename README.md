@@ -56,7 +56,7 @@ the most efficient implementation based on the SIMD instruction set available
 on the running machine. Precompiled binaries were generated on a CentOS6
 machine using the following command line:
 ```sh
-make CXX=icpc multi
+make CXX=icpc
 ```
 
 [bwa]: https://github.com/lh3/bwa
@@ -112,8 +112,8 @@ A. Data download steps:
 B. Alignment steps:   
 1. git clone https://github.com/bwa-mem2/bwa-mem2.git   
 2. cd bwa-mem2   
-3. ```make CXX=icpc multi``` (using intel C/C++ compiler)   
-or   ```make multi``` (using gcc compiler)   
+3. ```make CXX=icpc``` (using intel C/C++ compiler)   
+or   ```make``` (using gcc compiler)   
 4. ./bwa-mem2 index <ref.fa>   
 5. ./bwa-mem2 mem [-t <#threads>] <ref.fa> <in_1.fastq> [<in_2.fastq>]  >  <output.sam>   
 
