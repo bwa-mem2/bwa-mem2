@@ -3,9 +3,9 @@
 
 ## Important Information
 
-***Index strucutre has changed (in commit f687b1, 8th September 2020) due to 8x compression of suffix array. Please rebuild the index.***
-***The index size on disk and memory footprint is down to ~16GB from ~42GB earlier (without SA compression).***
-***we see performance impact (non-index-IO time) of 3%-7%. But there is a substantial reduction in index IO time for the obvious reasons.***
+***We are happy to announce that the index size on disk is down by 8 times and in memory by 4 times due to moving to only one type of FM-index (2bit.64 instead of 2bit.64 and 8bit.32) and 8x compression of suffix array. For example, for human genome, index size on disk is down to ~10GB from ~80GB and memory footprint is down to ~10GB from ~40GB.***
+***There is a substantial reduction in index IO time due to the reduction and hardly any performance impact on read mapping.***
+***Due to this change in index structure (in commit #4b59796, 10th October 2020), you will need to rebuild the index.***
 
 ***Ignore this msg for latest commit: Index structure has changed (in commit 494a441, 28/08/2020) due to 4x compression of the suffix array in the Index. Rebuild the Index***
 
