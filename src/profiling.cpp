@@ -150,6 +150,7 @@ int display_stats(int nthreads)
     fprintf(stderr, "\t\tBSW time, avg: %0.2lf, (%0.2lf, %0.2lf)\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
 
+    #if HIDE
     int agg1 = 0, agg2 = 0, agg3 = 0;
     for (int i=0; i<nthreads; i++) {
         agg1 += tprof[PE11][i];
@@ -183,6 +184,7 @@ int display_stats(int nthreads)
     
     fprintf(stderr, "\ttot_inst1: %ld, tot_inst2: %ld, over %d threads\n",
             tot_inst1, tot_inst2, nthreads);
+    #endif
     
 #if HIDE
     fprintf(stderr, "\n BSW Perf.:\n");
