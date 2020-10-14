@@ -39,7 +39,7 @@ ifeq ($(CXX), icpc)
 else ifeq ($(CXX), g++)
 	CC=gcc
 endif		
-ARCH_FLAGS=	-msse4.1
+ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
 INCLUDES=   -Isrc -Iext/safestringlib/include
@@ -52,9 +52,9 @@ BWA_LIB=    libbwa.a
 SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
 
 ifeq ($(arch),sse41)
-	ARCH_FLAGS=-msse4.1
+	ARCH_FLAGS=-msse -msse2 -msse3 -mssse3 -msse4.1
 else ifeq ($(arch),sse42)
-	ARCH_FLAGS=-msse4.2
+	ARCH_FLAGS=-msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2
 else ifeq ($(arch),avx)
 	ifeq ($(CXX), icpc)
 		ARCH_FLAGS=-mavx ##-xAVX
