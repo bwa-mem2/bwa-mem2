@@ -52,9 +52,17 @@ BWA_LIB=    libbwa.a
 SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
 
 ifeq ($(arch),sse41)
-	ARCH_FLAGS=-msse -msse2 -msse3 -mssse3 -msse4.1
+	ifeq ($(CXX), icpc)
+		ARCH_FLAGS=-msse4.1
+	else
+		ARCH_FLAGS=-msse -msse2 -msse3 -mssse3 -msse4.1
+	endif
 else ifeq ($(arch),sse42)
-	ARCH_FLAGS=-msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2
+	ifeq ($(CXX), icpc)	
+		ARCH_FLAGS=-msse4.2
+	else
+		ARCH_FLAGS=-msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2
+	endif
 else ifeq ($(arch),avx)
 	ifeq ($(CXX), icpc)
 		ARCH_FLAGS=-mavx ##-xAVX
