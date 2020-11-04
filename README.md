@@ -73,9 +73,9 @@ If you use BWA-Mich, please cite the following [paper](https://biorxiv.org/cgi/c
 
 ## Important Information
 
-***Index strucutre has changed (in commit f687b1, 8th September 2020) due to 8x compression of suffix array. Please rebuild the index.***
-***The index size on disk and memory footprint is down to ~16GB from ~42GB earlier (without SA compression).***
-***we see performance impact (non-index-IO time) of 3%-7%. But there is a substantial reduction in index IO time for the obvious reasons.***
+***We are happy to announce that the index size on disk is down by 8 times and in memory by 4 times due to moving to only one type of FM-index (2bit.64 instead of 2bit.64 and 8bit.32) and 8x compression of suffix array. For example, for human genome, index size on disk is down to ~10GB from ~80GB and memory footprint is down to ~10GB from ~40GB.***
+***There is a substantial reduction in index IO time due to the reduction and hardly any performance impact on read mapping.***
+***Due to this change in index structure (in commit #4b59796, 10th October 2020), you will need to rebuild the index.***
 
 ***Ignore this msg for latest commit: Index structure has changed (in commit 494a441, 28/08/2020) due to 4x compression of the suffix array in the Index. Rebuild the Index***
 
@@ -126,7 +126,7 @@ the most efficient implementation based on the SIMD instruction set available
 on the running machine. Precompiled binaries were generated on a CentOS6
 machine using the following command line:
 ```sh
-make CXX=icpc multi
+make CXX=icpc
 ```
 
 [bwa]: https://github.com/lh3/bwa
@@ -182,8 +182,8 @@ A. Data download steps:
 B. Alignment steps:   
 1. git clone https://github.com/bwa-mem2/bwa-mem2.git   
 2. cd bwa-mem2   
-3. ```make CXX=icpc multi``` (using intel C/C++ compiler)   
-or   ```make multi``` (using gcc compiler)   
+3. ```make CXX=icpc``` (using intel C/C++ compiler)   
+or   ```make``` (using gcc compiler)   
 4. ./bwa-mem2 index <ref.fa>   
 5. ./bwa-mem2 mem [-t <#threads>] <ref.fa> <in_1.fastq> [<in_2.fastq>]  >  <output.sam>   
 

@@ -193,13 +193,10 @@ int main(int argc, char *argv[])
 	//prefix_len = strlen(prefix);
 	simd = x86_simd();
 	if (simd & SIMD_AVX512BW) test_and_launch(argv, prefix, ".avx512bw");
-	if (simd & SIMD_AVX512F) test_and_launch(argv, prefix, ".avx512f");
 	if (simd & SIMD_AVX2) test_and_launch(argv, prefix, ".avx2");
 	if (simd & SIMD_AVX) test_and_launch(argv, prefix, ".avx");
 	if (simd & SIMD_SSE4_2) test_and_launch(argv, prefix, ".sse42");
 	if (simd & SIMD_SSE4_1) test_and_launch(argv, prefix, ".sse41");
-	if (simd & SIMD_SSE2) test_and_launch(argv, prefix, ".sse2");
-	if (simd & SIMD_SSE) test_and_launch(argv, prefix, ".sse");
 	free(prefix);
 	fprintf(stderr, "ERROR: fail to find the right executable\n");
 	return 2;

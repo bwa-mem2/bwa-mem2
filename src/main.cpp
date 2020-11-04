@@ -32,7 +32,7 @@ Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@
 #include "main.h"
 
 #ifndef PACKAGE_VERSION
-#define PACKAGE_VERSION "2.0"
+#define PACKAGE_VERSION "2.1"
 #endif
 
 
@@ -77,20 +77,19 @@ int main(int argc, char* argv[])
         fprintf(stderr, "-----------------------------\n");
 #if __AVX512BW__
         fprintf(stderr, "Executing in AVX512 mode!!\n");
-#endif
-#if ((!__AVX512BW__) & (__AVX2__))
+#elif __AVX2__
         fprintf(stderr, "Executing in AVX2 mode!!\n");
-#endif
-#if ((!__AVX512BW__) && (!__AVX2__) && (__SSE2__))
-        fprintf(stderr, "Executing in SSE4.1 mode!!\n");
-#endif
-#if ((!__AVX512BW__) && (!__AVX2__) && (!__SSE2__))
-        fprintf(stderr, "Executing in Scalar mode!!\n");
+#elif __AVX__
+        fprintf(stderr, "Executing in AVX mode!!\n");        
+#elif __SSE4_2__
+        fprintf(stderr, "Executing in SSE4.2 mode!!\n");
+#elif __SSE4_1__
+        fprintf(stderr, "Executing in SSE4.1 mode!!\n");        
 #endif
         fprintf(stderr, "-----------------------------\n");
 
         #if SA_COMPRESSION
-        fprintf(stderr, "SA compression enable with xfactor (2^): %d !!!\n", SA_COMPX);
+        fprintf(stderr, "* SA compression enabled with xfactor: %d\n", 0x1 << SA_COMPX);
         #endif
         
         ksprintf(&pg, "@PG\tID:bwa-mem2\tPN:bwa-mem2\tVN:%s\tCL:%s", PACKAGE_VERSION, argv[0]);
