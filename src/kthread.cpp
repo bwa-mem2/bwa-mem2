@@ -62,7 +62,7 @@ static void *ktf_worker(void *data)
 	
 	for (;;) {
 		i = __sync_fetch_and_add(&w->i, w->t->n_threads);
-		int st = i * BATCH_SIZE;
+		long st = i * BATCH_SIZE;
 		if (st >= w->t->n) break;
 		long ed = (i + 1) * BATCH_SIZE < w->t->n? (i + 1) * BATCH_SIZE : w->t->n;
 		w->t->func(w->t->data, st, ed-st, w - w->t->w);
