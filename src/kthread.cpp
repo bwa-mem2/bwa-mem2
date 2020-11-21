@@ -65,13 +65,14 @@ static void *ktf_worker(void *data)
 		int st = i * BATCH_SIZE;
 		if (st >= w->t->n) break;
 		int ed = (i + 1) * BATCH_SIZE < w->t->n? (i + 1) * BATCH_SIZE : w->t->n;
-		w->t->func(w->t->data, st, ed-st, tid);
+		// w->t->func(w->t->data, st, ed-st, tid);
+        w->t->func(w->t->data, st, ed-st, w - w->t->w);
 	}
 
 	while ((i = steal_work(w->t)) >= 0) {
 		int st = i * BATCH_SIZE;
 		int ed = (i + 1) * BATCH_SIZE < w->t->n? (i + 1) * BATCH_SIZE : w->t->n;
-		w->t->func(w->t->data, st, ed-st, tid);
+		w->t->func(w->t->data, st, ed-st, w - w->t->w);
 	}
 	pthread_exit(0);
 }
