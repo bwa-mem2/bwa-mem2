@@ -123,6 +123,10 @@ int display_stats(int nthreads)
     find_opt(tprof[MEM_ALN_M2], nthreads, &max, &min, &avg);
     fprintf(stderr, "\t\tMEM_ALN_CHAIN_SEED avg: %0.2lf, (%0.2lf, %0.2lf)\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
+    
+    find_opt(tprof[ERT_SEED_CHAIN], nthreads, &max, &min, &avg);
+    fprintf(stderr, "\t\tERT_SEED_CHAIN avg: %0.2lf, (%0.2lf, %0.2lf)\n",
+            avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
 #endif
     
     find_opt(tprof[MEM_COLLECT], nthreads, &max, &min, &avg);

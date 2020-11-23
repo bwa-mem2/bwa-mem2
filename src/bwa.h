@@ -44,6 +44,13 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 #define BWA_CTL_SIZE 0x10000
 
+#define BWTALGO_AUTO  0
+#define BWTALGO_RB2   1
+#define BWTALGO_BWTSW 2
+#define BWTALGO_IS    3
+#define BWTALGO_MEM2  4
+#define BWTALGO_MLTS  5
+
 typedef struct {
 	// bwt2_t   *bwt2;
 	bwt_t    *bwt; // FM-index
@@ -90,7 +97,8 @@ extern "C" {
 							 int64_t rb, int64_t re, int *score,
 							 int *n_cigar, int *NM);
 
-	int bwa_idx_build(const char *fa, const char *prefix);
+	int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_size);
+	int bwa_idx_build_mem2(const char *fa, const char *prefix);
 
 	char *bwa_idx_infer_prefix(const char *hint);
 	bwt_t *bwa_idx_load_bwt(const char *hint);

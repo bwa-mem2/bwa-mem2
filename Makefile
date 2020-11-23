@@ -43,11 +43,11 @@ ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 $(MEM_FLAGS) 
 INCLUDES=   -Isrc -Iext/safestringlib/include
-LIBS=		-lpthread -lm -lz -L. -lbwa -Lext/safestringlib -lsafestring $(STATIC_GCC)
-OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
-			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o src/bandedSWA.o \
+LIBS=		-lpthread -lm -lz -L. -lbwa  -Lext/safestringlib -lsafestring $(STATIC_GCC)
+OBJS=		src/fastmap.o src/main.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
+			src/kstring.o src/ksw.o src/bwt.o src/ertindex.o src/bntseq.o src/bwamem.o src/ertseeding.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
-			src/bwamem_extra.o src/kopen.o
+			src/bwamem_extra.o src/bwtbuild.o src/QSufSort.o src/bwt_gen.o src/rope.o src/rle.o src/is.o src/kopen.o src/bwtindex.o
 BWA_LIB=    libbwa.a
 SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
 
@@ -151,7 +151,11 @@ src/bwamem_pair.o: src/bwa.h src/macro.h src/kthread.h src/bandedSWA.h
 src/bwamem_pair.o: src/ksw.h src/kvec.h src/ksort.h src/utils.h
 src/bwamem_pair.o: src/profiling.h src/FMI_search.h src/read_index_ele.h
 src/bwamem_pair.o: src/kswv.h
-src/bwtindex.o: src/bntseq.h src/bwa.h src/bwt.h src/macro.h src/utils.h
+src/bwt.o: src/utils.h src/bwt.h src/kvec.h src/malloc_wrap.h
+src/bwt_gen.o: src/QSufSort.h src/malloc_wrap.h
+src/bwtbuild.o: src/sais.h src/utils.h src/bntseq.h
+src/bwtindex.o: src/bntseq.h src/bwa.h src/bwt.h src/macro.h src/utils.h src/rle.h src/rope.h src/malloc_wrap.h
+src/bwtindex.o: src/bwtbuild.h
 src/bwtindex.o: src/FMI_search.h src/read_index_ele.h
 src/fastmap.o: src/fastmap.h src/bwa.h src/bntseq.h src/bwt.h src/macro.h
 src/fastmap.o: src/bwamem.h src/kthread.h src/bandedSWA.h src/kstring.h
@@ -166,8 +170,18 @@ src/kthread.o: src/ksort.h src/utils.h src/profiling.h src/FMI_search.h
 src/kthread.o: src/read_index_ele.h
 src/main.o: src/main.h src/kstring.h src/utils.h src/macro.h src/bandedSWA.h
 src/main.o: src/profiling.h
+src/malloc_wrap.o: src/malloc_wrap.h
 src/profiling.o: src/macro.h
 src/read_index_ele.o: src/read_index_ele.h src/utils.h src/bntseq.h
 src/read_index_ele.o: src/macro.h
 src/utils.o: src/utils.h src/ksort.h src/kseq.h
+src/rle.o: src/rle.h
+src/rope.o: src/rle.h src/rope.h
+src/is.o: src/malloc_wrap.h
+src/QSufSort.o: src/QSufSort.h
+src/ertindex.o: src/ertindex.h src/bwt.h src/kvec.h src/macro.h
+src/ertseeding.o: src/ertseeding.h src/bwamem.h src/bwt.h src/bntseq.h src/bwa.h src/macro.h 
+src/ertseeding.o: src/kthread.h src/bandedSWA.h src/kstring.h src/ksw.h
+src/ertseeding.o: src/kvec.h src/ksort.h src/utils.h src/profiling.h
+src/ertseeding.o: src/FMI_search.h src/read_index_ele.h src/kbtree.h
 src/memcpy_bwamem.o: src/memcpy_bwamem.h

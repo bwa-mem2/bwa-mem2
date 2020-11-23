@@ -92,8 +92,9 @@ kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t 
 			int i, k, nlen = slen * p;
 			const int8_t *ma = mat + a * m;
 			for (i = 0; i < slen; ++i)
-				for (k = i; k < nlen; k += slen) // p iterations
+				for (k = i; k < nlen; k += slen) { // p iterations
 					*t++ = (k >= qlen? 0 : ma[query[k]]) + q->shift;
+				}
 		}
 	} else {
 		int16_t *t = (int16_t*)q->qp;
@@ -101,8 +102,9 @@ kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t 
 			int i, k, nlen = slen * p;
 			const int8_t *ma = mat + a * m;
 			for (i = 0; i < slen; ++i)
-				for (k = i; k < nlen; k += slen) // p iterations
+				for (k = i; k < nlen; k += slen) { // p iterations
 					*t++ = (k >= qlen? 0 : ma[query[k]]);
+				}
 		}
 	}
 	return q;

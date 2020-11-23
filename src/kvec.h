@@ -49,6 +49,7 @@ int main() {
 #define AC_KVEC_H
 
 #include <stdlib.h>
+#include <stdio.h>
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -61,6 +62,7 @@ typedef struct {
 }  kvecint;
 
 #define kvec_t(type) struct { size_t n, m; type *a; }
+#define kv_init_base(type, v, x) ((v).n = 0, (v).m = (x), (v).a = (type*)calloc((x), sizeof(type)))
 #define kv_init(v) ((v).n = (v).m = 0, (v).a = 0)
 #define kv_destroy(v) free((v).a)
 #define kv_A(v, i) ((v).a[(i)])
@@ -79,6 +81,14 @@ typedef struct {
 #define kv_push(type, v, x) do {									\
 		if ((v).n == (v).m) {										\
 			(v).m = (v).m? (v).m<<1 : 2;							\
+			(v).a = (type*)realloc((v).a, sizeof(type) * (v).m); \
+		}															\
+		(v).a[(v).n++] = (x);										\
+	} while (0)
+
+#define kv_push_base(type, v, x, base) do {							\
+		if ((v).n == (v).m) {										\
+			(v).m = (v).m? (v).m<<1 : base;							\
 			(v).a = (type*)realloc((v).a, sizeof(type) * (v).m); \
 		}															\
 		(v).a[(v).n++] = (x);										\

@@ -170,6 +170,38 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define PE24 110
 #define PE25 111
 #define PE26 112
+#define ERT_SEED_CHAIN 113
 
+//////////////////////
+// ERT macros
+//////////////////////
+
+#define kmerSize 15
+#define numKmers 1073741824
+#define xmerSize 4
+#define numXmers 256
+#define TILE_SIZE 64
+// #define PRINT_SMEM
+#define PREFIX_LENGTH 3
+#define LEP_MASK 0x3FFF
+#define KMER_DATA_BITWIDTH 24
+#define KMER_DATA_MASK 0xFFFF
+#define METADATA_BITWIDTH 2
+#define METADATA_MASK 0x3
+#define INVALID 0
+#define SINGLE_HIT_LEAF 1
+#define INFREQUENT 2
+#define FREQUENT 3
+#define HIT_THRESHOLD 256
+#define DRAM_PAGE_SIZE 24576
+#define LEAF_TBL_BASE_PTR_WIDTH 3
+#define LEAF_TBL_HIT_COUNT_WIDTH 3
+#define MAX_HITS_PER_READ 2000000
+// #define MMAP_ERT_INDEX 1
+// #define ERT_INDEX_PREFETCH 1
+
+#define log_file(fd, M, ...) \
+	fprintf(fd, M "\n", ##__VA_ARGS__); \
+	fflush(fd)
 
 #endif

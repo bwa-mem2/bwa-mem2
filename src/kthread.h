@@ -80,11 +80,11 @@ typedef struct kt_for_t {
 	int n_threads;
 	long n;
 	ktf_worker_t *w;
-	void (*func)(void*, int, int, int);
+	void (*func)(void*, long, long, int);
 	void *data;
 } kt_for_t;
 
 
 void kt_pipeline(int n_threads, int (*func)(void*), void *shared_data, int n_steps);
-void kt_for(void (*func)(void*,int,int,int), void *data, int n);
+void kt_for(void (*func)(void*,long,long,int), void *data, int n);
 #endif

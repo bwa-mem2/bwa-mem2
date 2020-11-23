@@ -269,6 +269,7 @@ void kswv::kswvBatchWrapper8(SeqPair *pairArray,
 #else
                 seq1 = seqBufRef + sp.idr;
 #endif
+                assert(sp.len1 <= maxRefLen);
                 for(k = 0; k < sp.len1; k++)
                 {
                     mySeq1SoA[k * SIMD_WIDTH8 + j] = (seq1[k] == AMBIG_ ? AMBR:seq1[k]);

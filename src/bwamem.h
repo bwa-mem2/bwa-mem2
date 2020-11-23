@@ -46,12 +46,14 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <vector>
 #include "kstring.h"
 #include "ksw.h"
+#include "kswv.h"
 #include "kvec.h"
 #include "ksort.h"
 #include "utils.h"
 #include "macro.h"
 #include "profiling.h"
 #include "FMI_search.h"
+#include "ertseeding.h"
 
 #define MEM_MAPQ_COEF 30.0
 #define MEM_MAPQ_MAX  60
@@ -67,6 +69,9 @@ typedef struct __smem_i smem_i;
 #define MEM_F_REF_HDR   0x100
 #define MEM_F_SOFTCLIP  0x200
 #define MEM_F_SMARTPE   0x400
+#define MEM_F_PRIMARY5  0x800
+#define MEM_F_KEEP_SUPP_MAPQ 0x1000
+#define MEM_F_XB        0x2000
 
 // V17
 #define MEM_F_PRIMARY5  0x800
@@ -208,11 +213,17 @@ typedef struct
     int64_t wsize_mem[MAX_THREADS];
 } mem_cache;
 
+typedef struct memory_mapped_file_t {
+    void* contents;
+    size_t size;
+    int fd;
+} memory_mapped_file_t;
+
 // chain moved to .h
 typedef struct worker_t {
     const mem_opt_t      *opt;
-    //const bntseq_t         *bns;
-    // const uint8_t         *pac;
+    const bntseq_t       *bns;
+    const uint8_t        *pac;
     const mem_pestat_t   *pes;
     smem_aux_t      **aux;
     bseq1_t          *seqs;
@@ -224,6 +235,16 @@ typedef struct worker_t {
     int64_t           seedBufSize;
     mem_seed_t       *auxSeedBuf;
     int64_t           auxSeedBufSize;
+    memory_mapped_file_t kmerOffsetsFile;
+    memory_mapped_file_t mltTableFile;
+    uint64_t         *kmer_offsets;
+    uint8_t          *mlt_table;
+    uint8_t          *lep;
+    mem_v            *smems;
+    u64v             *hits_ar;
+    int64_t           hitBufSize;
+    int64_t           smemBufSize; 
+    int useErt;
     uint8_t          *ref_string;
     int16_t           nthreads;
     int32_t           nreads;
@@ -251,6 +272,8 @@ int mem_mark_primary_se(const mem_opt_t *opt, int n, mem_alnreg_t *a, int64_t id
 
 static void mem_mark_primary_se_core(const mem_opt_t *opt, int n, mem_alnreg_t *a, int_v *z);
 
+void mem_reorder_primary5(int T, mem_alnreg_v *a);
+
 char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
                    const mem_alnreg_v *a, int l_query, const char *query); // ONLY work after mem_mark_primary_se()
 void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s,
@@ -265,6 +288,22 @@ int mem_kernel1_core(FMI_search *fmi, const mem_opt_t *opt,
                      mem_chain_v *chain_ar,
                      mem_cache *mmc,
                      int tid);
+
+int mem_kernel1_core_ert(const mem_opt_t *opt,
+                         const bntseq_t *bns,
+                         const uint8_t *pac,
+                         bseq1_t *seq_,
+                         int nseq,
+                         mem_chain_v *chain_ar,
+                         mem_seed_t *seedBuf,
+                         int64_t seedBufSize,
+                         uint64_t* kmer_offsets,
+                         uint8_t* mlt_table,
+                         uint8_t* ref_string,
+                         mem_v* smems,
+                         u64v* hits,
+                         int tid);
+
 
 void* _mm_realloc(void *ptr, int64_t csize, int64_t nsize, int16_t dsize);
 
@@ -293,7 +332,13 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                           const uint8_t *pac, const mem_pestat_t pes[4],
                           uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
                           kswr_t **myaln, mem_cache *mmc,
-                          int32_t &gcnt, int tid);
+                          int32_t &gcnt, int tid, int useErt);
+
+int mem_matesw_batch_post_orig(const mem_opt_t *opt, const bntseq_t *bns,
+						  const uint8_t *pac, const mem_pestat_t pes[4],
+						  const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
+						  mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
+						  int32_t *gar, mem_cache *mmc, int , int, int);
 
 int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                           const uint8_t *pac, const mem_pestat_t pes[4],
@@ -301,9 +346,15 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                           mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
                           int32_t *gar, mem_cache *mmc);
 
+int mem_matesw_batch_post_ert(const mem_opt_t *opt, const bntseq_t *bns,
+                              const uint8_t *pac, const mem_pestat_t pes[4],
+                              const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
+                              mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
+                              int32_t *gar, mem_cache *mmc);
+
 int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
                const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2],
-               mem_alnreg_v a[2]);
+               mem_alnreg_v a[2], int useErt);
 /**
  * Align a batch of sequences and generate the alignments in the SAM format
  *

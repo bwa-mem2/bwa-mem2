@@ -32,6 +32,12 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+
 #if NUMA_ENABLED
 #include <numa.h>
 #endif
@@ -95,6 +101,246 @@ int HTStatus()
     return ht;
 }
 
+int64_t prefetchMemoryMappedFile(memory_mapped_file_t* mmFile) {
+    // Read out mapped file sequentially to pre-fault and populate page table
+    if (madvise(mmFile->contents, mmFile->size, MADV_SEQUENTIAL)) {
+        fprintf(stderr, "madvise MADV_SEQUENTIAL failed (since it's only an optimization, this is OK).  Errno %d\n", errno);
+    }
+    if (madvise(mmFile->contents, mmFile->size, MADV_WILLNEED)) {
+        fprintf(stderr, "madvise MADV_WILLNEED failed (since it's only an optimization, this is OK).  Errno %d\n", errno);
+    }
+    int64_t total = 0;
+
+    for (size_t offset = 0; offset < mmFile->size / sizeof (int64_t); offset += 4 ) {
+        total += ((int64_t*)mmFile->contents)[offset];
+    }
+
+    return total;		// We're returning this just to keep the compiler from optimizing away the whole thing.
+}
+
+void openMemoryMappedFile(const char *filename, memory_mapped_file_t* mmFile) {
+    int fd = open(filename, O_RDONLY, S_IRUSR | S_IWUSR);
+    if (fd < 0) {
+        fprintf(stderr, "OpenMemoryMappedFile %s failed", filename);
+        exit(EXIT_FAILURE);
+    }
+    struct stat buf;
+    int status = fstat(fd, &buf);
+    if (status != 0) {
+        fprintf(stderr, "Cannot stat file %s", filename);
+        close(fd);
+        exit(EXIT_FAILURE);
+
+    }
+    size_t size = buf.st_size;
+
+    // Memory map file
+    void* map = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (map == NULL || map == MAP_FAILED) {
+        fprintf(stderr, "OpenMemoryMappedFile %s mmap failed", filename);
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    mmFile->fd = fd;
+    mmFile->contents = map;
+    mmFile->size = size;
+}
+
+
+void closeMemoryMappedFile(memory_mapped_file_t* mmFile) {
+    int e = munmap(mmFile->contents, mmFile->size);
+    int e2 = close(mmFile->fd);
+    if (e != 0 || e2 != 0) {
+        fprintf(stderr, "CloseMemoryMappedFile failed\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+int64_t ioPrefetch(FILE *fd) {
+    const size_t bufSize = 128 * 1024 * 1024;
+    char* buffer = new char[bufSize];
+    while (1) {
+        if (0 == fread(buffer, 1, bufSize, fd)) {
+            delete [] buffer;
+            return 0;
+        }
+    }
+}
+
+void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads, char* idx_prefix) {
+    mem_opt_t *opt = aux->opt;
+    int32_t memSize = nreads;
+
+    /* Mem allocation section for core kernels */
+    w.regs = NULL; w.chain_ar = NULL; w.hits_ar = NULL; w.seedBuf = NULL;
+    w.regs = (mem_alnreg_v *) calloc(memSize, sizeof(mem_alnreg_v));
+    w.chain_ar = (mem_chain_v*) malloc (memSize * sizeof(mem_chain_v));
+    w.seedBuf = (mem_seed_t *) calloc(memSize * AVG_SEEDS_PER_READ, sizeof(mem_seed_t));
+    assert(w.seedBuf != NULL);
+    w.seedBufSize = BATCH_SIZE * AVG_SEEDS_PER_READ;
+
+    if (w.regs == NULL || w.chain_ar == NULL || w.seedBuf == NULL) {
+        fprintf(stderr, "Memory not allocated!!\nExiting...\n");
+        exit(0);
+    }
+
+    int64_t allocMem = memSize * sizeof(mem_alnreg_v) +
+        memSize * sizeof(mem_chain_v) +
+        sizeof(mem_seed_t) * memSize * AVG_SEEDS_PER_READ;
+    fprintf(stderr, "------------------------------------------\n");
+    fprintf(stderr, "Memory pre-allocation for chaining: %0.4lf MB\n", allocMem/1e6);
+
+    /* SWA mem allocation */
+    int64_t wsize = BATCH_SIZE * SEEDS_PER_READ;
+    for(int l=0; l<nthreads; l++)
+    {
+        w.mmc.seqBufLeftRef[l*CACHE_LINE]  = (uint8_t *)
+            _mm_malloc(wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN, 64);
+        w.mmc.seqBufLeftQer[l*CACHE_LINE]  = (uint8_t *)
+            _mm_malloc(wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN, 64);
+        w.mmc.seqBufRightRef[l*CACHE_LINE] = (uint8_t *)
+            _mm_malloc(wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN, 64);
+        w.mmc.seqBufRightQer[l*CACHE_LINE] = (uint8_t *)
+            _mm_malloc(wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN, 64);
+        
+        w.mmc.wsize_buf_ref[l*CACHE_LINE] = wsize * MAX_SEQ_LEN_REF;
+        w.mmc.wsize_buf_qer[l*CACHE_LINE] = wsize * MAX_SEQ_LEN_QER;
+        
+        assert(w.mmc.seqBufLeftRef[l*CACHE_LINE]  != NULL);
+        assert(w.mmc.seqBufLeftQer[l*CACHE_LINE]  != NULL);
+        assert(w.mmc.seqBufRightRef[l*CACHE_LINE] != NULL);
+        assert(w.mmc.seqBufRightQer[l*CACHE_LINE] != NULL);
+    }
+    
+    for(int l=0; l<nthreads; l++) {
+        w.mmc.seqPairArrayAux[l]      = (SeqPair *) malloc((wsize + MAX_LINE_LEN)* sizeof(SeqPair));
+        w.mmc.seqPairArrayLeft128[l]  = (SeqPair *) malloc((wsize + MAX_LINE_LEN)* sizeof(SeqPair));
+        w.mmc.seqPairArrayRight128[l] = (SeqPair *) malloc((wsize + MAX_LINE_LEN)* sizeof(SeqPair));
+        w.mmc.wsize[l] = wsize;
+
+        assert(w.mmc.seqPairArrayAux[l] != NULL);
+        assert(w.mmc.seqPairArrayLeft128[l] != NULL);
+        assert(w.mmc.seqPairArrayRight128[l] != NULL);
+    }   
+
+
+    allocMem = (wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2+
+        (wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads  * 2 +       
+        wsize * sizeof(SeqPair) * opt->n_threads * 3;   
+    fprintf(stderr, "2. Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
+
+    for (int l=0; l<nthreads; l++)
+    {
+        w.mmc.lim[l]           = (int32_t *) _mm_malloc((BATCH_SIZE + 32) * sizeof(int32_t), 64); // candidate not for reallocation, deferred for next round of changes.
+    }
+
+    allocMem = nthreads * (BATCH_SIZE + 32) * sizeof(int32_t);
+    fprintf(stderr, "3. Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
+    fprintf(stderr, "------------------------------------------\n");
+
+    char kmer_tbl_file_name[PATH_MAX];
+    strcpy_s(kmer_tbl_file_name, PATH_MAX, idx_prefix); 
+    strcat_s(kmer_tbl_file_name, PATH_MAX, ".kmer_table");
+    char ml_tbl_file_name[PATH_MAX];
+    strcpy_s(ml_tbl_file_name, PATH_MAX, idx_prefix);
+    strcat_s(ml_tbl_file_name, PATH_MAX, ".mlt_table");
+
+
+#if MMAP_ERT_INDEX
+    double ctime, rtime;
+    ctime = cputime(); rtime = realtime();
+    allocMem = 0;
+    #if ERT_INDEX_PREFETCH
+        FILE *kmer_tbl_fd, *ml_tbl_fd;
+        kmer_tbl_fd = fopen(kmer_tbl_file_name, "rb");
+        if (kmer_tbl_fd == NULL) {
+            fprintf(stderr, "[M::%s::ERT] Can't open k-mer index\n.", __func__);
+            exit(1);
+        }
+        ioPrefetch(kmer_tbl_fd);
+        fclose(kmer_tbl_fd);
+        ml_tbl_fd = fopen(ml_tbl_file_name, "rb");
+        if (ml_tbl_fd == NULL) {
+            fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
+            exit(1);
+        }
+        ioPrefetch(ml_tbl_fd);
+        fclose(ml_tbl_fd);
+    #endif
+    openMemoryMappedFile(kmer_tbl_file_name, &w.kmerOffsetsFile);
+    w.kmer_offsets = (uint64_t*)(w.kmerOffsetsFile.contents);
+    prefetchMemoryMappedFile(&w.kmerOffsetsFile);
+    openMemoryMappedFile(ml_tbl_file_name, &w.mltTableFile);
+    w.mlt_table = (uint8_t*)(w.mltTableFile.contents);
+    prefetchMemoryMappedFile(&w.mltTableFile);
+#else
+    FILE *kmer_tbl_fd, *ml_tbl_fd;
+    kmer_tbl_fd = fopen(kmer_tbl_file_name, "rb");
+    if (kmer_tbl_fd == NULL) {
+        fprintf(stderr, "[M::%s::ERT] Can't open k-mer index\n.", __func__);
+        exit(1);
+    }
+    ml_tbl_fd = fopen(ml_tbl_file_name, "rb");
+    if (ml_tbl_fd == NULL) {
+        fprintf(stderr, "[M::%s::ERT] Can't open multi-level tree index\n.", __func__);
+        exit(1);
+    }
+
+    double ctime, rtime;
+    ctime = cputime(); rtime = realtime();
+    allocMem = numKmers * 8L; 
+
+    //
+    // Read k-mer index
+    //
+    w.kmer_offsets = (uint64_t*) malloc(numKmers * sizeof(uint64_t));
+    assert(w.kmer_offsets != NULL);
+    if (bwa_verbose >= 3) {
+        fprintf(stderr, "[M::%s::ERT] Reading kmer index to memory\n", __func__);
+    }
+    err_fread_noeof(w.kmer_offsets, sizeof(uint64_t), numKmers, kmer_tbl_fd);
+
+    //
+    // Read multi-level tree index
+    //
+    fseek(ml_tbl_fd, 0L, SEEK_END);
+    long size = ftell(ml_tbl_fd);
+    allocMem += size;
+    w.mlt_table = (uint8_t*) malloc(size * sizeof(uint8_t));
+    assert(w.mlt_table != NULL);
+    fseek(ml_tbl_fd, 0L, SEEK_SET);
+    if (bwa_verbose >= 3) {
+        fprintf(stderr, "[M::%s::ERT] Reading multi-level tree index to memory\n", __func__);
+    }
+    err_fread_noeof(w.mlt_table, sizeof(uint8_t), size, ml_tbl_fd);
+
+    fclose(kmer_tbl_fd);
+    fclose(ml_tbl_fd);
+
+#endif
+
+    if (bwa_verbose >= 3) {
+        fprintf(stderr, "[M::%s::ERT] Index tables loaded in %.3f CPU sec, %.3f real sec...\n", __func__, cputime() - ctime, realtime() - rtime);
+    }
+
+    allocMem += ((nthreads * MAX_LINE_LEN * sizeof(mem_v)) + (nthreads * MAX_LINE_LEN * sizeof(u64v)));
+    allocMem += ((nthreads * BATCH_MUL * READ_LEN * sizeof(mem_t)) + (nthreads * MAX_HITS_PER_READ * sizeof(uint64_t)));
+    w.smemBufSize = MAX_LINE_LEN * sizeof(mem_v);
+    w.smems = (mem_v*) malloc(nthreads * w.smemBufSize);
+    assert(w.smems != NULL);
+    w.hitBufSize = MAX_LINE_LEN * sizeof(u64v);
+    w.hits_ar = (u64v*) malloc(nthreads * w.hitBufSize);
+    assert(w.hits_ar != NULL);
+    for (int i = 0 ; i < nthreads; ++i) {
+        kv_init_base(mem_t, w.smems[i * MAX_LINE_LEN], BATCH_MUL * READ_LEN);
+        kv_init_base(uint64_t, w.hits_ar[i * MAX_LINE_LEN], MAX_HITS_PER_READ);
+    }
+    w.useErt = 1;
+
+    fprintf(stderr, "Memory pre-allocation for ERT: %0.4lf GB\n", allocMem/1e9);
+    fprintf(stderr, "------------------------------------------\n");
+
+}
 
 /*** Memory pre-allocations ***/
 void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
@@ -181,6 +427,8 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
         nthreads * (BATCH_SIZE + 32) * sizeof(int32_t);
     fprintf(stderr, "3. Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
     fprintf(stderr, "------------------------------------------\n");
+
+    w.useErt = 0;
 }
 
 ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, worker_t &w)
@@ -362,7 +610,7 @@ static void *ktp_worker(void *data)
     pthread_exit(0);
 }
 
-static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
+static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads, char* ert_idx_prefix)
 {
     ktp_aux_t   *aux = (ktp_aux_t*) shared;
     worker_t     w;
@@ -456,7 +704,12 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     int32_t nreads = aux->actual_chunk_size/ READ_LEN + 10;
     
     /* All memory allocation */
-    memoryAlloc(aux, w, nreads, nthreads);
+    if (ert_idx_prefix) {
+        memoryAllocErt(aux, w, nreads, nthreads, ert_idx_prefix);
+    }
+    else {
+        memoryAlloc(aux, w, nreads, nthreads);
+    }
     fprintf(stderr, "* Threads used (compute): %d\n", nthreads);
     
     /* pipeline using pthreads */
@@ -529,13 +782,31 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
         free(w.mmc.seqPairArrayRight128[l]);
     }
 
-    for(int l=0; l<nthreads; l++) {
-        _mm_free(w.mmc.matchArray[l]);
-        free(w.mmc.min_intv_ar[l]);
-        free(w.mmc.query_pos_ar[l]);
-        free(w.mmc.enc_qdb[l]);
-        free(w.mmc.rid[l]);
-        _mm_free(w.mmc.lim[l]);
+    if (ert_idx_prefix) {
+#if MMAP_ERT_INDEX
+        closeMemoryMappedFile(&w.kmerOffsetsFile);
+        closeMemoryMappedFile(&w.mltTableFile);
+#else
+        free(w.kmer_offsets);
+        free(w.mlt_table);
+#endif
+        for (int i = 0 ; i < nthreads; ++i) {
+            kv_destroy(w.smems[i * MAX_LINE_LEN]);
+            kv_destroy(w.hits_ar[i * MAX_LINE_LEN]);
+            _mm_free(w.mmc.lim[i]);
+        }
+        free(w.smems);
+        free(w.hits_ar);
+    }
+    else {
+        for(int l=0; l<nthreads; l++) {
+            _mm_free(w.mmc.matchArray[l]);
+            free(w.mmc.min_intv_ar[l]);
+            free(w.mmc.query_pos_ar[l]);
+            free(w.mmc.enc_qdb[l]);
+            free(w.mmc.rid[l]);
+            _mm_free(w.mmc.lim[l]);
+        }
     }
 
     return 0;
@@ -607,6 +878,7 @@ static void usage(const mem_opt_t *opt)
     fprintf(stderr, "                 specify the mean, standard deviation (10%% of the mean if absent), max\n");
     fprintf(stderr, "                 (4 sigma from the mean if absent) and min of the insert size distribution.\n");
     fprintf(stderr, "                 FR orientation only. [inferred]\n");
+    fprintf(stderr, "   -Z            Use ERT index for seeding\n");
     fprintf(stderr, "Note: Please read the man page for detailed description of the command line and options.\n");
 }
 
@@ -616,6 +888,8 @@ int main_mem(int argc, char *argv[])
     int          fixed_chunk_size          = -1;
     char        *p, *rg_line               = 0, *hdr_line = 0;
     const char  *mode                      = 0;
+    int useErt = 0;
+    char  *idx_prefix = 0;
     
     mem_opt_t    *opt, opt0;
     gzFile        fp, fp2 = 0;
@@ -626,18 +900,18 @@ int main_mem(int argc, char *argv[])
     bool          is_o    = 0;
     uint8_t      *ref_string;
     
-    memset(&aux, 0, sizeof(ktp_aux_t));
-    memset(pes, 0, 4 * sizeof(mem_pestat_t));
+    memset_s(&aux, sizeof(ktp_aux_t), 0);
+    memset_s(pes, 4 * sizeof(mem_pestat_t), 0);
     for (i = 0; i < 4; ++i) pes[i].failed = 1;
     
     // opterr = 0;
     aux.fp = stdout;
     aux.opt = opt = mem_opt_init();
-    memset(&opt0, 0, sizeof(mem_opt_t));
+    memset_s(&opt0, sizeof(mem_opt_t), 0);
     
     /* Parse input arguments */
     // comment: added option '5' in the list
-    while ((c = getopt(argc, argv, "51qpaMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:")) >= 0)
+    while ((c = getopt(argc, argv, "51qpaMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:Z")) >= 0)
     {
         if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
         else if (c == '1') no_mt_io = 1;
@@ -770,6 +1044,9 @@ int main_mem(int argc, char *argv[])
             if (*p != 0 && ispunct(*p) && isdigit(p[1]))
                 pes[1].low  = (int)(strtod(p+1, &p) + .499);
         }
+        else if (c == 'Z') {
+            useErt = 1;
+        }
         else {
             free(opt);
             if (is_o)
@@ -846,8 +1123,15 @@ int main_mem(int argc, char *argv[])
     uint64_t tim = __rdtsc();
     
     fprintf(stderr, "* Ref file: %s\n", argv[optind]);          
-    aux.fmi = new FMI_search(argv[optind]);
-    aux.fmi->load_index();
+    if (!useErt) {
+        aux.fmi = new FMI_search(argv[optind]);
+        aux.fmi->load_index();
+    }
+    else {
+        idx_prefix = argv[optind];
+        aux.fmi = new FMI_search(argv[optind]);
+        aux.fmi->load_index_other_elements(BWA_IDX_BNS | BWA_IDX_PAC);
+    }
     tprof[FMI][0] += __rdtsc() - tim;
     
     // reading ref string from the file
@@ -871,6 +1155,7 @@ int main_mem(int argc, char *argv[])
     fseek(fr, 0, SEEK_END); 
     rlen = ftell(fr);
     ref_string = (uint8_t*) _mm_malloc(rlen, 64);
+    assert(ref_string != NULL);
     aux.ref_string = ref_string;
     rewind(fr);
     
@@ -897,6 +1182,7 @@ int main_mem(int argc, char *argv[])
             fclose(aux.fp);
         delete aux.fmi;
         kclose(ko);
+        _mm_free(ref_string);
         return 1;
     }
     // fp = gzopen(argv[optind + 1], "r");
@@ -925,6 +1211,7 @@ int main_mem(int argc, char *argv[])
                 delete aux.fmi;
                 kclose(ko);
                 kclose(ko2);
+                _mm_free(ref_string);
                 return 1;
             }            
             // fp2 = gzopen(argv[optind + 2], "r");
@@ -948,7 +1235,7 @@ int main_mem(int argc, char *argv[])
     tim = __rdtsc();
 
     /* Relay process function */
-    process(&aux, fp, fp2, no_mt_io? 1:2);
+    process(&aux, fp, fp2, no_mt_io? 1:2, idx_prefix);
     
     tprof[PROCESS][0] += __rdtsc() - tim;
 

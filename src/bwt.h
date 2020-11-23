@@ -55,7 +55,7 @@ typedef struct {
 	// occurance array, separated to two parts
 	uint32_t cnt_table[256];
 	// suffix array
-	int sa_intv;
+	bwtint_t sa_intv;
 	bwtint_t n_sa;
 	bwtint_t *sa;
 } bwt_t;
@@ -125,14 +125,6 @@ extern "C" {
  */
     void bwt_extend(const bwt_t *bwt, const bwtintv_t *ik, bwtintv_t ok[4], int is_back);
 
-/**
- * Given a query _q_, collect potential SMEMs covering position _x_ and store them in _mem_.
- * Return the end of the longest exact match starting from _x_.
- */
-    int bwt_smem1(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_intv, bwtintv_v *mem, bwtintv_v *tmpvec[2]);
-    int bwt_smem1a(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_intv, uint64_t max_intv, bwtintv_v *mem, bwtintv_v *tmpvec[2]);
-
-    int bwt_seed_strategy1(const bwt_t *bwt, int len, const uint8_t *q, int x, int min_len, int max_intv, bwtintv_t *mem);
 #ifdef __cplusplus
 }
 #endif

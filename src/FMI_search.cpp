@@ -76,6 +76,7 @@ int64_t FMI_search::pac_seq_len(const char *fn_pac)
 	err_fseek(fp, -1, SEEK_END);
 	pac_len = err_ftell(fp);
 	err_fread_noeof(&c, 1, 1, fp);
+	assert(c >= 0 && c <= 255);
 	err_fclose(fp);
 	return (pac_len - 1) * 4 + (int)c;
 }
@@ -211,10 +212,10 @@ int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int6
     size = cp_occ_size * sizeof(CP_OCC);
     cp_occ = (CP_OCC *)_mm_malloc(size, 64);
     assert_not_null(cp_occ, size, index_alloc);
-    memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC));
+    memset_s(cp_occ, cp_occ_size * sizeof(CP_OCC), 0);
     int64_t cp_count[16];
 
-    memset(cp_count, 0, 16 * sizeof(int64_t));
+    memset_s(cp_count, 16 * sizeof(int64_t), 0);
     for(i = 0; i < ref_seq_len; i++)
     {
         if((i & CP_MASK) == 0)
@@ -331,7 +332,7 @@ int FMI_search::build_index() {
     fprintf(stderr, "init ticks = %llu\n", __rdtsc() - startTick);
     startTick = __rdtsc();
     int64_t i, count[16];
-	memset(count, 0, sizeof(int64_t) * 16);
+	memset_s(count, sizeof(int64_t) * 16, 0);
     for(i = 0; i < pac_len; i++)
     {
         switch(reference_seq[i])
@@ -379,6 +380,12 @@ int FMI_search::build_index() {
     _mm_free(binary_ref_seq);
     _mm_free(suffix_array);
     return 0;
+}
+
+void FMI_search::load_index_other_elements(int which) {
+    char *ref_file_name = file_name;
+    fprintf(stderr, "Reading other elements of the index from files %s\n", ref_file_name);
+    bwa_idx_load_ele(ref_file_name, which);
 }
 
 void FMI_search::load_index()
@@ -446,7 +453,9 @@ void FMI_search::load_index()
     #else
     
     sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len * sizeof(int8_t), 64);
+    assert(sa_ms_byte != NULL);
     sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len * sizeof(uint32_t), 64);
+    assert(sa_ls_word != NULL);
     err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len, cpstream);
     err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len, cpstream);
 
@@ -682,7 +691,8 @@ void FMI_search::getSMEMsAllPosOneThread(uint8_t *enc_qdb,
                                          int64_t *__numTotalSmem)
 {
     int16_t *query_pos_array = (int16_t *)_mm_malloc(numReads * sizeof(int16_t), 64);
-    
+    assert(query_pos_array != NULL);
+
     int32_t i;
     for(i = 0; i < numReads; i++)
         query_pos_array[i] = 0;
@@ -822,7 +832,9 @@ void FMI_search::getSMEMs(uint8_t *enc_qdb,
         int64_t *numTotalSmem)
 {
     SMEM *prevArray = (SMEM *)_mm_malloc(nthreads * readlength * sizeof(SMEM), 64);
+    assert(prevArray != NULL);
     SMEM *currArray = (SMEM *)_mm_malloc(nthreads * readlength * sizeof(SMEM), 64);
+    assert(currArray != NULL);
 
 
 // #pragma omp parallel num_threads(nthreads)

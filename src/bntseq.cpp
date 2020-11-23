@@ -49,6 +49,15 @@ KHASH_MAP_INIT_STR(str, int)
 #  include "malloc_wrap.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_mem_lib.h"
+#include "safe_str_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 extern uint64_t tprof[LIM_R][LIM_C];
 
 unsigned char nst_nt4_table[256] = {
@@ -138,7 +147,7 @@ bntseq_t *bns_restore_core(const char *ann_filename, const char* amb_filename, c
 				goto badread;
 			}
 			*q = 0;
-			assert(strlen(str) < 8192);
+			assert(strnlen_s(str, 8192) < 8192);
 			if (q - str > 1 && strcmp(str, " (null)") != 0) p->anno = strdup(str + 1); // skip leading space
 			else p->anno = strdup("");
 			// read the rest
@@ -219,7 +228,13 @@ bntseq_t *bns_restore(const char *prefix)
 				}
 				while (c != '\n' && c != EOF) c = fgetc(fp);
 				i = 0;
-			} else str[i++] = c; // FIXME: potential segfault here
+			} else {
+				if (i >= 1022) {
+					fprintf(stderr, "[E::%s] sequence name longer than 1023 characters. Abort!\n", __func__);
+					exit(1);
+				}
+				str[i++] = c;
+			}
 		}
 		kh_destroy(str, h);
 		fclose(fp);
@@ -285,7 +300,7 @@ static uint8_t *add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_
 			if (bns->l_pac == *m_pac) { // double the pac size
 				*m_pac <<= 1;
 				pac = (uint8_t*) realloc(pac, *m_pac/4);
-				memset(pac + bns->l_pac/4, 0, (*m_pac - bns->l_pac)/4);
+				memset_s(pac + bns->l_pac/4, (*m_pac - bns->l_pac)/4, 0);
 			}
 			_set_pac(pac, bns->l_pac, c);
 			++bns->l_pac;
@@ -319,7 +334,7 @@ int64_t bns_fasta2bntseq(gzFile fp_fa, const char *prefix, int for_only)
 	bns->ambs = (bntamb1_t*)calloc(m_holes, sizeof(bntamb1_t));
     assert(bns->ambs != NULL);
 	pac = (uint8_t*) calloc(m_pac/4, 1);
-	if (pac == NULL) { perror("Allocation of pac failed"); exit(EXIT_FAILURE); }
+	assert(pac != NULL);
 	q = bns->ambs;
 	//assert(strlen(prefix) + 4 < 1024);
 	strcpy_s(name, PATH_MAX, prefix); strcat_s(name, PATH_MAX, ".pac");
@@ -327,10 +342,9 @@ int64_t bns_fasta2bntseq(gzFile fp_fa, const char *prefix, int for_only)
 	// read sequences
 	while (kseq_read(seq) >= 0) pac = add1(seq, bns, pac, &m_pac, &m_seqs, &m_holes, &q);
 	if (!for_only) { // add the reverse complemented sequence
-		m_pac = (bns->l_pac * 2 + 3) / 4 * 4;
-		pac = (uint8_t*) realloc(pac, m_pac/4);
-		if (pac == NULL) { perror("Reallocation of pac failed"); exit(EXIT_FAILURE); }
-		memset(pac + (bns->l_pac+3)/4, 0, (m_pac - (bns->l_pac+3)/4*4) / 4);
+		int64_t ll_pac = (bns->l_pac * 2 + 3) / 4 * 4;
+		if (ll_pac > m_pac) pac = realloc(pac, ll_pac/4);
+		memset_s(pac + (bns->l_pac+3)/4, (ll_pac - (bns->l_pac+3)/4*4) / 4, 0);
 		for (l = bns->l_pac - 1; l >= 0; --l, ++bns->l_pac)
 			_set_pac(pac, bns->l_pac, 3-_get_pac(pac, l));
 	}
@@ -423,6 +437,80 @@ int bns_cnt_ambi(const bntseq_t *bns, int64_t pos_f, int len, int *ref_id)
 	}
 	return nn;
 }
+
+uint8_t *bns_get_seq_v2(int64_t l_pac, const uint8_t *pac, int64_t beg, int64_t end,
+                        int64_t *len,  uint8_t *ref_string, uint8_t *seqb)
+{
+    uint8_t *seq = 0;
+    if (end < beg) end ^= beg, beg ^= end, end ^= beg; // if end is smaller, swap
+    if (end > l_pac<<1) end = l_pac<<1;
+    if (beg < 0) beg = 0;
+    if (beg >= l_pac || end <= l_pac) {
+        *len = end - beg;
+        
+        //seq = (uint8_t*) malloc(end - beg);
+        // seq = seqb;
+        if (beg >= l_pac) { // reverse strand
+#if 0   // orig         
+            int64_t beg_f = (l_pac<<1) - 1 - end;
+            int64_t end_f = (l_pac<<1) - 1 - beg;
+            for (k = end_f; k > beg_f; --k) {
+                seq[l++] = 3 - _get_pac(pac, k);
+                assert(seq[l-1] == ref_string[beg + l - 1]);
+            }
+#else
+            seq = ref_string + beg;
+#endif
+        } else { // forward strand
+#if 0
+            for (k = beg; k < end; ++k) {
+                seq[l++] = _get_pac(pac, k);
+                assert(seq[l-1] == ref_string[k]);
+            }
+#else
+            seq = ref_string + beg;
+#endif          
+        }
+
+    } else *len = 0; // if bridging the forward-reverse boundary, return nothing
+    return seq;
+}
+
+uint8_t *bns_fetch_seq_v2(const bntseq_t *bns, const uint8_t *pac,
+                          int64_t *beg, int64_t mid, int64_t *end, int *rid,
+                          uint8_t *ref_string, uint8_t *seqb)
+{
+    int64_t far_beg, far_end, len;
+    int is_rev;
+    uint8_t *seq;
+
+    if (*end < *beg) *end ^= *beg, *beg ^= *end, *end ^= *beg; // if end is smaller, swap
+    // if (*beg > mid || mid >= *end)
+    //  fprintf(Error: stderr, "%ld %ld %ld\n", *beg, mid, *end);
+    assert(*beg <= mid && mid < *end);
+    
+    *rid = bns_pos2rid(bns, bns_depos(bns, mid, &is_rev));
+    far_beg = bns->anns[*rid].offset;
+    far_end = far_beg + bns->anns[*rid].len;
+    if (is_rev) { // flip to the reverse strand
+        int64_t tmp = far_beg;
+        far_beg = (bns->l_pac<<1) - far_end;
+        far_end = (bns->l_pac<<1) - tmp;
+    }
+    *beg = *beg > far_beg? *beg : far_beg;
+    *end = *end < far_end? *end : far_end;
+
+    seq = bns_get_seq_v2(bns->l_pac, pac, *beg, *end, &len, ref_string, seqb);
+    
+    if (seq == 0 || *end - *beg != len) {
+        fprintf(stderr, "[E::%s] begin=%ld, mid=%ld, end=%ld, len=%ld, seq=%p, rid=%d, far_beg=%ld, far_end=%ld\n",
+                __func__, (long)*beg, (long)mid, (long)*end, (long)len, seq, *rid, (long)far_beg, (long)far_end);
+    }
+    assert(seq && *end - *beg == len); // assertion failure should never happen
+
+    return seq;
+}
+
 
 uint8_t *bns_get_seq(int64_t l_pac, const uint8_t *pac, int64_t beg, int64_t end, int64_t *len)
 {
