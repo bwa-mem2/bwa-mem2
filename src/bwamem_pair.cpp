@@ -460,7 +460,7 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
             if (useErt) {
                 sort_alnreg_re(a[!i].n, a[!i].a);
             }
-            int val = 0;
+            int val = 0, swcount = 0;
             for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
                 if (useErt) {
                     val = mem_matesw(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
@@ -469,9 +469,10 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
                     val = mem_matesw_orig(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
                 }
                 n += val;
+                swcount += val;
             }
             if (useErt) {
-                if (val) {
+                if (swcount > 0) {
                     mem_alnreg_v* ma = &a[!i];
                     ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
                 }
@@ -827,7 +828,7 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
             if (useErt) {
                 sort_alnreg_re(a[!i].n, a[!i].a);
             }
-            int val = 0;
+            int val = 0, swcount = 0;
             for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
                 if (useErt) {
                     val = mem_matesw_batch_post_ert(opt, bns, pac, pes, &b[i].a[j],
@@ -840,11 +841,12 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                                                 &a[!i], myaln, gcnt, gar, mmc);
                 }
                 n += val;
+                swcount += val;
                 // ncnt++;
                 gcnt += 4;
             }
             if (useErt) {
-                if (val) {
+                if (swcount > 0) {
                     mem_alnreg_v* ma = &a[!i];
                     ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
                 }
