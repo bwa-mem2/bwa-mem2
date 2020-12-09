@@ -49,7 +49,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define BATCH_MUL 20
 #define SEEDS_PER_CHAIN 1
 
-#define READ_LEN 151
+#define READ_LEN 251
 
 #define SEQ_LEN8 128   // redundant??
 
