@@ -1131,9 +1131,24 @@ int main_mem(int argc, char *argv[])
         idx_prefix = argv[optind];
         aux.fmi = new FMI_search(argv[optind]);
         aux.fmi->load_index_other_elements(BWA_IDX_BNS | BWA_IDX_PAC);
+        
     }
     tprof[FMI][0] += __rdtsc() - tim;
-    
+
+    if (useErt) {
+        if (opt->min_seed_len < 15) {
+            fprintf(stderr, "Default run requires minimum seed length >= 15. Please adjust kmerSize and xmerSize in macro.h and rebuild the ERT index. Ensure that kmerSize + xmerSize <= minimum seed length\n");
+            exit(EXIT_FAILURE);
+        }
+        if (opt->max_mem_intv >= 32) {
+            fprintf(stderr, "Maximum occurrence for 3rd round of seeding provided is %d. Supported: < 32\n", opt->max_mem_intv);
+            exit(EXIT_FAILURE);
+        }
+        if (opt->split_width >= 32) {
+            fprintf(stderr, "Reseeding hit threshold provided is %d. Supported: < 32\n", opt->split_width);
+            exit(EXIT_FAILURE);
+        }
+    }
     // reading ref string from the file
     tim = __rdtsc();
     fprintf(stderr, "* Reading reference genome..\n");

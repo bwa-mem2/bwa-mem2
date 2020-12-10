@@ -113,13 +113,13 @@ void handleDivergence(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 		if (ok_copy[i].x[2] == 0) { //!< Empty node
 			n->type = EMPTY;
 			n->numHits = 0;
-			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), parent_node->seq, (depth-1)*sizeof(uint8_t), __FILE__, __LINE__);
+			memcpy_bwamem(n->seq, ERT_MAX_READ_LEN * sizeof(uint8_t), parent_node->seq, (depth-1)*sizeof(uint8_t), __FILE__, __LINE__);
 			n->l_seq = depth;
 			addChildNode(parent_node, n);
 		}
 		else if (ok_copy[i].x[2] > 1 && depth != max_depth) {
 			ik_new = ok_copy[i]; ik_new.info = depth+1;
-			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
+			memcpy_bwamem(n->seq, ERT_MAX_READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
 			assert(depth >= 0);
 			n->seq[depth] = i;
 			n->pos = depth;
@@ -131,7 +131,7 @@ void handleDivergence(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 			ert_build_kmertree(bwt, bns, pac, ik_new, ok, depth+1, n, step, max_depth);
 		}
 		else {
-			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
+			memcpy_bwamem(n->seq, ERT_MAX_READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
 			n->seq[depth] = i;
 			n->pos = depth;
 			n->num_bp = 1;
@@ -159,7 +159,7 @@ void ert_build_kmertree(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pa
 		assert(n != NULL);
 		n->numChildren = 0;
 		memset_s(n->child_nodes, 4*sizeof(node_t*), 0);
-		memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
+		memcpy_bwamem(n->seq, ERT_MAX_READ_LEN * sizeof(uint8_t), parent_node->seq, parent_node->l_seq*sizeof(uint8_t), __FILE__, __LINE__);
 		assert(depth >= 0);
 		n->seq[depth] = uniform_bp;
 		n->numHits = ok[uniform_bp].x[2];
@@ -261,7 +261,7 @@ void ert_build_table(const bwt_t* bwt, const bntseq_t *bns, const uint8_t *pac,
 			n->type = DIVERGE;
 			n->pos = 0;
 			n->num_bp = 0;
-			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), aq, kmerSize, __FILE__, __LINE__);
+			memcpy_bwamem(n->seq, ERT_MAX_READ_LEN * sizeof(uint8_t), aq, kmerSize, __FILE__, __LINE__);
 			n->l_seq = kmerSize;
 			memcpy_bwamem(&n->seq[n->l_seq], xmerSize * sizeof(uint8_t), aq1, xmerSize * sizeof(uint8_t), __FILE__, __LINE__);
 			n->l_seq += xmerSize;
@@ -301,13 +301,13 @@ void addCode(uint8_t* mlt_data, uint64_t* byte_idx, uint8_t code, int step) {
 	*byte_idx += 1;
 }
 
-void addUniformNode(uint8_t* mlt_data, uint64_t* byte_idx, uint8_t count, uint8_t* uniformBases, uint64_t hitCount, int step) {
+void addUniformNode(uint8_t* mlt_data, uint64_t* byte_idx, int count, uint8_t* uniformBases, uint64_t hitCount, int step) {
 	int numBytesForBP = addBytesForEntry(UNIFORM_BP, count, 0);
-	assert(numBytesForBP < 256);
+	assert(count < ERT_MAX_READ_LEN);
 	if (step == 1) {
-		memcpy_bwamem(&mlt_data[*byte_idx], sizeof(uint8_t), &count, sizeof(uint8_t), __FILE__, __LINE__);
+		memcpy_bwamem(&mlt_data[*byte_idx], sizeof(uint16_t), &count, sizeof(uint16_t), __FILE__, __LINE__);
 	}
-	*byte_idx += 1;
+	*byte_idx += 2;
 	if (step == 1) {
 		int j;
 		uint8_t packUniformBases[numBytesForBP];
@@ -597,7 +597,7 @@ void* buildIndex(void *arg) {
 			n->type = DIVERGE;
 			n->pos = 0;
 			n->num_bp = 0;
-			memcpy_bwamem(n->seq, READ_LEN * sizeof(uint8_t), aq, kmerSize * sizeof(uint8_t), __FILE__, __LINE__);
+			memcpy_bwamem(n->seq, ERT_MAX_READ_LEN * sizeof(uint8_t), aq, kmerSize * sizeof(uint8_t), __FILE__, __LINE__);
 			n->l_seq = kmerSize;
 			n->parent_node = 0;
 			n->numChildren = 0;

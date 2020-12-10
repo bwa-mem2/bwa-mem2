@@ -85,7 +85,7 @@ static inline void kseq2bseq1(const kseq_t *ks, bseq1_t *s)
     s->comment = ks->comment.l? strdup(ks->comment.s) : 0;
     s->seq = strdup(ks->seq.s);
     s->qual = ks->qual.l? strdup(ks->qual.s) : 0;
-    s->l_seq = strnlen_s(s->seq, READ_LEN);
+    s->l_seq = strnlen_s(s->seq, ERT_MAX_READ_LEN);
 }
 
 /* Customized for MPI processing */

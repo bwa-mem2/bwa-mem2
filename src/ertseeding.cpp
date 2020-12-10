@@ -552,7 +552,8 @@ void getNextByteIdx_dfs(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx,
 		}
 	}
 	else if (code_c == UNIFORM) { // Multi-character internal node
-		int countBP = mlt_data[nextByteIdx++];
+		int countBP = *((uint16_t*) &mlt_data[nextByteIdx]);
+		nextByteIdx += 2;
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
@@ -654,7 +655,8 @@ void getNextByteIdx_backward(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte
 	}
 	else if (code_c == UNIFORM) { // Multi-character internal node
 		uint32_t j;
-		int countBP = mlt_data[nextByteIdx++];
+		int countBP = *((uint16_t*) &mlt_data[nextByteIdx]);
+		nextByteIdx += 2;
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
@@ -763,7 +765,8 @@ void getNextByteIdx_backward_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_
 	}
 	else if (code_c == UNIFORM) { // Multi-character internal node
 		uint32_t j;
-		int countBP = mlt_data[nextByteIdx++];
+		int countBP = *((uint16_t*) &mlt_data[nextByteIdx]);
+		nextByteIdx += 2;
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
@@ -895,7 +898,8 @@ void getNextByteIdx(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx, int
 	}
 	else if (code_c == UNIFORM) { // Multi-character internal node
 		uint32_t j;
-		int countBP = mlt_data[nextByteIdx++];
+		int countBP = *((uint16_t*) &mlt_data[nextByteIdx]);
+		nextByteIdx += 2;
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
@@ -1058,7 +1062,8 @@ void getNextByteIdx_wlimit(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_i
 	}
 	else if (code_c == UNIFORM) { // Multi-character internal node
 		uint32_t j;
-		int countBP = mlt_data[nextByteIdx++];
+		int countBP = *((uint16_t*) &mlt_data[nextByteIdx]);
+		nextByteIdx += 2;
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
@@ -1208,7 +1213,8 @@ void getNextByteIdx_last(read_aux_t* raux, uint8_t* mlt_data, uint64_t* byte_idx
 	}
 	else if (code_c == UNIFORM) { // Multi-character internal node
 		uint32_t j;
-		int countBP = mlt_data[nextByteIdx++];
+		int countBP = *((uint16_t*) &mlt_data[nextByteIdx]);
+		nextByteIdx += 2;
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
@@ -1557,7 +1563,8 @@ void getNextByteIdx_fetch_leaves_prefix_reseed(read_aux_t* raux, uint8_t* mlt_da
 	} 
 	else if (code_c == UNIFORM) {
 		uint32_t j;
-		int countBP = mlt_data[nextByteIdx++];
+		int countBP = *((uint16_t*) &mlt_data[nextByteIdx]);
+		nextByteIdx += 2;
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
@@ -1687,7 +1694,8 @@ void getNextByteIdx_fetch_leaves_prefix(read_aux_t* raux, uint8_t* mlt_data, uin
 	}
 	else if (code_c == UNIFORM) {
 		uint32_t j;
-		int countBP = mlt_data[nextByteIdx++];
+		int countBP = *((uint16_t*) &mlt_data[nextByteIdx]);
+		nextByteIdx += 2;
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];
@@ -1794,7 +1802,8 @@ void getNextByteIdx_fetch_leaves(read_aux_t* raux, uint8_t* mlt_data, uint64_t* 
 	}
 	else if (code_c == UNIFORM) {
 		uint32_t j;
-		int countBP = mlt_data[nextByteIdx++];
+		int countBP = *((uint16_t*) &mlt_data[nextByteIdx]);
+		nextByteIdx += 2;
 		int numBitsForBP = countBP << 1;
 		int numBytesForBP = (numBitsForBP % 8) ? (numBitsForBP / 8 + 1) : (numBitsForBP / 8);
 		uint8_t packedBP[numBytesForBP];

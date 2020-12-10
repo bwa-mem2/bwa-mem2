@@ -265,96 +265,6 @@ int mem_matesw(const mem_opt_t *opt, const bntseq_t *bns,
     return n;
 }
 
-int mem_matesw_orig(const mem_opt_t *opt, const bntseq_t *bns,
-                    const uint8_t *pac, const mem_pestat_t pes[4],
-                    const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
-                    mem_alnreg_v *ma)
-{
-    extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
-                                    const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
-
-    //int tid = omp_get_thread_num();
-    int64_t l_pac = bns->l_pac;
-    int i, r, skip[4], n = 0, rid = -1;
-    for (r = 0; r < 4; ++r)
-        skip[r] = pes[r].failed? 1 : 0;
-
-
-    for (i = 0; i < ma->n; ++i) { // check which orinentation has been found
-        int64_t dist;
-        r = mem_infer_dir(l_pac, a->rb, ma->a[i].rb, &dist);
-        
-        if (dist >= pes[r].low && dist <= pes[r].high) {
-            skip[r] = 1;
-        }
-    }
-
-    if (skip[0] + skip[1] + skip[2] + skip[3] == 4) return 0; // consistent pair exist; no need to perform SW
-
-    for (r = 0; r < 4; ++r) {
-        int is_rev, is_larger;
-        uint8_t *seq, *rev = 0, *ref = 0;
-        int64_t rb, re;
-        if (skip[r]) continue;
-        is_rev = (r>>1 != (r&1)); // whether to reverse complement the mate
-        is_larger = !(r>>1); // whether the mate has larger coordinate
-        if (is_rev) {
-            rev = (uint8_t*) malloc(l_ms); // this is the reverse complement of $ms
-            assert(rev != NULL);
-            for (i = 0; i < l_ms; ++i) rev[l_ms - 1 - i] = ms[i] < 4? 3 - ms[i] : 4;
-            seq = rev;
-        } else seq = (uint8_t*)ms;
-        if (!is_rev) {
-            rb = is_larger? a->rb + pes[r].low : a->rb - pes[r].high;
-            re = (is_larger? a->rb + pes[r].high: a->rb - pes[r].low) + l_ms; // if on the same strand, end position should be larger to make room for the seq length
-        } else {
-            rb = (is_larger? a->rb + pes[r].low : a->rb - pes[r].high) - l_ms; // similarly on opposite strands
-            re = is_larger? a->rb + pes[r].high: a->rb - pes[r].low;
-        }
-        if (rb < 0) rb = 0;
-        if (re > l_pac<<1) re = l_pac<<1;
-        if (rb < re) ref = bns_fetch_seq(bns, pac, &rb, (rb+re)>>1, &re, &rid);
-        if (a->rid == rid && re - rb >= opt->min_seed_len) { // no funny things happening
-            kswr_t aln;
-            mem_alnreg_t b;
-            int tmp, xtra = KSW_XSUBO | KSW_XSTART | (l_ms * opt->a < 250? KSW_XBYTE : 0) | (opt->min_seed_len * opt->a);
-
-            assert(ref !=0 && re - rb >= 0);
-            aln = ksw_align2(l_ms, seq, re - rb, ref, 5,
-                             opt->mat, opt->o_del, opt->e_del,
-                             opt->o_ins, opt->e_ins, xtra, 0);
-            
-            memset_s(&b, sizeof(mem_alnreg_t), 0);
-            if (aln.score >= opt->min_seed_len && aln.qb >= 0) { // something goes wrong if aln.qb < 0
-                b.rid = a->rid;
-                b.is_alt = a->is_alt;
-                b.qb = is_rev? l_ms - (aln.qe + 1) : aln.qb;                                                                                                                                                                              
-                b.qe = is_rev? l_ms - aln.qb : aln.qe + 1; 
-                b.rb = is_rev? (l_pac<<1) - (rb + aln.te + 1) : rb + aln.tb;
-                b.re = is_rev? (l_pac<<1) - (rb + aln.tb) : rb + aln.te + 1;
-                b.score = aln.score;
-                b.csub = aln.score2;
-                b.secondary = -1;
-                b.seedcov = (b.re - b.rb < b.qe - b.qb? b.re - b.rb : b.qe - b.qb) >> 1;
-
-                kv_push(mem_alnreg_t, *ma, b); // make room for a new element
-                // move b s.t. ma is sorted
-                for (i = 0; i < ma->n - 1; ++i) // find the insertion point
-                    if (ma->a[i].score < b.score) break;
-                tmp = i;
-                for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
-                ma->a[i] = b;
-                tprof[PE26][0] ++;
-            }
-            ++n;
-        }
-        if (n) ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
-        if (rev) free(rev);
-        free(ref);
-    }
-    return n;
-}
-
 int mem_pair(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_pestat_t pes[4], bseq1_t s[2], mem_alnreg_v a[2], int id, int *sub, int *n_sub, int z[2], int n_pri[2])
 {
     pair64_v v, u;
@@ -426,8 +336,7 @@ void mem_reorder_primary5(int T, mem_alnreg_v *a);
 
 int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
                const uint8_t *pac, const mem_pestat_t pes[4],
-               uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
-               int useErt)
+               uint64_t id, bseq1_t s[2], mem_alnreg_v a[2])
 {
     extern int mem_mark_primary_se(const mem_opt_t *opt, int n, mem_alnreg_t *a, int64_t id);
     extern int mem_approx_mapq_se(const mem_opt_t *opt, const mem_alnreg_t *a);
@@ -436,7 +345,7 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
     extern void sort_alnreg_re(int n, mem_alnreg_t* a);
     extern void sort_alnreg_score(int n, mem_alnreg_t* a);
     extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
-                                    const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a); 
+                                    const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
 
     int n = 0, i, j, z[2], o, subo, n_sub, extra_flag = 1, n_pri[2], n_aa[2];
     kstring_t str;
@@ -457,27 +366,19 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns,
                     kv_push(mem_alnreg_t, b[i], a[i].a[j]);
 
         for (i = 0; i < 2; ++i) {
-            if (useErt) {
-                sort_alnreg_re(a[!i].n, a[!i].a);
-            }
-            int val = 0;
+            sort_alnreg_re(a[!i].n, a[!i].a);
+            int val = 0, swcount = 0;
             for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
-                if (useErt) {
-                    val = mem_matesw(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
-                }
-                else {
-                    val = mem_matesw_orig(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
-                }
+                val = mem_matesw(opt, bns, pac, pes, &b[i].a[j], s[!i].l_seq, (uint8_t*)s[!i].seq, &a[!i]);
                 n += val;
+                swcount += val;
             }
-            if (useErt) {
-                if (val) {
-                    mem_alnreg_v* ma = &a[!i];
-                    ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
-                }
-                else {
-                    sort_alnreg_score(a[!i].n, a[!i].a);
-                }
+            if (swcount > 0) {
+                mem_alnreg_v* ma = &a[!i];
+                ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
+            }
+            else {
+                sort_alnreg_score(a[!i].n, a[!i].a);
             }
         }
         
@@ -785,7 +686,7 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                           const uint8_t *pac, const mem_pestat_t pes[4],
                           uint64_t id, bseq1_t s[2], mem_alnreg_v a[2],
                           kswr_t **myaln, mem_cache *mmc, 
-                          int32_t &gcnt, int tid, int useErt)
+                          int32_t &gcnt, int tid)
 {
     extern int mem_mark_primary_se(const mem_opt_t *opt, int n, mem_alnreg_t *a, int64_t id);
     extern int mem_approx_mapq_se(const mem_opt_t *opt, const mem_alnreg_t *a);
@@ -824,33 +725,23 @@ int mem_sam_pe_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
             a[1].a[l].flg = 0;
         
         for (i = 0; i < 2; ++i) {
-            if (useErt) {
-                sort_alnreg_re(a[!i].n, a[!i].a);
-            }
-            int val = 0;
+            sort_alnreg_re(a[!i].n, a[!i].a);
+            int val = 0, swcount = 0;
             for (j = 0; j < b[i].n && j < opt->max_matesw; ++j) {
-                if (useErt) {
-                    val = mem_matesw_batch_post_ert(opt, bns, pac, pes, &b[i].a[j],
-                                                    s[!i].l_seq, (uint8_t*)s[!i].seq,
-                                                    &a[!i], myaln, gcnt, gar, mmc);
-                }
-                else {
-                    val = mem_matesw_batch_post(opt, bns, pac, pes, &b[i].a[j],
+                val = mem_matesw_batch_post(opt, bns, pac, pes, &b[i].a[j],
                                                 s[!i].l_seq, (uint8_t*)s[!i].seq,
                                                 &a[!i], myaln, gcnt, gar, mmc);
-                }
                 n += val;
+                swcount += val;
                 // ncnt++;
                 gcnt += 4;
             }
-            if (useErt) {
-                if (val) {
-                    mem_alnreg_v* ma = &a[!i];
-                    ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
-                }
-                else {
-                    sort_alnreg_score(a[!i].n, a[!i].a);
-                }
+            if (swcount > 0) {
+                mem_alnreg_v* ma = &a[!i];
+                ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);
+            }
+            else {
+                sort_alnreg_score(a[!i].n, a[!i].a);
             }
         }
 
@@ -1305,6 +1196,10 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                                         mem_alnreg_t *a);
     extern int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
                                     const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
+    extern int mem_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
+                               const uint8_t *pac, uint8_t *query, int n, mem_alnreg_t *a);
+    extern void sort_alnreg_re(int n, mem_alnreg_t* a);
+    extern void sort_alnreg_score(int n, mem_alnreg_t* a);
     
     int64_t l_pac = bns->l_pac;
     int i, r, skip[4], n = 0, rid = -1;
@@ -1385,19 +1280,42 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                 b.seedcov = (b.re - b.rb < b.qe - b.qb? b.re - b.rb : b.qe - b.qb) >> 1;
 
                 kv_push(mem_alnreg_t, *ma, b); // make room for a new element
-
+                int resort = 0;
                 // move b s.t. ma is sorted
-                for (i = 0; i < ma->n - 1; ++i) // find the insertion point
-                    if (ma->a[i].score < b.score) break;
-                tmp = i;
-                for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
-                ma->a[i] = b;
+                for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
+                    if (ma->a[i].re == b.re) {
+                        resort = 1;
+                        break;
+                    }
+                    if (ma->a[i].re > b.re) {
+                        break;
+                    }
+                }
+                if (resort) {
+                    // Don't know where to put this alignment. So let the scores decide
+                    sort_alnreg_score(ma->n - 1, ma->a);
+                    for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
+                        if (ma->a[i].score < b.score) {
+                            break;
+                        }
+                    }
+                    tmp = i;
+                    for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
+                    ma->a[i] = b;
+                    // Now we can sort based on end position
+                    sort_alnreg_re(ma->n, ma->a);
+                }
+                else {
+                    tmp = i;
+                    for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
+                    ma->a[i] = b;
+                }
 
                 tprof[PE26][0] ++;
             }
             ++n;
         }
-        if (n) ma->n = mem_sort_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);        
+        if (n) ma->n = mem_dedup_patch(opt, 0, 0, 0, ma->n, ma->a);        
         if (rev) free(rev);
         free(ref);
     }
