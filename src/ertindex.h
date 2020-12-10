@@ -20,7 +20,7 @@ struct _node_t {
 	uint64_t numHits;
 	uint64_t start_addr;
 	uint64_t* hits;
-	uint8_t seq[READ_LEN + 1];
+	uint8_t seq[ERT_MAX_READ_LEN + 1];
 	node_t* parent_node;
 	node_t* child_nodes[4];
 };

@@ -1021,12 +1021,12 @@ int mem_kernel1_core_ert(const mem_opt_t *opt,
             hasN = 1;
         }
         int len = seq_[l].l_seq;
-        if (len > READ_LEN) {
-            fprintf(stderr, "Your dataset has reads with length %d. But the ERT index built was for reads with length <= %d. Please set READ_LEN to the maximum read length in your dataset and rebuild the ERT index. ERT index support mapping of reads with length < 256 bp\n", len, READ_LEN);
+        if (len > ERT_MAX_READ_LEN) {
+            fprintf(stderr, "Your dataset has reads with length %d. But the ERT index built was for reads with length <= %d. Please set ERT_MAX_READ_LEN to the maximum read length in your dataset and rebuild the ERT index. Default ERT index supports mapping of reads with length <= 301 bp\n", len, ERT_MAX_READ_LEN);
             exit(EXIT_FAILURE);
         }
-        uint8_t unpacked_rc_queue_buf[READ_LEN];
-        assert(len <= READ_LEN);
+        uint8_t unpacked_rc_queue_buf[ERT_MAX_READ_LEN];
+        assert(len <= ERT_MAX_READ_LEN);
         for (i = 0; i < len; ++i) {
             seq[i] = seq[i] < 4? seq[i] : nst_nt4_table[(int)seq[i]]; //nst_nt4??
             unpacked_rc_queue_buf[len - i - 1] = seq[i] < 4 ? 3 - seq[i] : 4; 
