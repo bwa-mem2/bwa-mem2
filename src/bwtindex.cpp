@@ -282,7 +282,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 
 		// First build the BWT index with the prefix
 		algo_type = BWTALGO_AUTO;
-		// bwa_idx_build(argv[optind], prefix, algo_type, block_size);
+		bwa_idx_build(argv[optind], prefix, algo_type, block_size);
 
 		// Load BWT index
 		bwaidx_t* bid = bwa_idx_load_from_disk(prefix, BWA_IDX_BNS | BWA_IDX_BWT | BWA_IDX_PAC);
