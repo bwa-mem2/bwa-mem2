@@ -158,6 +158,7 @@ KSORT_INIT(mem_ars_hash, mem_alnreg_t, alnreg_hlt)
 #define alnreg_hlt2(a, b) ((a).is_alt < (b).is_alt || ((a).is_alt == (b).is_alt && ((a).score > (b).score || ((a).score == (b).score && (a).hash < (b).hash))))
 KSORT_INIT(mem_ars_hash2, mem_alnreg_t, alnreg_hlt2)
 
+#if MATE_SORT
 void sort_alnreg_re(int n, mem_alnreg_t* a) {
     ks_introsort(mem_ars2, n, a);
 }
@@ -165,6 +166,8 @@ void sort_alnreg_re(int n, mem_alnreg_t* a) {
 void sort_alnreg_score(int n, mem_alnreg_t* a) {
     ks_introsort(mem_ars, n, a);
 }
+
+#endif
 
 #define PATCH_MAX_R_BW 0.05f
 #define PATCH_MIN_SC_RATIO 0.90f
@@ -232,6 +235,7 @@ int mem_patch_reg(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 #define MEM_SEEDSW_COEF 0.05f
 int stat;
 
+#if MATE_SORT
 int mem_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
                     const uint8_t *pac, uint8_t *query, int n,
                     mem_alnreg_t *a)
@@ -283,6 +287,7 @@ int mem_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
     n = m;
     return m;
 }
+#endif
 
 int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
                          const uint8_t *pac, uint8_t *query, int n,
