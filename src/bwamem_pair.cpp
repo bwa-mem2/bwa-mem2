@@ -225,9 +225,9 @@ int mem_matesw(const mem_opt_t *opt, const bntseq_t *bns,
                 b.secondary = -1;
                 b.seedcov = (b.re - b.rb < b.qe - b.qb? b.re - b.rb : b.qe - b.qb) >> 1;
 
-                kv_push(mem_alnreg_t, *ma, b); // make room for a new element
                 
                 #if !MATE_SORT
+                kv_push(mem_alnreg_t, *ma, b); // make room for a new element
                 // move b s.t. ma is sorted
                 for (i = 0; i < ma->n - 1; ++i) // find the insertion point
                     if (ma->a[i].score < b.score) break;
@@ -238,7 +238,7 @@ int mem_matesw(const mem_opt_t *opt, const bntseq_t *bns,
                 #else
                 
                 int resort = 0;
-                for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
+                for (i = 0; i < ma->n; ++i) { // find the insertion point
                     if (ma->a[i].re == b.re) {
                         resort = 1;
                         break;
@@ -249,12 +249,24 @@ int mem_matesw(const mem_opt_t *opt, const bntseq_t *bns,
                 }
                 if (resort) {
                     // Don't know where to put this alignment. So let the scores decide
-                    sort_alnreg_score(ma->n - 1, ma->a);
-                    for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
+                    sort_alnreg_score(ma->n, ma->a);
+                    for (i = 1; i < ma->n; ++i) { // mark identical hits
+                        if (ma->a[i].score == ma->a[i-1].score && ma->a[i].rb == ma->a[i-1].rb && ma->a[i].qb == ma->a[i-1].qb)
+                            ma->a[i].qe = ma->a[i].qb;
+                    }
+                    int m;
+                    for (i = 1, m = 1; i < ma->n; ++i) // exclude identical hits
+                        if (ma->a[i].qe > ma->a[i].qb) {
+                            if (m != i) ma->a[m++] = ma->a[i];
+                            else ++m;
+                        }
+                    ma->n = m;
+                    for (i = 0; i < ma->n; ++i) { // find the insertion point
                         if (ma->a[i].score < b.score) {
                             break;
                         }
                     }
+                    kv_push(mem_alnreg_t, *ma, b); // make room for a new element
                     tmp = i;
                     for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
                     ma->a[i] = b;
@@ -262,6 +274,7 @@ int mem_matesw(const mem_opt_t *opt, const bntseq_t *bns,
                     sort_alnreg_re(ma->n, ma->a);
                 }
                 else {
+                    kv_push(mem_alnreg_t, *ma, b); // make room for a new element
                     tmp = i;
                     for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
                     ma->a[i] = b;
@@ -1324,9 +1337,9 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                 b.secondary = -1;
                 b.seedcov = (b.re - b.rb < b.qe - b.qb? b.re - b.rb : b.qe - b.qb) >> 1;
 
-                kv_push(mem_alnreg_t, *ma, b); // make room for a new element
 
                 #if !MATE_SORT
+                kv_push(mem_alnreg_t, *ma, b); // make room for a new element
 
                 // move b s.t. ma is sorted
                 for (i = 0; i < ma->n - 1; ++i) // find the insertion point
@@ -1350,11 +1363,23 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                 if (resort) {
                     // Don't know where to put this alignment. So let the scores decide
                     sort_alnreg_score(ma->n - 1, ma->a);
-                    for (i = 0; i < ma->n - 1; ++i) { // find the insertion point
+                    for (i = 1; i < ma->n; ++i) { // mark identical hits
+                        if (ma->a[i].score == ma->a[i-1].score && ma->a[i].rb == ma->a[i-1].rb && ma->a[i].qb == ma->a[i-1].qb)
+                            ma->a[i].qe = ma->a[i].qb;
+                    }
+                    int m;
+                    for (i = 1, m = 1; i < ma->n; ++i) // exclude identical hits
+                        if (ma->a[i].qe > ma->a[i].qb) {
+                            if (m != i) ma->a[m++] = ma->a[i];
+                            else ++m;
+                        }
+                    ma->n = m;
+                    for (i = 0; i < ma->n; ++i) { // find the insertion point
                         if (ma->a[i].score < b.score) {
                             break;
                         }
                     }
+                    kv_push(mem_alnreg_t, *ma, b); // make room for a new element
                     tmp = i;
                     for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
                     ma->a[i] = b;
@@ -1362,6 +1387,7 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                     sort_alnreg_re(ma->n, ma->a);
                 }
                 else {
+                    kv_push(mem_alnreg_t, *ma, b); // make room for a new element
                     tmp = i;
                     for (i = ma->n - 1; i > tmp; --i) ma->a[i] = ma->a[i-1];
                     ma->a[i] = b;
