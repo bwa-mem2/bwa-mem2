@@ -1249,6 +1249,7 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
         int end = seqid + batch_size;
         int pos = start >> 1;
         
+        fprintf(stderr, "tid %d, First-Read-Batch %s Last-Read-Batch %s\n", tid, w->seqs[start].name, w->seqs[end - 2].name);
 #if (((!__AVX512BW__) && (!__AVX2__)) || ((!__AVX512BW__) && (__AVX2__))) 
         for (int i=start; i< end; i+=2)
         {

@@ -222,6 +222,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 
             fprintf(stderr, "\t[0000][ M::%s] read %d sequences (%ld bp)...\n",
                     __func__, ret->n_seqs, (long)size);
+            fprintf(stderr, "First-Read %s Last-Read %s\n", ret->seqs[0].name, ret->seqs[ret->n_seqs-1].name);
         }
                 
         return ret;
