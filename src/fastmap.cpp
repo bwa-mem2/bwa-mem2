@@ -204,7 +204,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 
         tprof[READ_IO][0] += __rdtsc() - tim;
         
-        fprintf(stderr, "[0000] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
+        fprintf(stderr, "read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
                 aux->task_size, sz, ret->n_seqs);   
 
         if (ret->seqs == 0) {
@@ -221,7 +221,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
             int64_t size = 0;
             for (int i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
 
-            fprintf(stderr, "\t[0000][ M::%s] read %d sequences (%ld bp)...\n",
+            fprintf(stderr, "[M::%s] read %d sequences (%ld bp)...\n",
                     __func__, ret->n_seqs, (long)size);
         }
                 
@@ -232,7 +232,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
         static int task = 0;
         if (w.nreads < ret->n_seqs)
         {
-            fprintf(stderr, "[0000] Reallocating initial memory allocations\n");
+            fprintf(stderr, "Reallocating initial memory allocations\n");
             free(w.regs); free(w.chain_ar); free(w.seedBuf);
             w.nreads = ret->n_seqs;
             w.regs = (mem_alnreg_v *) calloc(w.nreads, sizeof(mem_alnreg_v));
@@ -241,7 +241,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
             assert(w.regs != NULL); assert(w.chain_ar != NULL); assert(w.seedBuf != NULL);
         }       
                                 
-        fprintf(stderr, "[0000] Calling mem_process_seqs.., task: %d\n", task++);
+        fprintf(stderr, "Calling mem_process_seqs.., task: %d\n", task++);
 
         uint64_t tim = __rdtsc();
         if (opt->flag & MEM_F_SMARTPE)
@@ -510,7 +510,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     free(aux_.workers);
     /***** pipeline ends ******/
     
-    fprintf(stderr, "[0000] Computation ends..\n");
+    fprintf(stderr, "Computation ends..\n");
     
     /* Dealloc memory allcoated in the header section */    
     free(w.chain_ar);
