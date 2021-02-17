@@ -38,6 +38,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <sstream>
 #include "fastmap.h"
 #include "FMI_search.h"
+#include "bwashm.cpp"
 
 #if AFF && (__linux__)
 #include <sys/sysinfo.h>
@@ -90,7 +91,7 @@ int HTStatus()
 
     int ht = platform_features & (1 << 28) && num_cores < num_logical_cpus;
     if (ht)
-        fprintf(stderr, "CPUs support hyperThreading !!\n");
+        fprintf(stderr, "CPUs support hyperThreading\n");
 
     return ht;
 }
@@ -203,7 +204,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 
         tprof[READ_IO][0] += __rdtsc() - tim;
         
-        fprintf(stderr, "[0000] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
+        fprintf(stderr, "read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
                 aux->task_size, sz, ret->n_seqs);   
 
         if (ret->seqs == 0) {
@@ -220,7 +221,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
             int64_t size = 0;
             for (int i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
 
-            fprintf(stderr, "\t[0000][ M::%s] read %d sequences (%ld bp)...\n",
+            fprintf(stderr, "[M::%s] read %d sequences (%ld bp)...\n",
                     __func__, ret->n_seqs, (long)size);
         }
                 
@@ -231,7 +232,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
         static int task = 0;
         if (w.nreads < ret->n_seqs)
         {
-            fprintf(stderr, "[0000] Reallocating initial memory allocations!!\n");
+            fprintf(stderr, "Reallocating initial memory allocations\n");
             free(w.regs); free(w.chain_ar); free(w.seedBuf);
             w.nreads = ret->n_seqs;
             w.regs = (mem_alnreg_v *) calloc(w.nreads, sizeof(mem_alnreg_v));
@@ -240,7 +241,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
             assert(w.regs != NULL); assert(w.chain_ar != NULL); assert(w.seedBuf != NULL);
         }       
                                 
-        fprintf(stderr, "[0000] Calling mem_process_seqs.., task: %d\n", task++);
+        fprintf(stderr, "Calling mem_process_seqs.., task: %d\n", task++);
 
         uint64_t tim = __rdtsc();
         if (opt->flag & MEM_F_SMARTPE)
@@ -509,7 +510,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     free(aux_.workers);
     /***** pipeline ends ******/
     
-    fprintf(stderr, "[0000] Computation ends..\n");
+    fprintf(stderr, "Computation ends..\n");
     
     /* Dealloc memory allcoated in the header section */    
     free(w.chain_ar);
@@ -610,6 +611,59 @@ static void usage(const mem_opt_t *opt)
     fprintf(stderr, "Note: Please read the man page for detailed description of the command line and options.\n");
 }
 
+bool load_shm_index(char* refname, ktp_aux_t* aux) {
+  if (bwa_shm_test(refname)==0) 
+  	return false;
+  aux->fmi = new FMI_search(refname);
+  bwa_idx_load_from_shm(refname, aux);
+  return true;
+}
+
+void load_complete_index(char* refname, ktp_aux_t* aux) {
+    fprintf(stderr, "* Ref file: %s\n", refname); 
+             
+    /* Load bwt2/FMI index */
+    uint64_t tim = __rdtsc();
+    
+    aux->fmi = new FMI_search(refname);
+    aux->fmi->load_index();
+    tprof[FMI][0] += __rdtsc() - tim;
+    
+    // reading ref string from the file
+    tim = __rdtsc();
+    fprintf(stderr, "* Reading reference genome..\n");
+    
+    char binary_seq_file[PATH_MAX];
+    strcpy_s(binary_seq_file, PATH_MAX, refname);
+    strcat_s(binary_seq_file, PATH_MAX, ".0123");
+    //sprintf(binary_seq_file, "%s.0123", refname);
+    
+    fprintf(stderr, "* Binary seq file = %s\n", binary_seq_file);
+    FILE *fr = fopen(binary_seq_file, "r");
+    
+    if (fr == NULL) {
+        fprintf(stderr, "Error: can't open %s input file\n", binary_seq_file);
+        exit(EXIT_FAILURE);
+    }
+    
+    int64_t rlen = 0;
+    fseek(fr, 0, SEEK_END); 
+    rlen = ftell(fr);
+    uint8_t *ref_string = (uint8_t*) _mm_malloc(rlen, 64);
+    aux->ref_string = ref_string;
+    rewind(fr);
+    
+    /* Reading ref. sequence */
+    err_fread_noeof(ref_string, 1, rlen, fr);
+    
+    uint64_t timer  = __rdtsc();
+    tprof[REF_IO][0] += timer - tim;
+    
+    fclose(fr);
+    fprintf(stderr, "* Reference genome size: %ld bp\n", rlen);
+    fprintf(stderr, "* Done reading reference genome \n\n");
+}
+
 int main_mem(int argc, char *argv[])
 {
     int          i, c, ignore_alt = 0, no_mt_io = 0;
@@ -624,7 +678,6 @@ int main_mem(int argc, char *argv[])
     mem_pestat_t  pes[4];
     ktp_aux_t     aux;
     bool          is_o    = 0;
-    uint8_t      *ref_string;
     
     memset(&aux, 0, sizeof(ktp_aux_t));
     memset(pes, 0, 4 * sizeof(mem_pestat_t));
@@ -842,47 +895,13 @@ int main_mem(int argc, char *argv[])
     /* Matrix for SWA */
     bwa_fill_scmat(opt->a, opt->b, opt->mat);
     
-    /* Load bwt2/FMI index */
-    uint64_t tim = __rdtsc();
-    
-    fprintf(stderr, "* Ref file: %s\n", argv[optind]);          
-    aux.fmi = new FMI_search(argv[optind]);
-    aux.fmi->load_index();
-    tprof[FMI][0] += __rdtsc() - tim;
-    
-    // reading ref string from the file
-    tim = __rdtsc();
-    fprintf(stderr, "* Reading reference genome..\n");
-    
-    char binary_seq_file[PATH_MAX];
-    strcpy_s(binary_seq_file, PATH_MAX, argv[optind]);
-    strcat_s(binary_seq_file, PATH_MAX, ".0123");
-    //sprintf(binary_seq_file, "%s.0123", argv[optind]);
-    
-    fprintf(stderr, "* Binary seq file = %s\n", binary_seq_file);
-    FILE *fr = fopen(binary_seq_file, "r");
-    
-    if (fr == NULL) {
-        fprintf(stderr, "Error: can't open %s input file\n", binary_seq_file);
-        exit(EXIT_FAILURE);
-    }
-    
-    int64_t rlen = 0;
-    fseek(fr, 0, SEEK_END); 
-    rlen = ftell(fr);
-    ref_string = (uint8_t*) _mm_malloc(rlen, 64);
-    aux.ref_string = ref_string;
-    rewind(fr);
-    
-    /* Reading ref. sequence */
-    err_fread_noeof(ref_string, 1, rlen, fr);
-    
-    uint64_t timer  = __rdtsc();
-    tprof[REF_IO][0] += timer - tim;
-    
-    fclose(fr);
-    fprintf(stderr, "* Reference genome size: %ld bp\n", rlen);
-    fprintf(stderr, "* Done reading reference genome !!\n\n");
+    // first try to load from shm
+    if (load_shm_index(argv[optind], &aux)) {
+    	if (bwa_verbose >= 3)
+			fprintf(stderr, "[M::%s] load the bwa index from shared memory\n", __func__);
+	} else {
+	    load_complete_index(argv[optind], &aux);
+	} 
     
     if (ignore_alt)
         for (i = 0; i < aux.fmi->idx->bns->n_seqs; ++i)
@@ -945,7 +964,7 @@ int main_mem(int argc, char *argv[])
     }
     tprof[MISC][1] = opt->chunk_size = aux.actual_chunk_size = aux.task_size;
 
-    tim = __rdtsc();
+    uint64_t tim = __rdtsc();
 
     /* Relay process function */
     process(&aux, fp, fp2, no_mt_io? 1:2);
@@ -953,7 +972,9 @@ int main_mem(int argc, char *argv[])
     tprof[PROCESS][0] += __rdtsc() - tim;
 
     // free memory
-    _mm_free(ref_string);
+    if (aux.fmi->idx->is_shm==0)
+    	_mm_free(aux.ref_string);
+    
     free(hdr_line);
     free(opt);
     kseq_destroy(aux.ks);   
@@ -970,7 +991,7 @@ int main_mem(int argc, char *argv[])
     }
 
     // new bwt/FMI
-    delete(aux.fmi);    
+    delete(aux.fmi);     
 
     /* Display runtime profiling stats */
     tprof[MEM][0] = __rdtsc() - tprof[MEM][0];

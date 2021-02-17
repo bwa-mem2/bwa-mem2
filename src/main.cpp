@@ -46,9 +46,12 @@ int usage()
     fprintf(stderr, "Commands:\n");
     fprintf(stderr, "  index         create index\n");
     fprintf(stderr, "  mem           alignment\n");
+    fprintf(stderr, "  shm           shared-memory index operations\n");
     fprintf(stderr, "  version       print version number\n");
     return 1;
 }
+
+int main_shm(int argc, char *argv[]);
 
 int main(int argc, char* argv[])
 {
@@ -67,6 +70,10 @@ int main(int argc, char* argv[])
          ret = bwa_index(argc-1, argv+1);
          fprintf(stderr, "Total time taken: %0.4lf\n", (__rdtsc() - tim)*1.0/proc_freq);
          return ret;
+    }
+    else if (strcmp(argv[1], "shm") == 0) 
+    {
+    	return main_shm(argc, argv);
     }
     else if (strcmp(argv[1], "mem") == 0)
     {

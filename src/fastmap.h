@@ -77,5 +77,8 @@ typedef struct {
 void *kopen(const char *fn, int *_fd);
 int kclose(void *a);
 int main_mem(int argc, char *argv[]);
+bool load_shm_index(char* refname, ktp_aux_t* aux);
+void load_complete_index(char* refname, ktp_aux_t* aux);
+
 
 #endif

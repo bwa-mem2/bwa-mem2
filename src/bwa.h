@@ -45,18 +45,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define BWA_CTL_SIZE 0x10000
 
 typedef struct {
-	// bwt2_t   *bwt2;
-	bwt_t    *bwt; // FM-index
-	bntseq_t *bns; // information on the reference sequences
-	uint8_t  *pac; // the actual 2-bit encoded reference sequences with 'N' converted to a random base
-
-	int    is_shm;
-	int64_t l_mem;
-	uint8_t  *mem;
-} bwaidx_t;
-
-
-typedef struct {
 	int l_seq, id;
 	char *name, *comment, *seq, *qual, *sam;
 } bseq1_t;
@@ -96,11 +84,6 @@ extern "C" {
 	bwt_t *bwa_idx_load_bwt(const char *hint);
 	bwt2_t *bwa_idx_load_bwt2(const char *hint);
 	
-	bwaidx_t *bwa_idx_load_from_shm(const char *hint);
-	bwaidx_t *bwa_idx_load_from_disk(const char *hint, int which);
-	bwaidx_t *bwa_idx_load(const char *hint, int which);
-	
-	void bwa_idx_destroy(bwaidx_t *idx);
 	void bwa_print_sam_hdr(const bntseq_t *bns, const char *hdr_line, FILE *fp);
 	char *bwa_set_rg(const char *s);
 	char *bwa_insert_header(const char *s, char *hdr);

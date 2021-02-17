@@ -100,17 +100,17 @@ void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n,
         dir = mem_infer_dir(l_pac, r[0]->a[0].rb, r[1]->a[0].rb, &is);
         if (is && is <= opt->max_ins) kv_push(uint64_t, isize[dir], is);
     }
-    if (bwa_verbose >= 3) fprintf(stderr, "[0000][PE] # candidate unique pairs for (FF, FR, RF, RR): (%ld, %ld, %ld, %ld)\n", isize[0].n, isize[1].n, isize[2].n, isize[3].n);
+    if (bwa_verbose >= 3) fprintf(stderr, "[PE] # candidate unique pairs for (FF, FR, RF, RR): (%ld, %ld, %ld, %ld)\n", isize[0].n, isize[1].n, isize[2].n, isize[3].n);
     for (d = 0; d < 4; ++d) { // TODO: this block is nearly identical to the one in bwtsw2_pair.c. It would be better to merge these two.
         mem_pestat_t *r = &pes[d];
         uint64_v *q = &isize[d];
         int p25, p50, p75, x;
         if (q->n < MIN_DIR_CNT) {
-            fprintf(stderr, "[0000][PE] skip orientation %c%c as there are not enough pairs\n", "FR"[d>>1&1], "FR"[d&1]);
+            fprintf(stderr, "[PE] skip orientation %c%c as there are not enough pairs\n", "FR"[d>>1&1], "FR"[d&1]);
             r->failed = 1;
             free(q->a);
             continue;
-        } else fprintf(stderr, "[0000][PE] analyzing insert size distribution for orientation %c%c...\n", "FR"[d>>1&1], "FR"[d&1]);
+        } else fprintf(stderr, "[PE] analyzing insert size distribution for orientation %c%c...\n", "FR"[d>>1&1], "FR"[d&1]);
         ks_introsort_64(q->n, q->a);
         p25 = q->a[(int)(.25 * q->n + .499)];
         p50 = q->a[(int)(.50 * q->n + .499)];
@@ -118,8 +118,8 @@ void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n,
         r->low  = (int)(p25 - OUTLIER_BOUND * (p75 - p25) + .499);
         if (r->low < 1) r->low = 1;
         r->high = (int)(p75 + OUTLIER_BOUND * (p75 - p25) + .499);
-        fprintf(stderr, "[0000][PE] (25, 50, 75) percentile: (%d, %d, %d)\n", p25, p50, p75);
-        fprintf(stderr, "[0000][PE] low and high boundaries for computing mean and std.dev: (%d, %d)\n", r->low, r->high);
+        fprintf(stderr, "[PE] (25, 50, 75) percentile: (%d, %d, %d)\n", p25, p50, p75);
+        fprintf(stderr, "[PE] low and high boundaries for computing mean and std.dev: (%d, %d)\n", r->low, r->high);
         for (i = x = 0, r->avg = 0; i < q->n; ++i)
             if (q->a[i] >= r->low && q->a[i] <= r->high)
                 r->avg += q->a[i], ++x;
@@ -129,13 +129,13 @@ void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n,
             if (q->a[i] >= r->low && q->a[i] <= r->high)
                 r->std += (q->a[i] - r->avg) * (q->a[i] - r->avg);
         r->std = sqrt(r->std / x);
-        fprintf(stderr, "[0000][PE] mean and std.dev: (%.2f, %.2f)\n", r->avg, r->std);
+        fprintf(stderr, "[PE] mean and std.dev: (%.2f, %.2f)\n", r->avg, r->std);
         r->low  = (int)(p25 - MAPPING_BOUND * (p75 - p25) + .499);
         r->high = (int)(p75 + MAPPING_BOUND * (p75 - p25) + .499);
         if (r->low  > r->avg - MAX_STDDEV * r->std) r->low  = (int)(r->avg - MAX_STDDEV * r->std + .499);
         if (r->high < r->avg + MAX_STDDEV * r->std) r->high = (int)(r->avg + MAX_STDDEV * r->std + .499);
         if (r->low < 1) r->low = 1;
-        fprintf(stderr, "[0000][PE] low and high boundaries for proper pairs: (%d, %d)\n", r->low, r->high);
+        fprintf(stderr, "[PE] low and high boundaries for proper pairs: (%d, %d)\n", r->low, r->high);
         free(q->a);
     }
     for (d = 0, max = 0; d < 4; ++d)
@@ -143,7 +143,7 @@ void mem_pestat(const mem_opt_t *opt, int64_t l_pac, int n,
     for (d = 0; d < 4; ++d)
         if (pes[d].failed == 0 && isize[d].n < max * MIN_DIR_RATIO) {
             pes[d].failed = 1;
-            fprintf(stderr, "[0000][PE] skip orientation %c%c\n", "FR"[d>>1&1], "FR"[d&1]);
+            fprintf(stderr, "[PE] skip orientation %c%c\n", "FR"[d>>1&1], "FR"[d&1]);
         }
 }
 
@@ -1025,7 +1025,7 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
             assert(sp.len1 >= 0 && sp.len2 >= 0);
             if (refOffset + sp.len1 >= *wsize_buf_ref)
             {
-                fprintf(stderr, "[0000][%0.4d] Re-allocating (doubling) seqBufRefs in %s\n",
+                fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s\n",
                         tid, __func__);
                 int64_t tmp = *wsize_buf_ref;
                 *wsize_buf_ref *= 2;
@@ -1042,7 +1042,7 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
             
             if (qerOffset + sp.len2 >= *wsize_buf_qer)
             {
-                fprintf(stderr, "[0000][%0.4d] Re-allocating (doubling) seqBufQers in %s\n",
+                fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufQers in %s\n",
                         tid, __func__);
                 int64_t tmp = *wsize_buf_qer;
                 *wsize_buf_qer *= 2;
@@ -1059,7 +1059,7 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
             
             if (pcnt >= *wsize_pair)
             {
-                fprintf(stderr, "[0000][%0.4d] Re-allocating seqPairs in %s\n", tid, __func__);
+                fprintf(stderr, "[%0.4d] Re-allocating seqPairs in %s\n", tid, __func__);
                 *wsize_pair += 1024;
                 mmc->seqPairArrayAux[tid] = (SeqPair *) realloc(mmc->seqPairArrayAux[tid],
                                                     (*wsize_pair + MAX_LINE_LEN)

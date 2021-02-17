@@ -93,6 +93,9 @@ class FMI_search: public indexEle
     
     int build_index();
     void load_index();
+    
+    uint8_t* bwa_idx2mem();
+    int bwa_mem2idx(int64_t l_mem, uint8_t *mem); 
 
     void getSMEMs(uint8_t *enc_qdb,
                   int32_t numReads,
@@ -164,8 +167,9 @@ class FMI_search: public indexEle
                                  int64_t *coordCountArray, int64_t count,
                                  const int32_t max_occ, int tid, int64_t &id_);
     
-    int64_t reference_seq_len;
-    int64_t sentinel_index;
+    int64_t* reference_seq_len;
+    int64_t* sentinel_index;
+    
 private:
         char file_name[PATH_MAX];
         int64_t index_alloc;

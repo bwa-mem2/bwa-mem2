@@ -1274,11 +1274,11 @@ void mem_process_seqs(mem_opt_t *opt,
     int n_ = n;
     
     uint64_t tim = __rdtsc();   
-    fprintf(stderr, "[0000] 1. Calling kt_for - worker_bwt\n");
+    fprintf(stderr, "1. Calling kt_for - worker_bwt\n");
     
     kt_for(worker_bwt, &w, n_); // SMEMs (+SAL)
 
-    fprintf(stderr, "[0000] 2. Calling kt_for - worker_aln\n");
+    fprintf(stderr, "2. Calling kt_for - worker_aln\n");
     
     kt_for(worker_aln, &w, n_); // BSW
     tprof[WORKER10][0] += __rdtsc() - tim;      
@@ -1290,7 +1290,7 @@ void mem_process_seqs(mem_opt_t *opt,
             memcpy_bwamem(pes, 4 * sizeof(mem_pestat_t), pes0, 4 * sizeof(mem_pestat_t), __FILE__, __LINE__); // if pes0 != NULL, set the insert-size
                                                          // distribution as pes0
         else {
-            fprintf(stderr, "[0000] Inferring insert size distribution of PE reads from data, "
+            fprintf(stderr, "Inferring insert size distribution of PE reads from data, "
                     "l_pac: %ld, n: %d\n", w.fmi->idx->bns->l_pac, n);
             mem_pestat(opt, w.fmi->idx->bns->l_pac, n, w.regs, pes); // otherwise, infer the insert size
                                                          // distribution from data
@@ -1298,12 +1298,12 @@ void mem_process_seqs(mem_opt_t *opt,
     }
     
     tim = __rdtsc();
-    fprintf(stderr, "[0000] 3. Calling kt_for - worker_sam\n");
+    fprintf(stderr, "3. Calling kt_for - worker_sam\n");
     
     kt_for(worker_sam, &w,  n_);   // SAM   
     tprof[WORKER20][0] += __rdtsc() - tim;
 
-    fprintf(stderr, "\t[0000][ M::%s] Processed %d reads in %.3f "
+    fprintf(stderr, "[ M::%s] Processed %d reads in %.3f "
             "CPU sec, %.3f real sec\n",
             __func__, n, cputime() - ctime, realtime() - rtime);
 
@@ -2154,7 +2154,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     sp.regid = av->n - 1;
                         
                     if (numPairsLeft >= *wsize_pair) {
-                        fprintf(stderr, "[0000][%0.4d] Re-allocating seqPairArrays, in Left\n", tid);
+                        fprintf(stderr, "[%0.4d] Re-allocating seqPairArrays, in Left\n", tid);
                         *wsize_pair += 1024;
                         seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
                                                               (*wsize_pair + MAX_LINE_LEN)
@@ -2250,7 +2250,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
                     if (numPairsRight >= *wsize_pair)
                     {
-                        fprintf(stderr, "[0000] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
+                        fprintf(stderr, "[%0.4d] Re-allocating seqPairArrays Right\n", tid);
                         *wsize_pair += 1024;
                         seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
                                                               (*wsize_pair + MAX_LINE_LEN)

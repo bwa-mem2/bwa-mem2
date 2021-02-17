@@ -130,6 +130,17 @@ numactl -m 0 -C 0-27,56-83 ./bwa-mem2 mem -t 56 human_g1k_v37.fasta SRR7733443_1
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-4.png" height="400"/a></br>
 </p> 
 
+## bwa-mem2 seeding speeup with Enumerated Radix Trees (Code in ert branch)
+
+The ert branch of bwa-mem2 repository contains codebase of enuerated radix tree based acceleration of bwa-mem2. The ert code is built on the top of bwa-mem2 (thanks to the hard work by @arun-sub). 
+The following are the highlights of the ert based bwa-mem2 tool: 
+1. Exact same output as bwa-mem(2) 
+2. The tool has two additional flags to enable the use of ert solution (for index creation and mapping), else it runs in vanilla bwa-mem2 mode 
+3. It uses 1 additional flag to create ert index (different from bwa-mem2 index) and 1 additional flag for using that ert index (please see the readme of ert branch) 
+4. The ert solution is 10% - 30% faster (tested on above machine configuration) in comparison to vanilla bwa-mem2 -- users are adviced to use option `-K 1000000` to see the speedups 
+5. The memory foot print of the ert index is ~60GB 
+6. The code is present in ert branch: https://github.com/bwa-mem2/bwa-mem2/tree/ert
+
 
 ## Citation
 
