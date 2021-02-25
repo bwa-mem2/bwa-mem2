@@ -26,7 +26,8 @@
 #define __AC_KSW_H
 
 #include <stdint.h>
-#include <emmintrin.h>
+#define SIMDE_ENABLE_NATIVE_ALIASES
+#include <simde/x86/sse2.h>
 
 #define KSW_XBYTE  0x10000
 #define KSW_XSTOP  0x20000
