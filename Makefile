@@ -32,13 +32,13 @@ ifneq ($(portable),)
 	STATIC_GCC=-static-libgcc -static-libstdc++
 endif
 
-EXE=		bwa-mem2
-#CXX=		icpc
-ifeq ($(CXX), icpc)
-	CC= icc
-else ifeq ($(CXX), g++)
-	CC=gcc
-endif		
+EXE=		mpibwa-mem2
+#ifeq ($(CXX), icpc)
+#	CC= icc
+#else ifeq ($(CXX), g++)
+#	CC=gcc
+#endif	
+CXX=        mpicxx	
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS) 
@@ -52,17 +52,9 @@ BWA_LIB=    libbwa.a
 SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
 
 ifeq ($(arch),sse41)
-	ifeq ($(CXX), icpc)
-		ARCH_FLAGS=-msse4.1
-	else
-		ARCH_FLAGS=-msse -msse2 -msse3 -mssse3 -msse4.1
-	endif
+	ARCH_FLAGS=-msse4.1
 else ifeq ($(arch),sse42)
-	ifeq ($(CXX), icpc)	
-		ARCH_FLAGS=-msse4.2
-	else
-		ARCH_FLAGS=-msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2
-	endif
+	ARCH_FLAGS=-msse4.2
 else ifeq ($(arch),avx)
 	ifeq ($(CXX), icpc)
 		ARCH_FLAGS=-mavx ##-xAVX
@@ -70,13 +62,13 @@ else ifeq ($(arch),avx)
 		ARCH_FLAGS=-mavx
 	endif
 else ifeq ($(arch),avx2)
-	ifeq ($(CXX), icpc)
+	ifeq ($(CXX), mpicxx)
 		ARCH_FLAGS=-march=core-avx2 #-xCORE-AVX2
 	else	
 		ARCH_FLAGS=-mavx2
 	endif
 else ifeq ($(arch),avx512)
-	ifeq ($(CXX), icpc)
+	ifeq ($(CXX), mpicxx)
 		ARCH_FLAGS=-xCORE-AVX512
 	else	
 		ARCH_FLAGS=-mavx512bw
@@ -100,22 +92,23 @@ CXXFLAGS+=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 
 all:$(EXE)
 
+
 multi:
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
-	$(MAKE) arch=sse41    EXE=bwa-mem2.sse41    CXX=$(CXX) all
+	$(MAKE) arch=sse41    EXE=mpibwa-mem2.sse41    CXX=$(CXX) all
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
-	$(MAKE) arch=sse42    EXE=bwa-mem2.sse42    CXX=$(CXX) all
+	$(MAKE) arch=sse42    EXE=mpibwa-mem2.sse42    CXX=$(CXX) all
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
-	$(MAKE) arch=avx    EXE=bwa-mem2.avx    CXX=$(CXX) all
+	$(MAKE) arch=avx    EXE=mpibwa-mem2.avx    CXX=$(CXX) all
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
-	$(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
+	$(MAKE) arch=avx2   EXE=mpibwa-mem2.avx2     CXX=$(CXX) all
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
-	$(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
-	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring $(STATIC_GCC) -o bwa-mem2
+	$(MAKE) arch=avx512 EXE=mpibwa-mem2.avx512bw CXX=$(CXX) all
+	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring $(STATIC_GCC) -o mpibwa-mem2
 
 
-$(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main.o
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
+$(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main_parallel_version.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) src/main_parallel_version.o $(BWA_LIB) $(LIBS) -o $@
 
 $(BWA_LIB):$(OBJS)
 	ar rcs $(BWA_LIB) $(OBJS)
@@ -124,7 +117,7 @@ $(SAFE_STR_LIB):
 	cd ext/safestringlib/ && $(MAKE) clean && $(MAKE) CC=$(CC) directories libsafestring.a
 
 clean:
-	rm -fr src/*.o $(BWA_LIB) $(EXE) bwa-mem2.sse41 bwa-mem2.sse42 bwa-mem2.avx bwa-mem2.avx2 bwa-mem2.avx512bw
+	rm -fr src/*.o $(BWA_LIB) $(EXE) mpibwa-mem2.sse41 mpibwa-mem2.avx2 mpibwa-mem2.avx512bw
 	cd ext/safestringlib/ && $(MAKE) clean
 
 depend:
@@ -164,10 +157,9 @@ src/kthread.o: src/kthread.h src/macro.h src/bwamem.h src/bwt.h src/bntseq.h
 src/kthread.o: src/bwa.h src/bandedSWA.h src/kstring.h src/ksw.h src/kvec.h
 src/kthread.o: src/ksort.h src/utils.h src/profiling.h src/FMI_search.h
 src/kthread.o: src/read_index_ele.h
-src/main.o: src/main.h src/kstring.h src/utils.h src/macro.h src/bandedSWA.h
-src/main.o: src/profiling.h
 src/profiling.o: src/macro.h
 src/read_index_ele.o: src/read_index_ele.h src/utils.h src/bntseq.h
 src/read_index_ele.o: src/macro.h
 src/utils.o: src/utils.h src/ksort.h src/kseq.h
 src/memcpy_bwamem.o: src/memcpy_bwamem.h
+src/main_parallel_version.o: src/kstring.h src/utils.h src/macro.h src/bandedSWA.h src/fastmap.h src/profiling.h
