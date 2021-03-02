@@ -108,7 +108,7 @@ multi:
 
 
 $(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main_parallel_version.o
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) src/main_parallel_version.o $(BWA_LIB) $(LIBS) -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) src/mainParallel.o $(BWA_LIB) $(LIBS) -o $@
 
 $(BWA_LIB):$(OBJS)
 	ar rcs $(BWA_LIB) $(OBJS)
@@ -162,4 +162,4 @@ src/read_index_ele.o: src/read_index_ele.h src/utils.h src/bntseq.h
 src/read_index_ele.o: src/macro.h
 src/utils.o: src/utils.h src/ksort.h src/kseq.h
 src/memcpy_bwamem.o: src/memcpy_bwamem.h
-src/main_parallel_version.o: src/kstring.h src/utils.h src/macro.h src/bandedSWA.h src/fastmap.h src/profiling.h
+src/mainParallel.o: src/kstring.h src/utils.h src/macro.h src/bandedSWA.h src/fastmap.h src/profiling.h
