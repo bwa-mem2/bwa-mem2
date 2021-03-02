@@ -57,6 +57,50 @@ indexEle::~indexEle()
     free(idx);
 }
 
+
+void indexEle::bwa_idx_load_ele_2(const char *hint, int which, uint8_t *shared_pac)
+{
+    char *prefix;
+    //prefix = bwa_idx_infer_prefix(hint);
+    //if (prefix == 0) {
+    //printf("[E::%s] fail to locate the index files\n", __func__);
+    //return;
+    //} 
+    
+    int l_hint = strlen(hint);
+    prefix = (char *) malloc(l_hint + 3 + 4 + 1);
+    strcpy(prefix, hint);
+
+    fprintf(stderr, "prefix: %s\n", prefix);
+    // idx = (bwaidx_fm_t*) calloc(1, sizeof(bwaidx_fm_t));
+    if (which & BWA_IDX_BNS) {
+        int i, c;
+        idx->bns = bns_restore(prefix);
+         //if (idx->bns == 0) {
+         //printf("Error: read_index_ele:38, bns is NULL!!\n");
+         //exit(0);
+         //} 
+         
+    for (i = c = 0; i < idx->bns->n_seqs; ++i)
+            if (idx->bns->anns[i].is_alt) ++c;
+
+        fprintf(stderr, "[M::%s] read %d ALT contigs\n", __func__, c);
+
+        if (which & BWA_IDX_PAC)
+        {
+            fprintf(stderr, "[M::%s] READING PAC\n", __func__);
+
+            idx->pac = shared_pac;
+            //idx->pac = (uint8_t*) calloc(idx->bns->l_pac/4+1, 1);
+            //err_fread_noeof(idx->pac, 1, idx->bns->l_pac/4+1, idx->bns->fp_pac); // concatenated 2-bit encoded sequence
+            err_fclose(idx->bns->fp_pac);
+            idx->bns->fp_pac = 0;
+        }
+    }
+    free(prefix);
+}
+
+
 void indexEle::bwa_idx_load_ele(const char *hint, int which)
 {
     char *prefix;

@@ -51,7 +51,6 @@ typedef struct {
 	uint8_t  *mem;
 } bwaidx_fm_t;
 
-
 class indexEle {
 	
 public:
@@ -59,7 +58,8 @@ public:
 	
 	indexEle();
 	~indexEle();
-	void bwa_idx_load_ele(const char *hint, int which);
+	void bwa_idx_load_ele_2(const char *hint, int which, uint8_t *shared_pac);
+    void bwa_idx_load_ele(const char *hint, int which);
 	char *bwa_idx_infer_prefix(const char *hint);	
 };
 #endif

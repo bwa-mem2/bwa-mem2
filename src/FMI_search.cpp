@@ -381,6 +381,100 @@ int FMI_search::build_index() {
     return 0;
 }
 
+FMI_search::load_shared_index(char *ref_file_name, int8_t *shared_sa_byte, uint32_t *shared_sa_word, uint8_t *shared_pac)
+{
+    fprintf(stderr, "Entering FMI_search\n");
+    char cp_file_name[1000];
+    assert(strnlen(ref_file_name, 1000) + 12 < 1000);
+#if ((!__AVX2__))
+    sprintf(cp_file_name, "%s.bwt.2bit.%d", ref_file_name, CP_BLOCK_SIZE);
+#else
+    sprintf(cp_file_name, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE);
+#endif
+
+    // Read the BWT and FM index of the reference sequence
+    FILE *cpstream = NULL;
+    cpstream = fopen(cp_file_name,"rb");
+    if (cpstream == NULL)
+    {
+        fprintf(stderr, "ERROR! Unable to open the file: %s\n", cp_file_name);
+        exit(0);
+    }
+
+    fread(&reference_seq_len, sizeof(int64_t), 1, cpstream);
+    assert(reference_seq_len > 0);
+    assert(reference_seq_len <= (0xffffffffU * (int64_t)CP_BLOCK_SIZE));
+    if(myrank == 0)
+        fprintf(stderr, "reference seq len = %ld\n", reference_seq_len);
+
+    // create checkpointed occ
+     uint32_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
+    cp_occ = NULL;
+
+    fread(&count[0], sizeof(int64_t), 5, cpstream);
+    cp_occ = (CP_OCC *)_mm_malloc(cp_occ_size * sizeof(CP_OCC), 64);
+
+    fread(cp_occ, sizeof(CP_OCC), cp_occ_size, cpstream);
+    int64_t ii = 0;
+    for(ii = 0; ii < 5; ii++)// update read count structure
+    {
+        count[ii] = count[ii] + 1;
+    }
+    //sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len * sizeof(int8_t), 64);
+    //sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len * sizeof(uint32_t), 64);
+    //fread(sa_ms_byte, sizeof(int8_t), reference_seq_len, cpstream);
+    //fread(sa_ls_word, sizeof(uint32_t), reference_seq_len, cpstream);
+
+
+    sa_ms_byte = shared_sa_byte;
+    sa_ls_word = shared_sa_word;
+
+    fclose(cpstream);
+
+    sentinel_index = -1;
+    int64_t x;
+    for(x = 0; x < reference_seq_len; x++)
+    {
+        if(get_sa_entry(x) == 0)
+            sentinel_index = x;
+    }
+    if(myrank == 0) {
+        fprintf(stderr, "count\n");
+        for(x = 0; x < 5; x++)
+        {
+            fprintf(stderr, "%ld,\t%lu\n", x, (unsigned long)count[x]);
+        }
+        fprintf(stderr, "\n");
+    }
+
+
+    fprintf(stderr, "Reading other elements of the index from files %s\n",
+            ref_file_name);
+    bwa_idx_load_ele_2(ref_file_name, BWA_IDX_ALL, shared_pac);
+
+#if ((!__AVX2__))
+    base_mask[0][0] = 0;
+    base_mask[0][1] = 0;
+    base_mask[1][0] = 0xffffffffffffffffL;
+    base_mask[1][1] = 0;
+    base_mask[2][0] = 0;
+    base_mask[2][1] = 0xffffffffffffffffL;
+    base_mask[3][0] = 0xffffffffffffffffL;
+    base_mask[3][1] = 0xffffffffffffffffL;
+
+#else
+    for(ii = 0; ii < 4; ii++)
+    {
+        int32_t j;
+        for(j = 0; j < 64; j++)
+        {
+            c_bcast_array[ii * 64 + j] = ii;
+        }
+    }
+#endif
+    fprintf(stderr, "Done reading Index!!\n");
+}
+
 void FMI_search::load_index()
 {
     one_hot_mask_array = (uint64_t *)_mm_malloc(64 * sizeof(uint64_t), 64);
@@ -1313,7 +1407,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         }
         else {
             int64_t occ_id_pp_ = pos >> CP_SHIFT;
-            _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+            _mm_prefetch((const char*)(&cp_occ[occ_id_pp_]), _MM_HINT_T0);
         }
         i++;
         j++;
@@ -1350,7 +1444,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                     }
                     else {
                         int64_t occ_id_pp_ = pos >> CP_SHIFT;
-                        _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+                        _mm_prefetch((const char *)(&(cp_occ[occ_id_pp_])), _MM_HINT_T0);
                     }
                 }
                 else
@@ -1364,7 +1458,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                 }
                 else {
                     int64_t occ_id_pp_ = sp >> CP_SHIFT;
-                    _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+                    _mm_prefetch((const char *)(&cp_occ[occ_id_pp_]), _MM_HINT_T0);
                 }                
             }
         }
