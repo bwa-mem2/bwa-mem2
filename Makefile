@@ -107,7 +107,7 @@ multi:
 	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring $(STATIC_GCC) -o mpibwa-mem2
 
 
-$(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main_parallel_version.o
+$(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/mainParallel.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) src/mainParallel.o $(BWA_LIB) $(LIBS) -o $@
 
 $(BWA_LIB):$(OBJS)

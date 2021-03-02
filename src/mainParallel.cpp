@@ -1411,77 +1411,254 @@ void find_chunks_info(  size_t *begin_offset_chunk,
 //Parameters (ordered):	file containing the reference genoma
 //			count of top level elements in the file
 //			bwa parameter
-//			i don't know what this is
 //			pointer on he window of shared memory used to save the mapped indexes
-void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, MPI_Win *win_shr)
+void map_indexes(char *file_ref, int *count, bwaidx_t *indix, int *ignore_alt, MPI_Win *win_shr, char **argv)
 {
-	
-	//MPI resources
-	MPI_File fh_map; //file handle 
-	MPI_Status status; 
-	MPI_Info win_info; //information about the shared memory window
-	MPI_Aint size_shr;
-	MPI_Comm comm_shr; //new commmunicator
-	MPI_Offset size_map, m, size_tot; //offsets
 
-	//non MPI related resources
-	uint8_t *a,*addr,*addr_map;
-	int rank_shr;	
-	int res, c;
-	int bef,aft;
 
-	MPI_Info_create(&win_info);
-	MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
+        int i, rank_num, rank_shr, res = 0;
+        size_t size_map, size_tot, count4;
+        MPI_Comm comm_shr;       
+        double bef, aft =0;
+        MPI_Status status;
        
-	//FOR TEST
-	// MPI_Info_set(win_info, "alloc_shared_non_contig", "false");
-	// MPI_Info_set(win_info, "no_locks", "true");
-	
- 
-        //FOR INTEL KNL   
-	//MPI_Info_set(win_info, "alloc_shared_non_contig", "false");
-        
-	//create a new comunicator, and a window of shared memory associated to it
-	bef = MPI_Wtime();
-	res = MPI_File_open(MPI_COMM_WORLD, file_map, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_map);
-	assert(res == MPI_SUCCESS);
-	res = MPI_File_get_size(fh_map, &size_map);
-	assert(res == MPI_SUCCESS);
-	res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
-	assert(res == MPI_SUCCESS);
-	res = MPI_Comm_rank(comm_shr, &rank_shr);
-	assert(res == MPI_SUCCESS);
-	size_shr = (rank_shr == 0) ? size_map : 0;
-	res = MPI_Win_allocate_shared(size_shr, sizeof(char), win_info, comm_shr, &addr, win_shr);
-	assert(res == MPI_SUCCESS);
-	MPI_Info_free(&win_info);
-	res = MPI_Win_shared_query(*win_shr, MPI_PROC_NULL, &size_shr, &res, &addr_map);
-	assert(res == MPI_SUCCESS);
+        char cp_file_name[1000];
+        assert(strnlen(file_ref, 1000) + 12 < 1000);
+        #if ((!__AVX2__))
+                sprintf(cp_file_name, "%s.bwt.2bit.%d", file_ref, CP_BLOCK_SIZE);
+        #else
+                sprintf(cp_file_name, "%s.bwt.8bit.%d", file_ref, CP_BLOCK_SIZE);
+        #endif
 
-	//fill this window with the information from the file
-	m = size_map; a = addr_map; size_tot = 0;
-	while (rank_shr == 0) {
-		res = MPI_File_read(fh_map, a, INT_MAX/2, MPI_UINT8_T, &status);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Get_count(&status, MPI_UINT8_T, count);
-		assert(res == MPI_SUCCESS);
-		if (*count == 0) break;
-		m -= *count; a += *count; size_tot += *count; }
-	assert(size_tot == 0 || size_tot == size_map);
-	res = MPI_Win_fence(0, *win_shr);
-	assert(res == MPI_SUCCESS);
-	bwa_mem2idx(size_map, addr_map, indix);
-	if (*ignore_alt)
-		for (c = 0; c < (*indix).bns->n_seqs; ++c)
-		(*indix).bns->anns[c].is_alt = 0;
+        char binary_seq_file[200];
+            sprintf(binary_seq_file, "%s.0123", argv[optind+1]);
 
-	res = MPI_File_close(&fh_map);
-	assert(res == MPI_SUCCESS);
+
+                FILE *cpstream = NULL;
+            cpstream = fopen(cp_file_name,"rb");
+            if (cpstream == NULL)
+            {
+            fprintf(stderr, "ERROR! Unable to open the file: %s\n", cp_file_name);
+            exit(0);
+            }
+
+            fread(&reference_seq_len, sizeof(int64_t), 1, cpstream);
+            assert(reference_seq_len > 0);
+            assert(reference_seq_len <= (0xffffffffU * (int64_t)CP_BLOCK_SIZE));
+
+        fprintf(stderr, "reference seq len = %ld\n", reference_seq_len);
+
+        fclose(cpstream);
+
+        fprintf(stderr, "SA index : %s\n", cp_file_name);
+        fprintf(stderr, "Reference : %s\n", binary_seq_file);
+        MPI_File fh_map_sa_word, fh_map_sa_byte, fh_ref_file, fh_pac_file;
+
+        MPI_Aint size_shr_sa_word, size_shr_sa_byte, size_shr_ref, size_pac_file, size_shr_pac;
+
+        MPI_Offset size_map_sa_word, size_map_sa_byte, size_map_ref, size_map_pac;
+
+        MPI_Win win_shr_sa_word, win_shr_sa_byte, win_shr_ref, win_share_pac;
+
+        uint8_t *addr_ref, *addr_map_ref, *addr_pac;
+        int8_t *addr_sa_byte, *addr_map_sa_byte;
+        uint32_t *addr_sa_word, *addr_map_sa_word;
+
+        MPI_Info win_info;
+        MPI_Info_create(&win_info);
+        MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
+
+        bef = MPI_Wtime();
+        res = MPI_File_open(MPI_COMM_WORLD, "/ccc/scratch/cont007/fg0012/jarlierf/references_back/sa_ms_byte_64.bin", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_map_sa_byte);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_open(MPI_COMM_WORLD, "/ccc/scratch/cont007/fg0012/jarlierf/references_back/sa_ms_word_64.bin", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_map_sa_word);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_open(MPI_COMM_WORLD, binary_seq_file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_ref_file);
+        assert(res == MPI_SUCCESS);
+
+
+        res = MPI_File_open(MPI_COMM_WORLD, "/ccc/scratch/cont007/fg0012/jarlierf/references_avx2/hg19.pac", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_pac_file);
+        assert(res == MPI_SUCCESS);
+
+
+        res = MPI_File_get_size(fh_map_sa_byte, &size_map_sa_byte);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_get_size(fh_map_sa_word, &size_map_sa_word);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_get_size(fh_ref_file, &size_map_ref);
+        assert(res == MPI_SUCCESS);
+
+
+        res = MPI_File_get_size(fh_pac_file, &size_map_pac);
+        assert(res == MPI_SUCCESS);
+
+
+        res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Comm_rank(comm_shr, &rank_shr);
+        assert(res == MPI_SUCCESS);
+
+        fprintf(stderr, "rank_num = %d  ::::  rank_shr = %d \n", rank_num, rank_shr );
+
+         size_shr_sa_byte = (rank_shr == 0) ? size_map_sa_byte : 0;
+        res = MPI_Win_allocate_shared(reference_seq_len *  sizeof(int8_t), 8, win_info, comm_shr, &addr_sa_byte, &win_shr_sa_byte);
+        assert(res == MPI_SUCCESS);
+
+        size_shr_sa_word = (rank_shr == 0) ? size_map_sa_word : 0;
+        res = MPI_Win_allocate_shared(reference_seq_len * sizeof(uint32_t), 8, win_info, comm_shr, &addr_sa_word, &win_shr_sa_word);
+        assert(res == MPI_SUCCESS);
+
+        size_shr_ref = (rank_shr == 0) ? size_map_ref : 0;
+        res = MPI_Win_allocate_shared(size_shr_ref, sizeof(uint8_t) , win_info, comm_shr, &addr_ref, &win_shr_ref);
+
+
+        size_shr_pac = (rank_shr == 0) ? size_map_pac : 0;
+        res = MPI_Win_allocate_shared(size_shr_pac, sizeof(uint8_t) , win_info, comm_shr, &addr_pac, &win_share_pac);
+
+
+        assert(res == MPI_SUCCESS);
+        MPI_Info_free(&win_info);
+
+        res = MPI_Win_shared_query(win_shr_sa_byte, MPI_PROC_NULL, &size_shr_sa_byte, &res, &addr_map_sa_byte);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_shared_query(win_shr_sa_word, MPI_PROC_NULL, &size_shr_sa_word, &res, &addr_map_sa_word);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_shared_query(win_shr_ref, MPI_PROC_NULL, &size_shr_ref, &res, &addr_map_ref);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_shared_query(win_share_pac, MPI_PROC_NULL, &size_shr_pac, &res, &addr_pac);
+        assert(res == MPI_SUCCESS);
+
+        size_map = 0;
+        size_map = 2*reference_seq_len + size_map_ref;
+
+        fprintf(stderr, "size_map_sa_word : %zu\n", reference_seq_len * sizeof(uint32_t) );
+        fprintf(stderr, "size_map_sa_byte: %zu\n", reference_seq_len *  sizeof(int8_t));
+        fprintf(stderr, "size_map_ref: %zu\n", size_map_ref);
+        fprintf(stderr, "size_map_pac: %zu\n", size_map_pac);
+        fprintf(stderr, "size_map total : %zu\n", size_map);
+
+         size_tot = 0;
+        size_t size_read = 0;
+
+        int8_t *a = addr_map_sa_byte;
+        uint32_t *b1 = addr_map_sa_word;
+        uint8_t *c = addr_map_ref;
+        uint8_t *d = addr_pac;
+
+        while(rank_shr == 0) {
+            // we load sa_word
+            res = MPI_File_read(fh_map_sa_word, b1, reference_seq_len, MPI_UINT32_T, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_UINT32_T, &count4);
+            assert(res == MPI_SUCCESS);
+            fprintf(stderr, "Partial count word = : %zu\n", count4 );
+            if (count4 == 0) break;
+            b1 += count4;
+            size_read += count4;
+            size_tot +=count4;
+        }
+        fprintf(stderr, "count word = : %zu\n", size_read);
+        size_read = 0;
+        while(rank_shr == 0) {
+            // we load sa_byte
+            res = MPI_File_read(fh_map_sa_byte, a, reference_seq_len, MPI_INT8_T, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_INT8_T, &count4);
+            assert(res == MPI_SUCCESS);
+            fprintf(stderr, "Partial count byte = : %zu\n", count4 );
+            if (count4 == 0) break;
+            a += count4;
+            size_read += count4;
+            size_tot += count4;
+        }
+        fprintf(stderr, "count byte = : %zu\n", size_read );
+        size_read = 0;
+
+        while(rank_shr == 0) {
+            res = MPI_File_read(fh_pac_file, d, size_shr_pac, MPI_UINT8_T, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_UINT8_T, &count4);
+            assert(res == MPI_SUCCESS);
+            if (count4 == 0) break;
+            d += count4;
+            size_read += count4;
+            size_tot += count4;
+        }
+
+        fprintf(stderr, "count pac = : %zu\n", size_read );
+        size_read = 0;
+
+        while(rank_shr == 0) {
+            res = MPI_File_read(fh_ref_file, c, reference_seq_len, MPI_UINT8_T, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_UINT8_T, &count4);
+            assert(res == MPI_SUCCESS);
+            if (count4 == 0) break;
+            c += count4;
+            size_read += count4;
+            size_tot += count4;
+        }
+        fprintf(stderr, "count ref = : %zu\n", size_read );
+
+        fprintf(stderr, "size_tot: %zu\n", size_tot);
+
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        res = MPI_Win_fence(0, win_shr_sa_byte);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_fence(0, win_shr_sa_word);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_fence(0, win_shr_ref);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_fence(0, win_share_pac);
+        assert(res == MPI_SUCCESS);
+
+        fprintf(stderr, "total read in shared: %s\n", argv[optind + 1]);
+
+        uint64_t tim = __rdtsc();
+
+        //fmi = new FMI_search(argv[optind + 1], addr_map_sa_byte, addr_map_sa_word, addr_pac);
+        ref_string = addr_map_ref;
+
+        fprintf(stderr, "Done readng reference genome !!\n\n");
+
+
+        if (ignore_alt)
+        for (i = 0; i < fmi->idx->bns->n_seqs; ++i)
+            fmi->idx->bns->anns[i].is_alt = 0;
+
+
+        res = MPI_File_close(&fh_map_sa_byte);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_close(&fh_map_sa_word);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_close(&fh_ref_file);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_close(&fh_pac_file);
+        assert(res == MPI_SUCCESS);
+
+
+        aft = MPI_Wtime();
+        fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
+
 
 }
 
-
-void find_chunks_info_single_end(	
+void  find_chunks_info_single_end(	
 						size_t *begin_offset_chunk,
 						size_t *chunk_size,
 						size_t *reads_in_chunk,
@@ -1871,7 +2048,7 @@ void find_chunks_info_single_end(
 //			count of top level elements in the file
 //			header string
 //			rg = read group string
-void create_sam_header(char *file_out, ktp_aux_t *aux, int *count, char *hdr_line, char *rg_line, int rank_num)
+void create_sam_header(char *file_out, ktp_aux_t aux, int *count, char *hdr_line, char *rg_line, int rank_num)
 {
 
 	//MPI resources
@@ -1996,7 +2173,7 @@ int main(int argc, char *argv[]) {
             "This is free software, and you are welcome to redistribute it \n"
             "under the terms of the CeCILL License. \n"
 	    	"\ncontact: Frederic Jarlier (frederic.jarlier@curie.fr) \n",
-			progname, VERSION, progname);
+			progname, PACKAGE_VERSION, progname);
 			return 1; }
 
 
@@ -3283,7 +3460,10 @@ int main(int argc, char *argv[]) {
 		mem_opt_t	*opt			  = aux.opt;
 		nthreads = opt->n_threads; // global variable for profiling!
         w2.nthreads = opt->n_threads;
-        readLen = blen;
+        
+        //readLen = blen;
+        //we assume blen =250
+        readLen = 250;
 		//here we initialize pthreads 
 		fprintf(stderr, "\nThreads used (compute): %d\n", nthreads);
         aux.actual_chunk_size = chunk_size[0];
@@ -3456,8 +3636,37 @@ int main(int argc, char *argv[]) {
 			/* Datas computation ... */
 			bef = MPI_Wtime();
 			fprintf(stderr, "rank %d ::::  Call memseqs with count sequences %zu \n", rank_num, reads);
-			mem_process_seqs(opt, indix.bwt, indix.bns, indix.pac, 0, (int)reads, seqs, pes0);
-			aft = MPI_Wtime();
+			//mem_process_seqs(opt, indix.bwt, indix.bns, indix.pac, 0, (int)reads, seqs, pes0);
+			ret->seqs   = seqs;
+            ret->n_seqs     = reads;
+            int64_t size = 0;
+            for (int i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
+            fprintf(stderr, "\t[0000][ M::%s] read %d sequences (%ld bp)...\n",
+                    __func__, ret->n_seqs, (long)size);
+            fprintf(stderr, "[RANK %d] 1: Calling process()\n", rank_num);
+            if (w2.regs) free(w2.regs);
+            if (w2.chain_ar) free(w2.chain_ar);
+            if (w2.seedBuf) free(w2.seedBuf);
+
+            nreads = ret->n_seqs;
+            w2.regs = (mem_alnreg_v *) calloc(nreads, sizeof(mem_alnreg_v));
+            w2.chain_ar = (mem_chain_v*) malloc (nreads * sizeof(mem_chain_v));
+            w2.seedBuf = (mem_seed_t *) calloc(sizeof(mem_seed_t),nreads * AVG_SEEDS_PER_READ);
+            w2.nreads=ret->n_seqs;
+            mem_process_seqs(opt,
+                             aux.n_processed,
+                             ret->n_seqs,
+                             ret->seqs,
+                             aux.pes0,
+                             w2);
+            aux.n_processed += ret->n_seqs;
+            aft = MPI_Wtime();
+            fprintf(stderr, "rank %d :: %s: computed mappings (%.02f)\n", rank_num, __func__, aft - bef);
+
+            total_time_mapping += (aft - bef);
+
+
+            aft = MPI_Wtime();
 			fprintf(stderr, "rank %d :: %s: computed mappings (%.02f)\n", rank_num, __func__, aft - bef);
 
 			total_time_mapping += (aft - bef);
@@ -3783,7 +3992,9 @@ if (file_r1 != NULL && file_r2 == NULL){
 		mem_opt_t	*opt			  = aux.opt;
 		nthreads = opt->n_threads; // global variable for profiling!
         w2.nthreads = opt->n_threads;
-        readLen = blen;
+        //readLen = blen;
+        //we assume blen = 250
+        readLen = 250; 
 		//here we initialize pthreads 
 		fprintf(stderr, "\nThreads used (compute): %d\n", nthreads);
         aux.actual_chunk_size = chunk_size[0];
@@ -3901,8 +4112,31 @@ if (file_r1 != NULL && file_r2 == NULL){
 			/* Datas computation ... */
 			bef = MPI_Wtime();
 			fprintf(stderr, "rank %d ::::  Call memseqs with count sequences %zu \n", rank_num, reads);
-			mem_process_seqs(opt, indix.bwt, indix.bns, indix.pac, 0, (int)reads, seqs, pes0);
-			aft = MPI_Wtime();
+			//mem_process_seqs(opt, indix.bwt, indix.bns, indix.pac, 0, (int)reads, seqs, pes0);
+			ret->seqs   = seqs;
+            ret->n_seqs     = reads;
+            int64_t size = 0;
+            for (int i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
+            fprintf(stderr, "\t[0000][ M::%s] read %d sequences (%ld bp)...\n",
+                    __func__, ret->n_seqs, (long)size);
+            fprintf(stderr, "[RANK %d] 1: Calling process()\n", rank_num);
+            if (w2.regs) free(w2.regs);
+            if (w2.chain_ar) free(w2.chain_ar);
+            if (w2.seedBuf) free(w2.seedBuf);
+
+            nreads = ret->n_seqs;
+            w2.regs = (mem_alnreg_v *) calloc(nreads, sizeof(mem_alnreg_v));
+            w2.chain_ar = (mem_chain_v*) malloc (nreads * sizeof(mem_chain_v));
+            w2.seedBuf = (mem_seed_t *) calloc(sizeof(mem_seed_t),nreads * AVG_SEEDS_PER_READ);
+            w2.nreads=ret->n_seqs;
+            mem_process_seqs(opt,
+                             aux.n_processed,
+                             ret->n_seqs,
+                             ret->seqs,
+                             aux.pes0,
+                             w2);
+            aux.n_processed += ret->n_seqs;
+            aft = MPI_Wtime();
 			fprintf(stderr, "rank %d :: %s: computed mappings (%.02f)\n", rank_num, __func__, aft - bef);
 
 			total_time_mapping += (aft - bef);
