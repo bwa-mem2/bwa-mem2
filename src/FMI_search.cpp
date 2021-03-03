@@ -381,8 +381,150 @@ int FMI_search::build_index() {
     return 0;
 }
 
-FMI_search::load_shared_index(char *ref_file_name, int8_t *shared_sa_byte, uint32_t *shared_sa_word, uint8_t *shared_pac)
+void FMI_search::load_shared_index(char *file_name, int8_t *shared_sa_byte, uint32_t *shared_sa_word, uint8_t *shared_pac)
 {
+ 
+ 
+    /*
+    
+     INITIALIZATION FMI OBJECT
+     THIS PART IS DONE IN  allocate_shared_reference from mainParalel.cpp  
+     
+    one_hot_mask_array = (uint64_t *)_mm_malloc(64 * sizeof(uint64_t), 64);
+    one_hot_mask_array[0] = 0;
+    uint64_t base = 0x8000000000000000L;
+    one_hot_mask_array[1] = base;
+    int64_t i = 0;
+    for(i = 2; i < 64; i++)
+    {
+        one_hot_mask_array[i] = (one_hot_mask_array[i - 1] >> 1) | base;
+    }
+
+    char *ref_file_name = file_name;
+    //beCalls = 0;
+    char cp_file_name[PATH_MAX];
+    strcpy_s(cp_file_name, PATH_MAX, ref_file_name);
+    //CP_FILENAME_SUFFIX ".bwt.2bit.64"
+    strcat_s(cp_file_name, PATH_MAX, CP_FILENAME_SUFFIX);
+    // Read the BWT and FM index of the reference sequence
+    FILE *cpstream = NULL;
+    cpstream = fopen(cp_file_name,"rb");
+    if (cpstream == NULL)
+    {
+        fprintf(stderr, "ERROR! Unable to open the file: %s\n", cp_file_name);
+        exit(EXIT_FAILURE);
+    }
+    else
+    {
+        fprintf(stderr, "* Index file found. Loading index from %s\n", cp_file_name);
+    }
+
+    err_fread_noeof(&reference_seq_len, sizeof(int64_t), 1, cpstream);
+    assert(reference_seq_len > 0);
+    assert(reference_seq_len <= 0x7fffffffffL);
+
+    fprintf(stderr, "* Reference seq len for bi-index = %ld\n", reference_seq_len);
+
+    // create checkpointed occ
+    int64_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
+    cp_occ = NULL;
+
+    err_fread_noeof(&count[0], sizeof(int64_t), 5, cpstream);
+    if ((cp_occ = (CP_OCC *)_mm_malloc(cp_occ_size * sizeof(CP_OCC), 64)) == NULL) {
+        fprintf(stderr, "ERROR! unable to allocated cp_occ memory\n");
+        exit(EXIT_FAILURE);
+    }
+
+    err_fread_noeof(cp_occ, sizeof(CP_OCC), cp_occ_size, cpstream);
+    int64_t ii = 0;
+    for(ii = 0; ii < 5; ii++)// update read count structure
+
+    {
+        count[ii] = count[ii] + 1;
+    }
+    */    
+
+
+    //#if SA_COMPRESSION
+
+    //int64_t reference_seq_len_ = (reference_seq_len >> SA_COMPX) + 1;
+    //sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len_ * sizeof(int8_t), 64);
+    //sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len_ * sizeof(uint32_t), 64);
+    //err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len_, cpstream);
+    //err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len_, cpstream);
+
+    sa_ms_byte = shared_sa_byte;
+    sa_ls_word = shared_sa_word;
+
+    //#else
+
+    //sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len * sizeof(int8_t), 64);
+    //sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len * sizeof(uint32_t), 64);
+    //err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len, cpstream);
+    //err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len, cpstream);
+
+
+    //sa_ms_byte = shared_sa_byte;
+    //sa_ls_word = shared_sa_word;
+
+    //#endif
+
+    //beCalls = 0;
+    char *ref_file_name = file_name;
+    char cp_file_name[PATH_MAX];
+    strcpy_s(cp_file_name, PATH_MAX, ref_file_name);
+    //CP_FILENAME_SUFFIX ".bwt.2bit.64"
+    strcat_s(cp_file_name, PATH_MAX, CP_FILENAME_SUFFIX);
+    // Read the BWT and FM index of the reference sequence
+    FILE *cpstream = NULL;
+    cpstream = fopen(cp_file_name,"rb");
+               
+    sentinel_index = -1;
+    #if SA_COMPRESSION
+    err_fread_noeof(&sentinel_index, sizeof(int64_t), 1, cpstream);
+    fprintf(stderr, "* sentinel-index: %ld\n", sentinel_index);
+    #endif
+    fclose(cpstream);
+
+    int64_t x;
+    #if !SA_COMPRESSION
+    for(x = 0; x < reference_seq_len; x++)
+    {
+         // fprintf(stderr, "x: %ld\n", x);
+         #if SA_COMPRESSION
+        if(get_sa_entry_compressed(x) == 0) {
+            sentinel_index = x;
+            break;
+        }
+        #else
+        if(get_sa_entry(x) == 0) {
+            sentinel_index = x;
+            break;
+        }
+        #endif
+    }
+    fprintf(stderr, "\nsentinel_index: %ld\n", x);
+    #endif
+
+    fprintf(stderr, "* Count:\n");
+    for(x = 0; x < 5; x++)
+    {
+        fprintf(stderr, "%ld,\t%lu\n", x, (unsigned long)count[x]);
+    }
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "* Reading other elements of the index from files %s\n", ref_file_name);
+
+    bwa_idx_load_ele_2(ref_file_name, BWA_IDX_ALL, shared_pac );
+
+    fprintf(stderr, "* Done reading Index!!\n");
+
+
+
+
+
+    //begining old version
+    /*
     fprintf(stderr, "Entering FMI_search\n");
     char cp_file_name[1000];
     assert(strnlen(ref_file_name, 1000) + 12 < 1000);
@@ -473,6 +615,7 @@ FMI_search::load_shared_index(char *ref_file_name, int8_t *shared_sa_byte, uint3
     }
 #endif
     fprintf(stderr, "Done reading Index!!\n");
+    */
 }
 
 void FMI_search::load_index()
@@ -580,8 +723,7 @@ void FMI_search::load_index()
     }
     fprintf(stderr, "\n");  
 
-    fprintf(stderr, "* Reading other elements of the index from files %s\n",
-            ref_file_name);
+    fprintf(stderr, "* Reading other elements of the index from files %s\n", ref_file_name);
     bwa_idx_load_ele(ref_file_name, BWA_IDX_ALL);
 
     fprintf(stderr, "* Done reading Index!!\n");

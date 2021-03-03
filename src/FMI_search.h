@@ -95,7 +95,7 @@ class FMI_search: public indexEle
     void load_index();
     void load_shared_index(char *ref_file_name, 
                            int8_t *shared_sa_byte, 
-                           uint32_t *shared_sa_word, 
+                           uint32_t *shared_sa_word,  
                            uint8_t *shared_pac);
 
     void getSMEMs(uint8_t *enc_qdb,
