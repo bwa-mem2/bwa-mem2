@@ -7,8 +7,6 @@
 ***There is a substantial reduction in index IO time due to the reduction and hardly any performance impact on read mapping.***
 ***Due to this change in index structure (in commit #4b59796, 10th October 2020), you will need to rebuild the index.***
 
-***Ignore this msg for latest commit: Index structure has changed (in commit 494a441, 28/08/2020) due to 4x compression of the suffix array in the Index. Rebuild the Index***
-
 ***Added MC flag in the output sam file in commit a591e22. Output should match original bwa-mem version 0.7.17.***
 
 ***As of commit e0ac59e, we have a git submodule safestringlib. To get it, use --recursive while cloning or use "git submodule init" and "git submodule update" in an already cloned repository (See below for more details).***
@@ -130,7 +128,7 @@ numactl -m 0 -C 0-27,56-83 ./bwa-mem2 mem -t 56 human_g1k_v37.fasta SRR7733443_1
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-4.png" height="400"/a></br>
 </p> 
 
-## bwa-mem2 seeding speeup with Enumerated Radix Trees (Code in ert branch)
+## bwa-mem2 seeding speedup with Enumerated Radix Trees (Code in ert branch)
 
 The ert branch of bwa-mem2 repository contains codebase of enuerated radix tree based acceleration of bwa-mem2. The ert code is built on the top of bwa-mem2 (thanks to the hard work by @arun-sub). 
 The following are the highlights of the ert based bwa-mem2 tool: 
