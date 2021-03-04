@@ -98,6 +98,13 @@ class FMI_search: public indexEle
                            uint32_t *shared_sa_word,  
                            uint8_t *shared_pac);
 
+
+    void allocate_shared_reference(char *file_ref, 
+                                    int8_t *shared_sa_byte, 
+                                    uint32_t *shared_sa_word, 
+                                    uint8_t *shared_ref, 
+                                    uint8_t *shared_pac);
+
     void getSMEMs(uint8_t *enc_qdb,
                   int32_t numReads,
                   int32_t batch_size,

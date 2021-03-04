@@ -1413,6 +1413,7 @@ void find_chunks_info(  size_t *begin_offset_chunk,
 //          uint32_t *shared_sa_word;
 //          uint8_t *shared_pac;
 //
+/*
 void allocate_shared_reference(char *file_ref, int8_t *shared_sa_byte, uint32_t *shared_sa_word, uint8_t *shared_ref, uint8_t *shared_pac)
 {
 
@@ -1433,16 +1434,16 @@ void allocate_shared_reference(char *file_ref, int8_t *shared_sa_byte, uint32_t 
             one_hot_mask_array[i] = (one_hot_mask_array[i - 1] >> 1) | base;
         }
 
-        /*
- *          we gonna read 
- *          hg19.bwa2.0123
- *          and 
- *          hg19.bwa2.bwt.2bit.64
- *          and 
- *          hg19.bwa2.pac
- *
- *
- *      */
+        
+        //we gonna read 
+        //   hg19.bwa2.0123
+        //   and 
+        //   hg19.bwa2.bwt.2bit.64
+        //   and 
+        //   hg19.bwa2.pac
+ 
+ 
+       
 
 
         //first the hg19.bwa2.bwt.2bit.64 
@@ -1745,7 +1746,7 @@ void allocate_shared_reference(char *file_ref, int8_t *shared_sa_byte, uint32_t 
 
 
 }
-
+*/
 void  find_chunks_info_single_end(	
 						size_t *begin_offset_chunk,
 						size_t *chunk_size,
@@ -2884,7 +2885,7 @@ int main(int argc, char *argv[]) {
         uint8_t *shared_pac;
         uint8_t *shared_ref;    
     
-        allocate_shared_reference(file_ref, shared_sa_byte, shared_sa_word, shared_ref, shared_pac);     
+        aux.fmi->allocate_shared_reference(file_ref, shared_sa_byte, shared_sa_word, shared_ref, shared_pac);     
         aux.fmi->load_shared_index(file_name, shared_sa_byte, shared_sa_word, shared_pac);
         aux.ref_string = shared_ref;
 
