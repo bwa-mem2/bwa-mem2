@@ -37,9 +37,9 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include <immintrin.h>
 #include <limits.h>
 #include <fstream>
-
 #include "read_index_ele.h"
 #include "bwa.h"
+#include "mpi.h"
 
 #define DUMMY_CHAR 6
 
@@ -100,10 +100,8 @@ class FMI_search: public indexEle
 
 
     void allocate_shared_reference(char *file_ref, 
-                                    int8_t *shared_sa_byte, 
-                                    uint32_t *shared_sa_word, 
                                     uint8_t *shared_ref, 
-                                    uint8_t *shared_pac);
+                                    int rank_num);
 
     void getSMEMs(uint8_t *enc_qdb,
                   int32_t numReads,

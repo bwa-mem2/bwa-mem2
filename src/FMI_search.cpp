@@ -32,7 +32,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include "FMI_search.h"
 #include "memcpy_bwamem.h"
 #include "profiling.h"
-#include "mpi.h"
+//#include "mpi.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -385,89 +385,10 @@ void FMI_search::load_shared_index(char *file_name, int8_t *shared_sa_byte, uint
 {
  
  
-    /*
+    sa_ms_byte = (int8_t *)shared_sa_byte;
+    sa_ls_word = (uint32_t *)shared_sa_word;
+
     
-     INITIALIZATION FMI OBJECT
-     THIS PART IS DONE IN  allocate_shared_reference from mainParalel.cpp  
-     
-    one_hot_mask_array = (uint64_t *)_mm_malloc(64 * sizeof(uint64_t), 64);
-    one_hot_mask_array[0] = 0;
-    uint64_t base = 0x8000000000000000L;
-    one_hot_mask_array[1] = base;
-    int64_t i = 0;
-    for(i = 2; i < 64; i++)
-    {
-        one_hot_mask_array[i] = (one_hot_mask_array[i - 1] >> 1) | base;
-    }
-
-    char *ref_file_name = file_name;
-    //beCalls = 0;
-    char cp_file_name[PATH_MAX];
-    strcpy_s(cp_file_name, PATH_MAX, ref_file_name);
-    //CP_FILENAME_SUFFIX ".bwt.2bit.64"
-    strcat_s(cp_file_name, PATH_MAX, CP_FILENAME_SUFFIX);
-    // Read the BWT and FM index of the reference sequence
-    FILE *cpstream = NULL;
-    cpstream = fopen(cp_file_name,"rb");
-    if (cpstream == NULL)
-    {
-        fprintf(stderr, "ERROR! Unable to open the file: %s\n", cp_file_name);
-        exit(EXIT_FAILURE);
-    }
-    else
-    {
-        fprintf(stderr, "* Index file found. Loading index from %s\n", cp_file_name);
-    }
-
-    err_fread_noeof(&reference_seq_len, sizeof(int64_t), 1, cpstream);
-    assert(reference_seq_len > 0);
-    assert(reference_seq_len <= 0x7fffffffffL);
-
-    fprintf(stderr, "* Reference seq len for bi-index = %ld\n", reference_seq_len);
-
-    // create checkpointed occ
-    int64_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
-    cp_occ = NULL;
-
-    err_fread_noeof(&count[0], sizeof(int64_t), 5, cpstream);
-    if ((cp_occ = (CP_OCC *)_mm_malloc(cp_occ_size * sizeof(CP_OCC), 64)) == NULL) {
-        fprintf(stderr, "ERROR! unable to allocated cp_occ memory\n");
-        exit(EXIT_FAILURE);
-    }
-
-    err_fread_noeof(cp_occ, sizeof(CP_OCC), cp_occ_size, cpstream);
-    int64_t ii = 0;
-    for(ii = 0; ii < 5; ii++)// update read count structure
-
-    {
-        count[ii] = count[ii] + 1;
-    }
-    */    
-
-
-    //#if SA_COMPRESSION
-
-    //int64_t reference_seq_len_ = (reference_seq_len >> SA_COMPX) + 1;
-    //sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len_ * sizeof(int8_t), 64);
-    //sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len_ * sizeof(uint32_t), 64);
-    //err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len_, cpstream);
-    //err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len_, cpstream);
-
-    sa_ms_byte = shared_sa_byte;
-    sa_ls_word = shared_sa_word;
-
-    //#else
-
-    //sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len * sizeof(int8_t), 64);
-    //sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len * sizeof(uint32_t), 64);
-    //err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len, cpstream);
-    //err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len, cpstream);
-
-
-    //sa_ms_byte = shared_sa_byte;
-    //sa_ls_word = shared_sa_word;
-
-    //#endif
 
     //beCalls = 0;
     char *ref_file_name = file_name;
@@ -519,117 +440,20 @@ void FMI_search::load_shared_index(char *file_name, int8_t *shared_sa_byte, uint
 
     fprintf(stderr, "* Done reading Index!!\n");
 
-
-
-
-
-    //begining old version
-    /*
-    fprintf(stderr, "Entering FMI_search\n");
-    char cp_file_name[1000];
-    assert(strnlen(ref_file_name, 1000) + 12 < 1000);
-#if ((!__AVX2__))
-    sprintf(cp_file_name, "%s.bwt.2bit.%d", ref_file_name, CP_BLOCK_SIZE);
-#else
-    sprintf(cp_file_name, "%s.bwt.8bit.%d", ref_file_name, CP_BLOCK_SIZE);
-#endif
-
-    // Read the BWT and FM index of the reference sequence
-    FILE *cpstream = NULL;
-    cpstream = fopen(cp_file_name,"rb");
-    if (cpstream == NULL)
-    {
-        fprintf(stderr, "ERROR! Unable to open the file: %s\n", cp_file_name);
-        exit(0);
-    }
-
-    fread(&reference_seq_len, sizeof(int64_t), 1, cpstream);
-    assert(reference_seq_len > 0);
-    assert(reference_seq_len <= (0xffffffffU * (int64_t)CP_BLOCK_SIZE));
-    if(myrank == 0)
-        fprintf(stderr, "reference seq len = %ld\n", reference_seq_len);
-
-    // create checkpointed occ
-     uint32_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
-    cp_occ = NULL;
-
-    fread(&count[0], sizeof(int64_t), 5, cpstream);
-    cp_occ = (CP_OCC *)_mm_malloc(cp_occ_size * sizeof(CP_OCC), 64);
-
-    fread(cp_occ, sizeof(CP_OCC), cp_occ_size, cpstream);
-    int64_t ii = 0;
-    for(ii = 0; ii < 5; ii++)// update read count structure
-    {
-        count[ii] = count[ii] + 1;
-    }
-    //sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len * sizeof(int8_t), 64);
-    //sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len * sizeof(uint32_t), 64);
-    //fread(sa_ms_byte, sizeof(int8_t), reference_seq_len, cpstream);
-    //fread(sa_ls_word, sizeof(uint32_t), reference_seq_len, cpstream);
-
-
-    sa_ms_byte = shared_sa_byte;
-    sa_ls_word = shared_sa_word;
-
-    fclose(cpstream);
-
-    sentinel_index = -1;
-    int64_t x;
-    for(x = 0; x < reference_seq_len; x++)
-    {
-        if(get_sa_entry(x) == 0)
-            sentinel_index = x;
-    }
-    if(myrank == 0) {
-        fprintf(stderr, "count\n");
-        for(x = 0; x < 5; x++)
-        {
-            fprintf(stderr, "%ld,\t%lu\n", x, (unsigned long)count[x]);
-        }
-        fprintf(stderr, "\n");
-    }
-
-
-    fprintf(stderr, "Reading other elements of the index from files %s\n",
-            ref_file_name);
-    bwa_idx_load_ele_2(ref_file_name, BWA_IDX_ALL, shared_pac);
-
-#if ((!__AVX2__))
-    base_mask[0][0] = 0;
-    base_mask[0][1] = 0;
-    base_mask[1][0] = 0xffffffffffffffffL;
-    base_mask[1][1] = 0;
-    base_mask[2][0] = 0;
-    base_mask[2][1] = 0xffffffffffffffffL;
-    base_mask[3][0] = 0xffffffffffffffffL;
-    base_mask[3][1] = 0xffffffffffffffffL;
-
-#else
-    for(ii = 0; ii < 4; ii++)
-    {
-        int32_t j;
-        for(j = 0; j < 64; j++)
-        {
-            c_bcast_array[ii * 64 + j] = ii;
-        }
-    }
-#endif
-    fprintf(stderr, "Done reading Index!!\n");
-    */
 }
 
 ///Function used to map the reference genome whiwh will be used in the alignment.
 //Parameters (ordered): file containing the reference genoma
-//          uint8_t *shared_sa_byte;
+//          int8_t *shared_sa_byte;
 //          uint32_t *shared_sa_word;
 //          uint8_t *shared_pac;
 //
-void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byte, uint32_t *shared_sa_word, uint8_t *shared_ref, uint8_t *shared_pac)
+void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, int rank_num)
 {
 
 
-        int rank_num, rank_shr, res = 0;
-        size_t size_map, size_tot, count4;
+        int rank_shr, res = 0;
+        size_t size_map, size_tot, count4 = 0;
         MPI_Comm comm_shr;       
         double bef, aft =0;
         MPI_Status status;
@@ -644,27 +468,16 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
             one_hot_mask_array[i] = (one_hot_mask_array[i - 1] >> 1) | base;
         }
 
-        /*
- *          we gonna read 
- *          hg19.bwa2.0123
- *          and 
- *          hg19.bwa2.bwt.2bit.64
- *          and 
- *          hg19.bwa2.pac
- *
- *
- *      */
-
-
         //first the hg19.bwa2.bwt.2bit.64 
         char cp_file_name[PATH_MAX];
         strcpy_s(cp_file_name, PATH_MAX, file_ref);
         //CP_FILENAME_SUFFIX ".bwt.2bit.64"
         strcat_s(cp_file_name, PATH_MAX, CP_FILENAME_SUFFIX);
         // Read the BWT and FM index of the reference sequence
-        FILE *cpstream1 = NULL;
-        cpstream1 = fopen(cp_file_name,"rb");
-        if (cpstream1 == NULL)
+        
+        FILE *cpstream = NULL;
+        cpstream = fopen(cp_file_name,"rb");
+        if (cpstream == NULL)
         {
              fprintf(stderr, "ERROR! Unable to open the file: %s\n", cp_file_name);
              exit(EXIT_FAILURE);
@@ -673,12 +486,11 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
         {
             fprintf(stderr, "* Index file found. Loading index from %s\n", cp_file_name);
         }
-        err_fread_noeof(&reference_seq_len, sizeof(int64_t), 1, cpstream1);
+        err_fread_noeof(&reference_seq_len, sizeof(int64_t), 1, cpstream);
         assert(reference_seq_len > 0);
         assert(reference_seq_len <= 0x7fffffffffL);
         fprintf(stderr, "* Reference seq len for bi-index = %ld\n", reference_seq_len);
-        fclose(cpstream1);
- 
+         
         int64_t cp_occ_size = (reference_seq_len >> CP_SHIFT) + 1;
         cp_occ = NULL;
 
@@ -694,32 +506,16 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
         {
             count[ii] = count[ii] + 1;
         }
-           
-        //second the hg19.bwa2.0123
+
+        fclose(cpstream);        
+
         char binary_seq_file[200];
         sprintf(binary_seq_file, "%s.0123", file_ref);
-        FILE *cpstream2 = NULL;
-        cpstream2 = fopen(binary_seq_file,"rb");
-        if (cpstream2 == NULL)
-        {
-            fprintf(stderr, "ERROR! Unable to open the file: %s\n", binary_seq_file);
-            exit(0);
-        }
 
-        fclose(cpstream2);
-
-        //third the hg19.bwa2.pac
         char pac_file[200];
         sprintf(pac_file, "%s.pac", file_ref);
-        FILE *cpstream3 = NULL;
-        cpstream3 = fopen(pac_file,"rb");
-        if (cpstream3 == NULL)
-        {
-            fprintf(stderr, "ERROR! Unable to open the file: %s\n", pac_file);
-            exit(0);
-        }
 
-        fclose(cpstream3);
+        uint8_t *shared_pac; 
 
 
         fprintf(stderr, "SA index : %s\n", cp_file_name);
@@ -776,17 +572,26 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
 
         fprintf(stderr, "rank_num = %d  ::::  rank_shr = %d \n", rank_num, rank_shr );
 
+        size_t new_ref_seq_len = reference_seq_len;
+
          #if SA_COMPRESSION
+
+            if ( rank_shr == 0 ) fprintf(stderr, "SA_COMPRESSION ON \n");
 
             int64_t reference_seq_len_ = (reference_seq_len >> SA_COMPX) + 1;
 
+            if ( rank_shr == 0  ) fprintf(stderr, "SA_COMPRESSION ON reference_seq_len = % d \n", reference_seq_len);
+            if ( rank_shr == 0 ) fprintf(stderr, "SA_COMPRESSION ON reference_seq_len_ = % d \n", reference_seq_len_);
+
             size_shr_sa_byte = (rank_shr == 0) ? size_map_sa_byte : 0;
-            res = MPI_Win_allocate_shared(reference_seq_len_ *  sizeof(int8_t), 8, win_info, comm_shr, &addr_sa_byte, &win_shr_sa_byte);
+            res = MPI_Win_allocate_shared(reference_seq_len_ * sizeof(int8_t), 8, win_info, comm_shr, &addr_sa_byte, &win_shr_sa_byte);
             assert(res == MPI_SUCCESS);
 
             size_shr_sa_word = (rank_shr == 0) ? size_map_sa_word : 0;
             res = MPI_Win_allocate_shared(reference_seq_len_ * sizeof(uint32_t), 8, win_info, comm_shr, &addr_sa_word, &win_shr_sa_word);
             assert(res == MPI_SUCCESS);
+
+            new_ref_seq_len = reference_seq_len_;
 
         #else
 
@@ -825,14 +630,16 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
 
         size_map = 0;
         size_map = 2*reference_seq_len + size_map_ref;
+        
+        if (rank_shr == 0) {
+            fprintf(stderr, "size_map_sa_word : %zu\n", reference_seq_len * sizeof(uint32_t) );
+            fprintf(stderr, "size_map_sa_byte: %zu\n", reference_seq_len *  sizeof(int8_t));
+            fprintf(stderr, "size_map_ref: %zu\n", size_map_ref);
+            fprintf(stderr, "size_map_pac: %zu\n", size_map_pac);
+            fprintf(stderr, "size_map total : %zu\n", size_map);
+        }
 
-        fprintf(stderr, "size_map_sa_word : %zu\n", reference_seq_len * sizeof(uint32_t) );
-        fprintf(stderr, "size_map_sa_byte: %zu\n", reference_seq_len *  sizeof(int8_t));
-        fprintf(stderr, "size_map_ref: %zu\n", size_map_ref);
-        fprintf(stderr, "size_map_pac: %zu\n", size_map_pac);
-        fprintf(stderr, "size_map total : %zu\n", size_map);
-
-         size_tot = 0;
+        size_tot = 0;
         size_t size_read = 0;
 
         int8_t *a = addr_map_sa_byte;
@@ -842,7 +649,7 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
 
         while(rank_shr == 0) {
             // we load sa_word
-            res = MPI_File_read(fh_map_sa_word, b1, reference_seq_len, MPI_UINT32_T, &status);
+            res = MPI_File_read(fh_map_sa_word, b1, new_ref_seq_len, MPI_UINT32_T, &status);
             assert(res == MPI_SUCCESS);
             res = MPI_Get_count(&status, MPI_UINT32_T, &count4);
             assert(res == MPI_SUCCESS);
@@ -852,11 +659,11 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
             size_read += count4;
             size_tot +=count4;
         }
-        fprintf(stderr, "count word = : %zu\n", size_read);
+        if (rank_shr == 0) fprintf(stderr, "count word = : %zu\n", size_read);
         size_read = 0;
         while(rank_shr == 0) {
             // we load sa_byte
-            res = MPI_File_read(fh_map_sa_byte, a, reference_seq_len, MPI_INT8_T, &status);
+            res = MPI_File_read(fh_map_sa_byte, a, new_ref_seq_len, MPI_INT8_T, &status);
             assert(res == MPI_SUCCESS);
             res = MPI_Get_count(&status, MPI_INT8_T, &count4);
             assert(res == MPI_SUCCESS);
@@ -866,7 +673,7 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
             size_read += count4;
             size_tot += count4;
         }
-        fprintf(stderr, "count byte = : %zu\n", size_read );
+        if (rank_shr == 0) fprintf(stderr, "count byte = : %zu\n", size_read );
         size_read = 0;
 
         while(rank_shr == 0) {
@@ -880,11 +687,11 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
             size_tot += count4;
         }
 
-        fprintf(stderr, "count pac = : %zu\n", size_read );
+        if (rank_shr == 0) fprintf(stderr, "count pac = : %zu\n", size_read );
         size_read = 0;
 
         while(rank_shr == 0) {
-            res = MPI_File_read(fh_ref_file, c, reference_seq_len, MPI_UINT8_T, &status);
+            res = MPI_File_read(fh_ref_file, c, new_ref_seq_len, MPI_UINT8_T, &status);
             assert(res == MPI_SUCCESS);
             res = MPI_Get_count(&status, MPI_UINT8_T, &count4);
             assert(res == MPI_SUCCESS);
@@ -893,16 +700,9 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
             size_read += count4;
             size_tot += count4;
         }
-        fprintf(stderr, "count ref = : %zu\n", size_read );
-
-        fprintf(stderr, "size_tot: %zu\n", size_tot);
-
-
-
-
-
-
-
+        if (rank_shr == 0) fprintf(stderr, "count ref = : %zu\n", size_read );
+        
+        if (rank_shr == 0) fprintf(stderr, "size_tot: %zu\n", size_tot);
 
         MPI_Barrier(MPI_COMM_WORLD);
 
@@ -918,25 +718,17 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
         res = MPI_Win_fence(0, win_share_pac);
         assert(res == MPI_SUCCESS);
 
-        fprintf(stderr, "total read in shared: %s\n", argv[optind + 1]);
 
         uint64_t tim = __rdtsc();
 
-        //fmi = new FMI_search(argv[optind + 1], addr_map_sa_byte, addr_map_sa_word, addr_pac);
-        //ref_string = addr_map_ref;
 
-        shared_sa_byte = addr_map_sa_byte;
-        shared_sa_word = addr_map_sa_word;
-        shared_ref = addr_map_ref;
-        shared_pac = addr_pac;
+        sa_ms_byte = (int8_t *)addr_map_sa_byte;
+        sa_ls_word = (uint32_t *)addr_map_sa_word;
+
+        shared_ref = (uint8_t *)addr_map_ref;
+        shared_pac = (uint8_t *)addr_pac;
 
         fprintf(stderr, "Done readng reference genome !!\n\n");
-
-
-        if (ignore_alt)
-        for (i = 0; i < fmi->idx->bns->n_seqs; ++i)
-            fmi->idx->bns->anns[i].is_alt = 0;
-
 
         res = MPI_File_close(&fh_map_sa_byte);
         assert(res == MPI_SUCCESS);
@@ -951,9 +743,50 @@ void FMI_search::allocate_shared_reference(char *file_ref, int8_t *shared_sa_byt
         assert(res == MPI_SUCCESS);
 
 
-        aft = MPI_Wtime();
-        fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
+        //FILE *cpstream = NULL;
+        cpstream = fopen(cp_file_name,"rb");
 
+        sentinel_index = -1;
+         #if SA_COMPRESSION
+        err_fread_noeof(&sentinel_index, sizeof(int64_t), 1, cpstream);
+        fprintf(stderr, "* sentinel-index: %ld\n", sentinel_index);
+        #endif
+        fclose(cpstream);
+
+        int64_t x;
+        #if !SA_COMPRESSION
+        for(x = 0; x < reference_seq_len; x++)
+        {
+            aft = MPI_Wtime();
+            fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
+
+            #if SA_COMPRESSION
+            if(get_sa_entry_compressed(x) == 0) {
+                sentinel_index = x;
+                break;
+            }
+            #else
+            if(get_sa_entry(x) == 0) {
+                sentinel_index = x;
+                break;
+            }
+            #endif
+        }
+        fprintf(stderr, "\nsentinel_index: %ld\n", x);
+        #endif
+
+        fprintf(stderr, "* Count:\n");
+        for(x = 0; x < 5; x++)
+        {
+            fprintf(stderr, "%ld,\t%lu\n", x, (unsigned long)count[x]);
+        }
+        fprintf(stderr, "\n");
+
+        fprintf(stderr, "* Reading other elements of the index from files %s\n", file_ref);
+
+        bwa_idx_load_ele_2(file_ref, BWA_IDX_ALL, shared_pac );
+
+        fprintf(stderr, "* Done reading Index!!\n");
 
 }
 
