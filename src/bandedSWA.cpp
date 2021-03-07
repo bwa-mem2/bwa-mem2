@@ -4669,7 +4669,9 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
             maxRS1 =_mm_max_epu8(maxRS1, h11);   // modif
             __m128i cmpA = _mm_cmpgt_epi8(maxRS1, bmaxRS);                  
             __m128i cmpB =_mm_cmpeq_epi8(maxRS1, h11);                  
-            cmpA = _mm_or_si128(cmpA, cmpB);                                
+            cmpA = _mm_or_si128(cmpA, cmpB);
+            cmp1 = _mm_cmpgt_epi8(j128, tail128);
+            cmp1 = _mm_or_si128(cmp1, cmp2);
             cmpA = _mm_blendv_epi8(y1_128, j128, cmpA);
             y1_128 = _mm_blendv_epi8(cmpA, y1_128, cmp1);
             maxRS1 = _mm_blendv_epi8(maxRS1, bmaxRS, cmp1);                     
