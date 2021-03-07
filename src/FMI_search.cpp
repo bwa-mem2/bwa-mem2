@@ -448,13 +448,13 @@ void FMI_search::load_shared_index(char *file_name, int8_t *shared_sa_byte, uint
 //          uint32_t *shared_sa_word;
 //          uint8_t *shared_pac;
 //
-void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, int rank_num)
+void FMI_search::allocate_shared_reference(char *file_ref, int rank_shr, MPI_Comm *comm_shr, uint8_t *addr_map_pac, MPI_Info win_info)
 {
 
 
-        int rank_shr, res = 0;
+        int res = 0;
         size_t size_map, size_tot, count4 = 0;
-        MPI_Comm comm_shr;       
+        //MPI_Comm comm_shr;       
         double bef, aft =0;
         MPI_Status status;
 
@@ -512,30 +512,30 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
         char binary_seq_file[200];
         sprintf(binary_seq_file, "%s.0123", file_ref);
 
-        char pac_file[200];
-        sprintf(pac_file, "%s.pac", file_ref);
+        //char pac_file[200];
+        //sprintf(pac_file, "%s.pac", file_ref);
 
-        uint8_t *shared_pac; 
+        //uint8_t shared_pac; 
 
 
         fprintf(stderr, "SA index : %s\n", cp_file_name);
         fprintf(stderr, "Reference : %s\n", binary_seq_file);
-        fprintf(stderr, "PAC index : %s\n", pac_file); 
-        MPI_File fh_map_sa_word, fh_map_sa_byte, fh_ref_file, fh_pac_file;
+        //fprintf(stderr, "PAC index : %s\n", pac_file); 
+        MPI_File fh_map_sa_word, fh_map_sa_byte, fh_pac_file;
 
-        MPI_Aint size_shr_sa_word, size_shr_sa_byte, size_shr_ref, size_pac_file, size_shr_pac;
+        MPI_Aint size_shr_sa_word, size_shr_sa_byte, size_pac_file, size_shr_pac;
 
-        MPI_Offset size_map_sa_word, size_map_sa_byte, size_map_ref, size_map_pac;
+        MPI_Offset size_map_sa_word, size_map_sa_byte, size_map_pac;
 
-        MPI_Win win_shr_sa_word, win_shr_sa_byte, win_shr_ref, win_share_pac;
+        MPI_Win win_shr_sa_word, win_shr_sa_byte, win_share_pac;
 
-        uint8_t *addr_ref, *addr_map_ref, *addr_pac;
+        //uint8_t *addr_pac;
         int8_t *addr_sa_byte, *addr_map_sa_byte;
         uint32_t *addr_sa_word, *addr_map_sa_word;
 
-        MPI_Info win_info;
-        MPI_Info_create(&win_info);
-        MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
+        //MPI_Info win_info;
+        //MPI_Info_create(&win_info);
+        //MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
 
         bef = MPI_Wtime();
         res = MPI_File_open(MPI_COMM_WORLD, cp_file_name, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_map_sa_byte);
@@ -544,11 +544,8 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
         res = MPI_File_open(MPI_COMM_WORLD, cp_file_name, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_map_sa_word);
         assert(res == MPI_SUCCESS);
 
-        res = MPI_File_open(MPI_COMM_WORLD, binary_seq_file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_ref_file);
-        assert(res == MPI_SUCCESS);
-
-        res = MPI_File_open(MPI_COMM_WORLD, pac_file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_pac_file);
-        assert(res == MPI_SUCCESS);
+        //res = MPI_File_open(MPI_COMM_WORLD, pac_file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_pac_file);
+        //assert(res == MPI_SUCCESS);
 
         res = MPI_File_get_size(fh_map_sa_byte, &size_map_sa_byte);
         assert(res == MPI_SUCCESS);
@@ -556,86 +553,95 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
         res = MPI_File_get_size(fh_map_sa_word, &size_map_sa_word);
         assert(res == MPI_SUCCESS);
 
-        res = MPI_File_get_size(fh_ref_file, &size_map_ref);
-        assert(res == MPI_SUCCESS);
-
 
         res = MPI_File_get_size(fh_pac_file, &size_map_pac);
+        //idx->bns->l_pac/4+1
         assert(res == MPI_SUCCESS);
 
 
-        res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
-        assert(res == MPI_SUCCESS);
+        //res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, comm_shr);
+        //assert(res == MPI_SUCCESS);
 
-        res = MPI_Comm_rank(comm_shr, &rank_shr);
-        assert(res == MPI_SUCCESS);
+        //res = MPI_Comm_rank(comm_shr, &rank_shr);
+        //assert(res == MPI_SUCCESS);
 
-        fprintf(stderr, "rank_num = %d  ::::  rank_shr = %d \n", rank_num, rank_shr );
+        fprintf(stderr, "rank_shr = %d  ::::  rank_shr = %d \n", rank_shr, rank_shr );
 
         size_t new_ref_seq_len = reference_seq_len;
 
          #if SA_COMPRESSION
 
             if ( rank_shr == 0 ) fprintf(stderr, "SA_COMPRESSION ON \n");
-
+            
+            
             int64_t reference_seq_len_ = (reference_seq_len >> SA_COMPX) + 1;
-
+            
             if ( rank_shr == 0  ) fprintf(stderr, "SA_COMPRESSION ON reference_seq_len = % d \n", reference_seq_len);
             if ( rank_shr == 0 ) fprintf(stderr, "SA_COMPRESSION ON reference_seq_len_ = % d \n", reference_seq_len_);
 
             size_shr_sa_byte = (rank_shr == 0) ? size_map_sa_byte : 0;
-            res = MPI_Win_allocate_shared(reference_seq_len_ * sizeof(int8_t), 8, win_info, comm_shr, &addr_sa_byte, &win_shr_sa_byte);
+            res = MPI_Win_allocate_shared(reference_seq_len_ * sizeof(int8_t), 8, win_info, *comm_shr, &addr_sa_byte, &win_shr_sa_byte);
             assert(res == MPI_SUCCESS);
 
             size_shr_sa_word = (rank_shr == 0) ? size_map_sa_word : 0;
-            res = MPI_Win_allocate_shared(reference_seq_len_ * sizeof(uint32_t), 8, win_info, comm_shr, &addr_sa_word, &win_shr_sa_word);
+            res = MPI_Win_allocate_shared(reference_seq_len_ * sizeof(uint32_t), 8, win_info, *comm_shr, &addr_sa_word, &win_shr_sa_word);
             assert(res == MPI_SUCCESS);
+            
+            /*
+            int64_t reference_seq_len_ = (reference_seq_len >> SA_COMPX) + 1;
+            sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len_ * sizeof(int8_t), 64);
+            sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len_ * sizeof(uint32_t), 64);
+            err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len_, cpstream);
+            err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len_, cpstream);
 
+            fclose(cpstream);
+            */
             new_ref_seq_len = reference_seq_len_;
 
         #else
 
             size_shr_sa_byte = (rank_shr == 0) ? size_map_sa_byte : 0;
-            res = MPI_Win_allocate_shared(reference_seq_len *  sizeof(int8_t), 8, win_info, comm_shr, &addr_sa_byte, &win_shr_sa_byte);
+            res = MPI_Win_allocate_shared(reference_seq_len *  sizeof(int8_t), 8, win_info, *comm_shr, &addr_sa_byte, &win_shr_sa_byte);
             assert(res == MPI_SUCCESS);
 
             size_shr_sa_word = (rank_shr == 0) ? size_map_sa_word : 0;
-            res = MPI_Win_allocate_shared(reference_seq_len * sizeof(uint32_t), 8, win_info, comm_shr, &addr_sa_word, &win_shr_sa_word);
+            res = MPI_Win_allocate_shared(reference_seq_len * sizeof(uint32_t), 8, win_info, *comm_shr, &addr_sa_word, &win_shr_sa_word);
             assert(res == MPI_SUCCESS);
     
         #endif
 
-        size_shr_ref = (rank_shr == 0) ? size_map_ref : 0;
-        res = MPI_Win_allocate_shared(size_shr_ref, sizeof(uint8_t) , win_info, comm_shr, &addr_ref, &win_shr_ref);
+        //size_shr_ref = (rank_shr == 0) ? size_map_ref : 0;
+        //res = MPI_Win_allocate_shared(size_shr_ref, sizeof(uint8_t) , win_info, *comm_shr, &addr_ref, &win_shr_ref);
 
 
-        size_shr_pac = (rank_shr == 0) ? size_map_pac : 0;
-        res = MPI_Win_allocate_shared(size_shr_pac, sizeof(uint8_t) , win_info, comm_shr, &addr_pac, &win_share_pac);
+        //size_shr_pac = (rank_shr == 0) ? size_map_pac : 0;
+        //res = MPI_Win_allocate_shared(size_shr_pac, sizeof(uint8_t) , win_info, *comm_shr, &addr_pac, &win_share_pac);
+        //assert(res == MPI_SUCCESS);
 
-
-        assert(res == MPI_SUCCESS);
         MPI_Info_free(&win_info);
 
         res = MPI_Win_shared_query(win_shr_sa_byte, MPI_PROC_NULL, &size_shr_sa_byte, &res, &addr_map_sa_byte);
+        //res = MPI_Win_shared_query(win_shr_sa_byte, MPI_PROC_NULL, &new_ref_seq_len, &res, &addr_map_sa_byte);
         assert(res == MPI_SUCCESS);
 
         res = MPI_Win_shared_query(win_shr_sa_word, MPI_PROC_NULL, &size_shr_sa_word, &res, &addr_map_sa_word);
+        //res = MPI_Win_shared_query(win_shr_sa_word, MPI_PROC_NULL, &new_ref_seq_len, &res, &addr_map_sa_word);
         assert(res == MPI_SUCCESS);
 
-        res = MPI_Win_shared_query(win_shr_ref, MPI_PROC_NULL, &size_shr_ref, &res, &addr_map_ref);
-        assert(res == MPI_SUCCESS);
+        //res = MPI_Win_shared_query(win_shr_ref, MPI_PROC_NULL, &size_shr_ref, &res, &addr_map_ref);
+        //assert(res == MPI_SUCCESS);
 
-        res = MPI_Win_shared_query(win_share_pac, MPI_PROC_NULL, &size_shr_pac, &res, &addr_pac);
-        assert(res == MPI_SUCCESS);
+        //res = MPI_Win_shared_query(win_share_pac, MPI_PROC_NULL, &size_shr_pac, &res, &addr_pac);
+        //assert(res == MPI_SUCCESS);
 
         size_map = 0;
-        size_map = 2*reference_seq_len + size_map_ref;
+        size_map = 2*reference_seq_len;
         
         if (rank_shr == 0) {
             fprintf(stderr, "size_map_sa_word : %zu\n", reference_seq_len * sizeof(uint32_t) );
             fprintf(stderr, "size_map_sa_byte: %zu\n", reference_seq_len *  sizeof(int8_t));
-            fprintf(stderr, "size_map_ref: %zu\n", size_map_ref);
-            fprintf(stderr, "size_map_pac: %zu\n", size_map_pac);
+            //fprintf(stderr, "size_map_ref: %zu\n", size_map_ref);
+            //fprintf(stderr, "size_map_pac: %zu\n", size_map_pac);
             fprintf(stderr, "size_map total : %zu\n", size_map);
         }
 
@@ -644,9 +650,9 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
 
         int8_t *a = addr_map_sa_byte;
         uint32_t *b1 = addr_map_sa_word;
-        uint8_t *c = addr_map_ref;
-        uint8_t *d = addr_pac;
-
+        //uint8_t *c = addr_map_ref;
+        //uint8_t *d = addr_pac;
+        
         while(rank_shr == 0) {
             // we load sa_word
             res = MPI_File_read(fh_map_sa_word, b1, new_ref_seq_len, MPI_UINT32_T, &status);
@@ -675,7 +681,7 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
         }
         if (rank_shr == 0) fprintf(stderr, "count byte = : %zu\n", size_read );
         size_read = 0;
-
+        /*
         while(rank_shr == 0) {
             res = MPI_File_read(fh_pac_file, d, size_shr_pac, MPI_UINT8_T, &status);
             assert(res == MPI_SUCCESS);
@@ -689,9 +695,9 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
 
         if (rank_shr == 0) fprintf(stderr, "count pac = : %zu\n", size_read );
         size_read = 0;
-
+        
         while(rank_shr == 0) {
-            res = MPI_File_read(fh_ref_file, c, new_ref_seq_len, MPI_UINT8_T, &status);
+            res = MPI_File_read(fh_ref_file, c, size_shr_ref, MPI_UINT8_T, &status);
             assert(res == MPI_SUCCESS);
             res = MPI_Get_count(&status, MPI_UINT8_T, &count4);
             assert(res == MPI_SUCCESS);
@@ -700,6 +706,7 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
             size_read += count4;
             size_tot += count4;
         }
+        */
         if (rank_shr == 0) fprintf(stderr, "count ref = : %zu\n", size_read );
         
         if (rank_shr == 0) fprintf(stderr, "size_tot: %zu\n", size_tot);
@@ -712,11 +719,11 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
         res = MPI_Win_fence(0, win_shr_sa_word);
         assert(res == MPI_SUCCESS);
 
-        res = MPI_Win_fence(0, win_shr_ref);
-        assert(res == MPI_SUCCESS);
+        //res = MPI_Win_fence(0, win_shr_ref);
+        //assert(res == MPI_SUCCESS);
 
-        res = MPI_Win_fence(0, win_share_pac);
-        assert(res == MPI_SUCCESS);
+        //res = MPI_Win_fence(0, win_share_pac);
+        //assert(res == MPI_SUCCESS);
 
 
         uint64_t tim = __rdtsc();
@@ -725,8 +732,17 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
         sa_ms_byte = (int8_t *)addr_map_sa_byte;
         sa_ls_word = (uint32_t *)addr_map_sa_word;
 
-        shared_ref = (uint8_t *)addr_map_ref;
-        shared_pac = (uint8_t *)addr_pac;
+        fprintf(stderr, "[FMI_search] rank %d sa_ls_word = : %p\n", rank_shr, sa_ls_word );
+        fprintf(stderr, "[FMI_search] rank %d sa_ms_byte = : %p\n", rank_shr, sa_ms_byte );
+
+
+        //shared_ref = (uint8_t *)addr_map_ref;
+        //shared_pac = &addr_pac;
+
+        //fprintf(stderr, "[FMI_search] rank %d shared_ref = : %zu\n", rank_shr, strlen( (char *)shared_ref) );
+
+        MPI_Barrier(MPI_COMM_WORLD);
+
 
         fprintf(stderr, "Done readng reference genome !!\n\n");
 
@@ -736,11 +752,11 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
         res = MPI_File_close(&fh_map_sa_word);
         assert(res == MPI_SUCCESS);
 
-        res = MPI_File_close(&fh_ref_file);
-        assert(res == MPI_SUCCESS);
+        //res = MPI_File_close(&fh_ref_file);
+        //assert(res == MPI_SUCCESS);
 
-        res = MPI_File_close(&fh_pac_file);
-        assert(res == MPI_SUCCESS);
+        //res = MPI_File_close(&fh_pac_file);
+        //assert(res == MPI_SUCCESS);
 
 
         //FILE *cpstream = NULL;
@@ -784,15 +800,15 @@ void FMI_search::allocate_shared_reference(char *file_ref, uint8_t *shared_ref, 
 
         fprintf(stderr, "* Reading other elements of the index from files %s\n", file_ref);
 
-        bwa_idx_load_ele_2(file_ref, BWA_IDX_ALL, shared_pac );
-
+        bwa_idx_load_ele_2(file_ref, BWA_IDX_ALL, addr_map_pac );
+        //bwa_idx_load_ele(file_ref, BWA_IDX_ALL);
         fprintf(stderr, "* Done reading Index!!\n");
 
 }
 
 
 
-void FMI_search::load_index()
+void FMI_search::load_index(uint8_t *shr_pac)
 {
     one_hot_mask_array = (uint64_t *)_mm_malloc(64 * sizeof(uint64_t), 64);
     one_hot_mask_array[0] = 0;
@@ -898,7 +914,7 @@ void FMI_search::load_index()
     fprintf(stderr, "\n");  
 
     fprintf(stderr, "* Reading other elements of the index from files %s\n", ref_file_name);
-    bwa_idx_load_ele(ref_file_name, BWA_IDX_ALL);
+    bwa_idx_load_ele_2(ref_file_name, BWA_IDX_ALL,shr_pac);
 
     fprintf(stderr, "* Done reading Index!!\n");
 }

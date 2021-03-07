@@ -92,7 +92,8 @@ class FMI_search: public indexEle
     //int64_t beCalls;
     
     int build_index();
-    void load_index();
+    void load_index(uint8_t *shr_pac);
+
     void load_shared_index(char *ref_file_name, 
                            int8_t *shared_sa_byte, 
                            uint32_t *shared_sa_word,  
@@ -100,8 +101,10 @@ class FMI_search: public indexEle
 
 
     void allocate_shared_reference(char *file_ref, 
-                                    uint8_t *shared_ref, 
-                                    int rank_num);
+                                   int rank_num,
+                                   MPI_Comm *comm_shr,
+                                   uint8_t *shr_pac,
+                                   MPI_Info win_info);
 
     void getSMEMs(uint8_t *enc_qdb,
                   int32_t numReads,

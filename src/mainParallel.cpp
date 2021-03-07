@@ -2248,7 +2248,7 @@ int main(int argc, char *argv[]) {
 	/* start up MPI */
 	//res = MPI_Init(&argc, &argv);
 	int provided = 0;
-	res = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+	res = MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
 	assert(res == MPI_SUCCESS);
 	res = MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
 	assert(res == MPI_SUCCESS);
@@ -2513,7 +2513,7 @@ int main(int argc, char *argv[]) {
 				 reads_in_chunk,
 				 local_read_size,
 				 local_read_bytes,
-				 local_read_offsets,
+	    		 local_read_offsets,
 				 rank_num,
 				 proc_num,
 				 local_num_reads,
@@ -2531,16 +2531,103 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "* Ref file: %s\n", file_ref);
         aux.fmi = new FMI_search(file_ref);
       
-        
-        uint8_t shared_ref;    
-    
-        aux.fmi->allocate_shared_reference(file_ref, &shared_ref, rank_num);     
-        
-        fprintf(stderr, "rank %d shared sa word = %p \n", rank_num, &shared_ref );
-        assert(&shared_ref);        
+      
+        uint8_t *shared_ref;    
+        MPI_Comm comm_shr;
+        int count4, rank_shr = 0;    
+        size_t size_read;
+ 
+        res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+        assert(res == MPI_SUCCESS);
 
-        //aux.fmi->load_shared_index(file_ref, &shared_sa_byte, &shared_sa_word, &shared_pac);
-        aux.ref_string = &shared_ref;
+        res = MPI_Comm_rank(comm_shr, &rank_shr);
+        assert(res == MPI_SUCCESS);
+
+        char binary_seq_file[200];
+        sprintf(binary_seq_file, "%s.0123", file_ref);
+
+        char pac_file[200];
+        sprintf(pac_file, "%s.pac", file_ref);
+
+        MPI_File fh_ref_file, fh_pac_file;
+        MPI_Aint size_shr_ref, size_shr_pac;
+        MPI_Offset size_map_ref,size_map_pac;
+        MPI_Win win_shr_ref, win_shr_pac;
+
+        uint8_t *addr_map_ref;
+        uint8_t *addr_map_pac;       
+
+
+        MPI_Info win_info;
+        MPI_Info_create(&win_info);
+        MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
+
+        res = MPI_File_open(MPI_COMM_WORLD, binary_seq_file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_ref_file);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_open(MPI_COMM_WORLD, pac_file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_pac_file);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_get_size(fh_pac_file, &size_map_pac);
+        assert(res == MPI_SUCCESS);
+        
+        res = MPI_File_get_size(fh_ref_file, &size_map_ref);
+        assert(res == MPI_SUCCESS);
+
+        size_shr_ref = (rank_shr == 0) ? size_map_ref : 0;
+        res = MPI_Win_allocate_shared(size_shr_ref * sizeof(uint8_t), 8 , win_info, comm_shr, &addr_map_ref, &win_shr_ref);
+
+        size_shr_pac = (rank_shr == 0) ? size_map_pac : 0;
+        res = MPI_Win_allocate_shared(size_shr_pac * sizeof(uint8_t), 8 , win_info, comm_shr, &addr_map_pac, &win_shr_pac);
+
+        res = MPI_Win_shared_query(win_shr_pac, MPI_PROC_NULL, &size_shr_pac, &res, &addr_map_pac);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_shared_query(win_shr_ref, MPI_PROC_NULL, &size_shr_ref, &res, &addr_map_ref);
+        assert(res == MPI_SUCCESS);
+
+        uint8_t *c = addr_map_ref;
+        uint8_t *d = addr_map_pac;
+        
+        while(rank_shr == 0) {
+            res = MPI_File_read(fh_pac_file, d, size_shr_pac, MPI_UINT8_T, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_UINT8_T, &count4);
+            assert(res == MPI_SUCCESS);
+            if (count4 == 0) break;
+            d += count4;
+            size_read += count4;
+            size_tot += count4;
+        }
+
+        size_read = 0;
+
+        while(rank_shr == 0) {
+            res = MPI_File_read(fh_ref_file, c, size_shr_ref, MPI_UINT8_T, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_UINT8_T, &count4);
+            assert(res == MPI_SUCCESS);
+            if (count4 == 0) break;
+            c += count4;
+            size_read += count4;
+            size_tot += count4;
+        }
+
+        res = MPI_Win_fence(0, win_shr_ref);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_fence(0, win_shr_pac);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_close(&fh_pac_file);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_close(&fh_ref_file);
+        assert(res == MPI_SUCCESS);
+
+        aux.ref_string = addr_map_ref;
+        aux.fmi->load_index(addr_map_pac);
+
 
         tprof[FMI][0] += __rdtsc() - tim;
 
@@ -2561,10 +2648,7 @@ int main(int argc, char *argv[]) {
             assert(res == MPI_SUCCESS);
         }
 		  
-        /* Matrix for SWA */
-        bwa_fill_scmat(opt->a, opt->b, opt->mat);
-
-                                      
+                                              
         //fclose(fr);
         fprintf(stderr, "* Done reading reference genome !!\n\n");
 
@@ -2748,13 +2832,17 @@ int main(int argc, char *argv[]) {
 			
             /* new call */
             w2.nreads=ret->n_seqs;
+
+            //if (rank_num == 0) {
             mem_process_seqs(opt,
                              aux.n_processed,
                              ret->n_seqs,
                              ret->seqs,
                              aux.pes0,
                              w2);
+            //}
 
+            //MPI_Barrier(MPI_COMM_WORLD);
 
 
             aux.n_processed += ret->n_seqs;            
@@ -3090,16 +3178,107 @@ int main(int argc, char *argv[]) {
 
 
 		/// Map reference genome indexes in shared memory (by host)
-		/*
-		bef = MPI_Wtime();
-		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
-		aft = MPI_Wtime();
-		fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
-		*/
+		
 		uint64_t tim = __rdtsc();
         fprintf(stderr, "* Ref file: %s\n", file_ref);
         aux.fmi = new FMI_search(file_ref);
-        aux.fmi->load_index();
+        
+        uint8_t *shared_ref;
+        MPI_Comm comm_shr;
+        int count4, rank_shr = 0;    
+        size_t size_read;
+
+        res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+        assert(res == MPI_SUCCESS); 
+
+        res = MPI_Comm_rank(comm_shr, &rank_shr);
+        assert(res == MPI_SUCCESS);
+
+        char binary_seq_file[200]; 
+        sprintf(binary_seq_file, "%s.0123", file_ref);
+    
+        char pac_file[200];
+        sprintf(pac_file, "%s.pac", file_ref);
+    
+        MPI_File fh_ref_file, fh_pac_file;
+        MPI_Aint size_shr_ref, size_shr_pac;
+        MPI_Offset size_map_ref,size_map_pac;
+        MPI_Win win_shr_ref, win_shr_pac;
+
+        uint8_t *addr_map_ref;
+        uint8_t *addr_map_pac;
+
+
+        MPI_Info win_info;
+        MPI_Info_create(&win_info);
+        MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
+
+        res = MPI_File_open(MPI_COMM_WORLD, binary_seq_file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_ref_file);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_open(MPI_COMM_WORLD, pac_file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_pac_file);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_get_size(fh_pac_file, &size_map_pac);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_get_size(fh_ref_file, &size_map_ref);
+        assert(res == MPI_SUCCESS);
+
+        size_shr_ref = (rank_shr == 0) ? size_map_ref : 0;
+        res = MPI_Win_allocate_shared(size_shr_ref * sizeof(uint8_t), 8 , win_info, comm_shr, &addr_map_ref, &win_shr_ref);
+
+        size_shr_pac = (rank_shr == 0) ? size_map_pac : 0;
+        res = MPI_Win_allocate_shared(size_shr_pac * sizeof(uint8_t), 8 , win_info, comm_shr, &addr_map_pac, &win_shr_pac);
+
+        res = MPI_Win_shared_query(win_shr_pac, MPI_PROC_NULL, &size_shr_pac, &res, &addr_map_pac);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_shared_query(win_shr_ref, MPI_PROC_NULL, &size_shr_ref, &res, &addr_map_ref);
+        assert(res == MPI_SUCCESS);
+
+        uint8_t *c = addr_map_ref;
+        uint8_t *d = addr_map_pac;
+
+        while(rank_shr == 0) {
+            res = MPI_File_read(fh_pac_file, d, size_shr_pac, MPI_UINT8_T, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_UINT8_T, &count4);
+            assert(res == MPI_SUCCESS);
+            if (count4 == 0) break;
+            d += count4;
+            size_read += count4;
+            size_tot += count4;
+        }
+
+        size_read = 0;
+
+        while(rank_shr == 0) {
+            res = MPI_File_read(fh_ref_file, c, size_shr_ref, MPI_UINT8_T, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_UINT8_T, &count4);
+            assert(res == MPI_SUCCESS);
+            if (count4 == 0) break;
+            c += count4;
+            size_read += count4;
+            size_tot += count4;
+        }
+
+        res = MPI_Win_fence(0, win_shr_ref);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_fence(0, win_shr_pac);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_close(&fh_pac_file);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_close(&fh_ref_file);
+        assert(res == MPI_SUCCESS);
+
+        aux.ref_string = addr_map_ref;
+        aux.fmi->load_index(addr_map_pac);
+
         tprof[FMI][0] += __rdtsc() - tim;
 
 
@@ -3124,43 +3303,7 @@ int main(int argc, char *argv[]) {
 			assert(res == MPI_SUCCESS);
 		}
 
-		/* Matrix for SWA */
-        bwa_fill_scmat(opt->a, opt->b, opt->mat);
-
-         // reading ref string from the file
-        tim = __rdtsc();
-        fprintf(stderr, "* Reading reference genome..\n");
-
-
-	    //ref_string = addr_map_ref;
-	
-		char binary_seq_file[PATH_MAX];
-        strcpy_s(binary_seq_file, PATH_MAX, file_ref);
-        strcat_s(binary_seq_file, PATH_MAX, ".0123");
-        sprintf(binary_seq_file, "%s.0123", file_ref);
-        
-        fprintf(stderr, "* Binary seq file = %s\n", binary_seq_file);
-        FILE *fr = fopen(binary_seq_file, "r");
-        if (fr == NULL) {
-            fprintf(stderr, "Error: can't open %s input file\n", binary_seq_file);
-            exit(EXIT_FAILURE);
-        }
-        int64_t rlen = 0;
-        fseek(fr, 0, SEEK_END); 
-        rlen = ftell(fr);
-        ref_string = (uint8_t*) _mm_malloc(rlen, 64);
-        aux.ref_string = ref_string;
-        rewind(fr);
-                                
-        /* Reading ref. sequence */
-        err_fread_noeof(ref_string, 1, rlen, fr);
-                                        
-        uint64_t timer  = __rdtsc();
-        tprof[REF_IO][0] += timer - tim;
-                               
-        fclose(fr);
-        fprintf(stderr, "* Reference genome size: %ld bp\n", rlen);
-        fprintf(stderr, "* Done reading reference genome !!\n\n");
+		fprintf(stderr, "* Done reading reference genome..\n");
 
         if (ignore_alt)
         for (i = 0; i < fmi->idx->bns->n_seqs; ++i)
@@ -3637,7 +3780,103 @@ if (file_r1 != NULL && file_r2 == NULL){
 		uint64_t tim = __rdtsc();
         fprintf(stderr, "* Ref file: %s\n", file_ref);
         aux.fmi = new FMI_search(file_ref);
-        aux.fmi->load_index();
+
+        uint8_t *shared_ref;
+        MPI_Comm comm_shr;
+        int count4, rank_shr = 0;
+        size_t size_read;
+
+        res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Comm_rank(comm_shr, &rank_shr);
+        assert(res == MPI_SUCCESS);
+
+        char binary_seq_file[200];
+        sprintf(binary_seq_file, "%s.0123", file_ref);
+
+        char pac_file[200];
+        sprintf(pac_file, "%s.pac", file_ref);
+
+        MPI_File fh_ref_file, fh_pac_file;
+        MPI_Aint size_shr_ref, size_shr_pac;
+        MPI_Offset size_map_ref,size_map_pac;
+        MPI_Win win_shr_ref, win_shr_pac;
+
+        uint8_t *addr_map_ref;
+        uint8_t *addr_map_pac;
+
+
+        MPI_Info win_info;
+        MPI_Info_create(&win_info);
+        MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
+
+        res = MPI_File_open(MPI_COMM_WORLD, binary_seq_file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_ref_file);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_open(MPI_COMM_WORLD, pac_file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_pac_file);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_get_size(fh_pac_file, &size_map_pac);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_get_size(fh_ref_file, &size_map_ref);
+        assert(res == MPI_SUCCESS);
+
+        size_shr_ref = (rank_shr == 0) ? size_map_ref : 0;
+        res = MPI_Win_allocate_shared(size_shr_ref * sizeof(uint8_t), 8 , win_info, comm_shr, &addr_map_ref, &win_shr_ref);
+
+        size_shr_pac = (rank_shr == 0) ? size_map_pac : 0;
+        res = MPI_Win_allocate_shared(size_shr_pac * sizeof(uint8_t), 8 , win_info, comm_shr, &addr_map_pac, &win_shr_pac);
+
+        res = MPI_Win_shared_query(win_shr_pac, MPI_PROC_NULL, &size_shr_pac, &res, &addr_map_pac);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_shared_query(win_shr_ref, MPI_PROC_NULL, &size_shr_ref, &res, &addr_map_ref);
+        assert(res == MPI_SUCCESS);
+
+        uint8_t *c = addr_map_ref;
+        uint8_t *d = addr_map_pac;
+
+        while(rank_shr == 0) {
+            res = MPI_File_read(fh_pac_file, d, size_shr_pac, MPI_UINT8_T, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_UINT8_T, &count4);
+            assert(res == MPI_SUCCESS);
+            if (count4 == 0) break;
+            d += count4;
+            size_read += count4;
+            size_tot += count4;
+        }
+
+        size_read = 0;
+
+        while(rank_shr == 0) {
+            res = MPI_File_read(fh_ref_file, c, size_shr_ref, MPI_UINT8_T, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_UINT8_T, &count4);
+            assert(res == MPI_SUCCESS);
+            if (count4 == 0) break;
+            c += count4;
+            size_read += count4;
+            size_tot += count4;
+        }
+
+        res = MPI_Win_fence(0, win_shr_ref);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_Win_fence(0, win_shr_pac);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_close(&fh_pac_file);
+        assert(res == MPI_SUCCESS);
+
+        res = MPI_File_close(&fh_ref_file);
+        assert(res == MPI_SUCCESS);
+
+        aux.ref_string = addr_map_ref;
+        aux.fmi->load_index(addr_map_pac);
+
         tprof[FMI][0] += __rdtsc() - tim;
 
 		///Create SAM header
@@ -3661,37 +3900,7 @@ if (file_r1 != NULL && file_r2 == NULL){
 
          // reading ref string from the file
         tim = __rdtsc();
-        fprintf(stderr, "* Reading reference genome..\n");
-
-
-	    //ref_string = addr_map_ref;
 	
-		char binary_seq_file[PATH_MAX];
-        strcpy_s(binary_seq_file, PATH_MAX, file_ref);
-        strcat_s(binary_seq_file, PATH_MAX, ".0123");
-        sprintf(binary_seq_file, "%s.0123", file_ref);
-        
-        fprintf(stderr, "* Binary seq file = %s\n", binary_seq_file);
-        FILE *fr = fopen(binary_seq_file, "r");
-        if (fr == NULL) {
-            fprintf(stderr, "Error: can't open %s input file\n", binary_seq_file);
-            exit(EXIT_FAILURE);
-        }
-        int64_t rlen = 0;
-        fseek(fr, 0, SEEK_END); 
-        rlen = ftell(fr);
-        ref_string = (uint8_t*) _mm_malloc(rlen, 64);
-        aux.ref_string = ref_string;
-        rewind(fr);
-                                
-        /* Reading ref. sequence */
-        err_fread_noeof(ref_string, 1, rlen, fr);
-                                        
-        uint64_t timer  = __rdtsc();
-        tprof[REF_IO][0] += timer - tim;
-                               
-        fclose(fr);
-        fprintf(stderr, "* Reference genome size: %ld bp\n", rlen);
         fprintf(stderr, "* Done reading reference genome !!\n\n");
 
         if (ignore_alt)
