@@ -162,7 +162,14 @@ typedef struct mem_alnreg_t {
     int flg;
 } mem_alnreg_t;
 
-typedef struct { size_t n, m; mem_alnreg_t *a; } mem_alnreg_v;
+typedef struct { 
+    size_t n, m; 
+    mem_alnreg_t *a;
+#if MATE_SORT
+    size_t pad[4];
+    bool useMateSort;
+#endif
+} mem_alnreg_v;
 
 typedef struct {
     int low, high;   // lower and upper bounds within which a read pair is considered to be properly paired
@@ -346,11 +353,13 @@ int mem_matesw_batch_post(const mem_opt_t *opt, const bntseq_t *bns,
                           mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
                           int32_t *gar, mem_cache *mmc);
 
-int mem_matesw_batch_post_ert(const mem_opt_t *opt, const bntseq_t *bns,
-                              const uint8_t *pac, const mem_pestat_t pes[4],
-                              const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
-                              mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
-                              int32_t *gar, mem_cache *mmc);
+#if MATE_SORT
+int mem_matesw_batch_post_mate_sort(const mem_opt_t *opt, const bntseq_t *bns,
+                          const uint8_t *pac, const mem_pestat_t pes[4],
+                          const mem_alnreg_t *a, int l_ms, const uint8_t *ms,
+                          mem_alnreg_v *ma, kswr_t **myaln, int32_t gcnt,
+                          int32_t *gar, mem_cache *mmc);
+#endif
 
 int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
                const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2],
