@@ -309,7 +309,6 @@ int mem_sort_dedup_patch_mate_sort(const mem_opt_t *opt, const bntseq_t *bns,
             mem_alnreg_t *q = &a[j];
             int64_t or_, oq, mr, mq;
             int score, w;
-            if (p->re == q->re) *useMateSort = false;
             if (q->qe == q->qb) continue; // a[j] has been excluded
             or_ = q->re - p->rb; // overlap length on the reference
             oq = q->qb < p->qb? q->qe - p->qb : p->qe - q->qb; // overlap length on the query
@@ -335,12 +334,21 @@ int mem_sort_dedup_patch_mate_sort(const mem_opt_t *opt, const bntseq_t *bns,
             }
         }
     }
-    for (i = 0, m = 0; i < n; ++i) // exclude identical hits
+    for (i = 0, m = 0; i < n; ++i) { // exclude identical hits
         if (a[i].qe > a[i].qb) {
             if (m != i) a[m++] = a[i];
             else ++m;
         }
+    }
     n = m;
+    for (i = 0; i < n - 1; ++i) {
+        if (a[i].re == a[i+1].re) {
+            mem_alnreg_t *p = &a[i];
+            mem_alnreg_t *q = &a[i+1];
+            *useMateSort = false;
+            break;
+        }
+    }
     ks_introsort(mem_ars, n, a);
     for (i = 1; i < n; ++i) { // mark identical hits
         if (a[i].score == a[i-1].score && a[i].rb == a[i-1].rb && a[i].qb == a[i-1].qb)
@@ -1249,7 +1257,6 @@ static void worker_sam(void *data, int seqid, int batch_size, int tid)
         int end = seqid + batch_size;
         int pos = start >> 1;
         
-        fprintf(stderr, "tid %d, First-Read-Batch %s Last-Read-Batch %s\n", tid, w->seqs[start].name, w->seqs[end - 2].name);
 #if (((!__AVX512BW__) && (!__AVX2__)) || ((!__AVX512BW__) && (__AVX2__))) 
         for (int i=start; i< end; i+=2)
         {
