@@ -6,6 +6,14 @@ This version is a prototype it works only for paired reads and not trimmed.
 Ii is not multinode ready due to the shared reference not implemented yet.
 
 
+commit a0d0f22:
+
+1) implementing the shared memory aspect 
+reference string and pac are loaded in shared memory
+
+
+commit first:
+
 Tested on Intel Broadwell 
 with mpicxx --version
 icpc (ICC) 17.0.6 20171215
