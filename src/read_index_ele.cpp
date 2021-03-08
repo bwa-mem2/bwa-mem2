@@ -58,7 +58,7 @@ indexEle::~indexEle()
 }
 
 
-void indexEle::bwa_idx_load_ele_2(const char *hint, int which, uint8_t *shared_pac)
+void indexEle::bwa_idx_load_ele_mpi(const char *hint, int which, uint8_t *shared_pac)
 {
     char *prefix;
         

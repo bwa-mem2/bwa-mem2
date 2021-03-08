@@ -39,6 +39,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #include <zlib.h>
 
+#if NUMA_ENABLED
+#include <numa.h>
+#endif
+
+#if AFF && (__linux__)
+#include <sys/sysinfo.h>
+int affy[256];
+#endif
+
 #include "bwa.h"
 #include "bwamem.h"
 #include "utils.h"
@@ -104,6 +113,17 @@ int num_ranks = 1, myrank = 0;
 int64_t reference_seq_len;
 // ----------------------------------
 
+void __cpuid(unsigned int i, unsigned int cpuid[4]) {
+#ifdef _WIN32
+    __cpuid((int *) cpuid, (int)i);
+
+#else
+    asm volatile
+        ("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
+            : "0" (i), "2" (0));
+#endif
+}
+
 
 
 // --------------
@@ -116,6 +136,38 @@ extern int nthreads;
 uint8_t *ref_string;
 int readLen, affy[256];
 int64_t nreads, memSize;
+
+int HTStatus()
+{
+    unsigned int cpuid[4];
+    char platform_vendor[12];
+    __cpuid(0, cpuid);
+    ((unsigned int *)platform_vendor)[0] = cpuid[1]; // B
+    ((unsigned int *)platform_vendor)[1] = cpuid[3]; // D
+    ((unsigned int *)platform_vendor)[2] = cpuid[2]; // C
+    std::string platform = std::string(platform_vendor, 12);
+
+    __cpuid(1, cpuid);
+    unsigned int platform_features = cpuid[3]; //D
+
+     __cpuid(1, cpuid);
+    unsigned int num_logical_cpus = (cpuid[1] >> 16) & 0xFF; // B[23:16]
+     //fprintf(stderr, "#logical cpus: ", num_logical_cpus);
+     unsigned int num_cores = -1;
+     if (platform == "GenuineIntel") {
+            __cpuid(4, cpuid);
+            num_cores = ((cpuid[0] >> 26) & 0x3f) + 1; //A[31:26] + 1
+            fprintf(stderr, "Platform vendor: Intel.\n");
+        } else  {
+            fprintf(stderr, "Platform vendor unknown.\n");
+        }
+        // fprintf(stderr, "#physical cpus: ", num_cores);
+     int ht = platform_features & (1 << 28) && num_cores < num_logical_cpus;
+     if (ht)
+        fprintf(stderr, "CPUs support hyperThreading !!\n");
+     return ht;
+}
+
 
 static void update_a(mem_opt_t *opt, const mem_opt_t *opt0)
 {
@@ -2526,12 +2578,94 @@ int main(int argc, char *argv[]) {
 
 		free(local_read_offsets);
 		free(local_read_size);
+
+        #if NUMA_ENABLED
+            int  deno = 1;
+            int tc = numa_num_task_cpus();
+            int tn = numa_num_task_nodes();
+            int tcc = numa_num_configured_cpus();
+            fprintf(stderr, "num_cpus: %d, num_numas: %d, configured cpus: %d\n", tc, tn, tcc);
+            int ht = HTStatus();
+            if (ht) deno = 2;
         
+            if (nthreads < tcc/tn/deno) {
+                fprintf(stderr, "Enabling single numa domain...\n\n");
+                struct bitmask *mask = numa_bitmask_alloc(numa_num_possible_nodes());
+                numa_bitmask_clearall(mask);
+                numa_bitmask_setbit(mask, 0);
+                numa_bind(mask);
+                numa_bitmask_free(mask);
+            }
+        #endif
+       
+        #if AFF && (__linux__)
+        {
+            unsigned int cpuid[4];
+            asm volatile
+                ("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
+                : "0" (0xB), "2" (1));
+            int num_logical_cpus = cpuid[1] & 0xFFFF;
+
+            asm volatile
+                ("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
+                : "0" (0xB), "2" (0));
+            int num_ht = cpuid[1] & 0xFFFF;
+            int num_total_logical_cpus = get_nprocs_conf();
+            int num_sockets = num_total_logical_cpus / num_logical_cpus;
+            fprintf(stderr, "#sockets: %d, #cores/socket: %d, #logical_cpus: %d, #ht/core: %d\n",
+                num_sockets, num_logical_cpus/num_ht, num_total_logical_cpus, num_ht);
+        
+            for (int i=0; i<num_total_logical_cpus; i++) affy[i] = i;
+            int slookup[256] = {-1};
+
+            if (num_ht == 2 && num_sockets == 2)
+            {
+                for (int i=0; i<num_total_logical_cpus; i++) {
+                    std::ostringstream ss;
+                    ss << i;
+                    std::string str = "/sys/devices/system/cpu/cpu"+ ss.str();
+                    str = str +"/topology/thread_siblings_list";
+
+                    FILE *fp = fopen(str.c_str(), "r");
+                    if (fp == NULL) {
+                        fprintf("Error: Cant open the file..\n");
+                        break;
+                    }
+                    else {
+                        int a, b, v;
+                        char ch[10] = {'\0'};
+                        fgets(ch, 10, fp);
+                        v = sscanf(ch, "%u,%u",&a,&b);
+                        if (v == 1) v = sscanf(ch, "%u-%u",&a,&b);
+                        if (v == 1) {
+                            fprintf(stderr, "Mis-match between HT and threads_sibling_list...%s\n", ch);
+                            fprintf(stderr, "Continuing with default affinity settings..\n");
+                            break;
+                        }
+                        slookup[a] = 1;
+                        slookup[b] = 2;
+                        fclose(fp);
+                    }
+                }
+                int a = 0, b = num_total_logical_cpus / num_ht;
+                for (int i=0; i<num_total_logical_cpus; i++) {
+                    if (slookup[i] == -1) {
+                    fprintf(stderr, "Unseen cpu topology..\n");
+                    break;
+                    }
+                    if (slookup[i] == 1) affy[a++] = i;
+                    else affy[b++] = i;
+                }
+            }
+        }
+        #endif
+     
         uint64_t tim = __rdtsc();
         fprintf(stderr, "* Ref file: %s\n", file_ref);
         aux.fmi = new FMI_search(file_ref);
-      
-      
+        //aux.fmi->load_index(); 
+        
+              
         uint8_t *shared_ref;    
         MPI_Comm comm_shr;
         int count4, rank_shr = 0;    
@@ -2599,7 +2733,7 @@ int main(int argc, char *argv[]) {
             size_read += count4;
             size_tot += count4;
         }
-
+        
         size_read = 0;
 
         while(rank_shr == 0) {
@@ -2626,14 +2760,14 @@ int main(int argc, char *argv[]) {
         assert(res == MPI_SUCCESS);
 
         aux.ref_string = addr_map_ref;
-        aux.fmi->load_index(addr_map_pac);
-
-
+        aux.fmi->load_index_mpi(addr_map_pac);
+                
         tprof[FMI][0] += __rdtsc() - tim;
 
 		///Create SAM header
 		bef = MPI_Wtime();
 		create_sam_header(file_out, aux, &count, hdr_line, rg_line, rank_num);
+        aft = MPI_Wtime();
         fprintf(stderr, "%s: sam header (%.02f)\n", __func__, aft - bef);
     
         res = MPI_File_open(MPI_COMM_WORLD, file_out, MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out);
@@ -2649,7 +2783,7 @@ int main(int argc, char *argv[]) {
         }
 		  
                                               
-        //fclose(fr);
+        
         fprintf(stderr, "* Done reading reference genome !!\n\n");
 
         if (ignore_alt)
@@ -2869,6 +3003,11 @@ int main(int argc, char *argv[]) {
 				free(seqs[n].sam); 
 			}
 			free(seqs);
+
+            aft = MPI_Wtime();
+            fprintf(stderr, "%s: copy from seqs (%.02f)\n", __func__, aft - bef);
+
+            bef = MPI_Wtime();
 			res = MPI_File_write_shared(fh_out, buffer_out, localsize, MPI_CHAR, &status);
 			assert(res == MPI_SUCCESS);
 			res = MPI_Get_count(&status, MPI_CHAR, &count);
@@ -2881,6 +3020,46 @@ int main(int argc, char *argv[]) {
 			free(buffer_r1);
 			free(buffer_r2);
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
+
+
+         MPI_Barrier(MPI_COMM_WORLD);
+
+        free(w2.chain_ar);
+        free(w2.regs);
+        free(w2.seedBuf);
+
+        for(int l=0; l<nthreads; l++) {
+            _mm_free(w2.mmc.seqBufLeftRef[l*CACHE_LINE]);
+            _mm_free(w2.mmc.seqBufRightRef[l*CACHE_LINE]);
+            _mm_free(w2.mmc.seqBufLeftQer[l*CACHE_LINE]);
+            _mm_free(w2.mmc.seqBufRightQer[l*CACHE_LINE]);
+        }
+
+        for(int l=0; l<nthreads; l++) {
+            free(w2.mmc.seqPairArrayAux[l]);
+            free(w2.mmc.seqPairArrayLeft128[l]);
+            free(w2.mmc.seqPairArrayRight128[l]);
+        }
+
+        for(int l=0; l<nthreads; l++) {
+            _mm_free(w2.mmc.matchArray[l]);
+            free(w2.mmc.min_intv_ar[l]);
+            free(w2.mmc.query_pos_ar[l]);
+            free(w2.mmc.enc_qdb[l]);
+            free(w2.mmc.rid[l]);
+            _mm_free(w2.mmc.lim[l]);
+        }
+
+        MPI_Win_free(&win_shr_ref);
+        MPI_Win_free(&win_shr_pac);
+
+
+        /* shall we delete?
+         * because error in read_index_ele.cpp:52
+        */
+        //delete(aux.fmi);
+
+
 	} //end if (file_r2 != NULL && stat_r1.st_size == stat_r2.st_size)
 	
 	
@@ -3277,8 +3456,10 @@ int main(int argc, char *argv[]) {
         assert(res == MPI_SUCCESS);
 
         aux.ref_string = addr_map_ref;
-        aux.fmi->load_index(addr_map_pac);
+        aux.fmi->load_index_mpi(addr_map_pac);
 
+
+        //aux.fmi->load_index();    
         tprof[FMI][0] += __rdtsc() - tim;
 
 
@@ -3564,6 +3745,45 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
 
 		} //end for loop on chunks
+
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        
+        free(w2.chain_ar);
+        free(w2.regs);
+        free(w2.seedBuf);
+
+        for(int l=0; l<nthreads; l++) {
+            _mm_free(w2.mmc.seqBufLeftRef[l*CACHE_LINE]);
+            _mm_free(w2.mmc.seqBufRightRef[l*CACHE_LINE]);
+            _mm_free(w2.mmc.seqBufLeftQer[l*CACHE_LINE]);
+            _mm_free(w2.mmc.seqBufRightQer[l*CACHE_LINE]);
+        }
+
+        for(int l=0; l<nthreads; l++) {
+            free(w2.mmc.seqPairArrayAux[l]);
+            free(w2.mmc.seqPairArrayLeft128[l]);
+            free(w2.mmc.seqPairArrayRight128[l]);
+        }
+
+        for(int l=0; l<nthreads; l++) {
+            _mm_free(w2.mmc.matchArray[l]);
+            free(w2.mmc.min_intv_ar[l]);
+            free(w2.mmc.query_pos_ar[l]);
+            free(w2.mmc.enc_qdb[l]);
+            free(w2.mmc.rid[l]);
+            _mm_free(w2.mmc.lim[l]);
+        }
+
+        MPI_Win_free(&win_shr_ref);
+        MPI_Win_free(&win_shr_pac);
+
+         /* shall we delete?
+          * because error in read_index_ele.cpp:52
+          */
+        //delete(aux.fmi);
+        //
+
 
 	}// end else case files are trimmed
 
@@ -3875,7 +4095,7 @@ if (file_r1 != NULL && file_r2 == NULL){
         assert(res == MPI_SUCCESS);
 
         aux.ref_string = addr_map_ref;
-        aux.fmi->load_index(addr_map_pac);
+        aux.fmi->load_index_mpi(addr_map_pac);
 
         tprof[FMI][0] += __rdtsc() - tim;
 
@@ -4100,6 +4320,47 @@ if (file_r1 != NULL && file_r2 == NULL){
 			fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
 
 		} //end for loop on chunks
+
+         MPI_Barrier(MPI_COMM_WORLD);
+
+
+        /* Dealloc memory allcoated in the header section */   
+
+        free(w2.chain_ar);
+        free(w2.regs);
+        free(w2.seedBuf);
+    
+        for(int l=0; l<nthreads; l++) {
+            _mm_free(w2.mmc.seqBufLeftRef[l*CACHE_LINE]);
+            _mm_free(w2.mmc.seqBufRightRef[l*CACHE_LINE]);
+            _mm_free(w2.mmc.seqBufLeftQer[l*CACHE_LINE]);
+            _mm_free(w2.mmc.seqBufRightQer[l*CACHE_LINE]);
+        }
+
+        for(int l=0; l<nthreads; l++) {
+            free(w2.mmc.seqPairArrayAux[l]);
+            free(w2.mmc.seqPairArrayLeft128[l]);
+            free(w2.mmc.seqPairArrayRight128[l]);
+        }
+
+        for(int l=0; l<nthreads; l++) {
+            _mm_free(w2.mmc.matchArray[l]);
+            free(w2.mmc.min_intv_ar[l]);
+            free(w2.mmc.query_pos_ar[l]);
+            free(w2.mmc.enc_qdb[l]);
+            free(w2.mmc.rid[l]);
+            _mm_free(w2.mmc.lim[l]);
+        }
+
+        MPI_Win_free(&win_shr_ref);
+        MPI_Win_free(&win_shr_pac);
+
+         /* shall we delete?
+          * because error in read_index_ele.cpp:52
+          */
+        //delete(aux.fmi);
+        
+
 	}
 
 
