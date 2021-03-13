@@ -58,15 +58,10 @@ indexEle::~indexEle()
 }
 
 
-void indexEle::bwa_idx_load_ele_2(const char *hint, int which, uint8_t *shared_pac)
+void indexEle::bwa_idx_load_ele_mpi(const char *hint, int which, uint8_t *shared_pac)
 {
     char *prefix;
-    //prefix = bwa_idx_infer_prefix(hint);
-    //if (prefix == 0) {
-    //printf("[E::%s] fail to locate the index files\n", __func__);
-    //return;
-    //} 
-    
+        
     int l_hint = strlen(hint);
     prefix = (char *) malloc(l_hint + 3 + 4 + 1);
     strcpy(prefix, hint);
@@ -90,7 +85,7 @@ void indexEle::bwa_idx_load_ele_2(const char *hint, int which, uint8_t *shared_p
         {
             fprintf(stderr, "[M::%s] READING PAC\n", __func__);
 
-            idx->pac = shared_pac;
+            idx->pac = (uint8_t *)shared_pac;
             //idx->pac = (uint8_t*) calloc(idx->bns->l_pac/4+1, 1);
             //err_fread_noeof(idx->pac, 1, idx->bns->l_pac/4+1, idx->bns->fp_pac); // concatenated 2-bit encoded sequence
             err_fclose(idx->bns->fp_pac);

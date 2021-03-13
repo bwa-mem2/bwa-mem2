@@ -58,7 +58,7 @@ public:
 	
 	indexEle();
 	~indexEle();
-	void bwa_idx_load_ele_2(const char *hint, int which, uint8_t *shared_pac);
+	void bwa_idx_load_ele_mpi(const char *hint, int which, uint8_t *shared_pac);
     void bwa_idx_load_ele(const char *hint, int which);
 	char *bwa_idx_infer_prefix(const char *hint);	
 };

@@ -2,25 +2,20 @@
 
 First test of mpiBWA2
 
-This version is a prototype it works only for paired reads and not trimmed. 
-Ii is not multinode ready due to the shared reference not implemented yet.
+This version is a under construction.
 
+1) implementing the shared memory aspect 
+reference string and pac are loaded in shared memory
 
-Tested on Intel Broadwell 
-with mpicxx --version
-icpc (ICC) 17.0.6 20171215
+2) update code to to 2.2 version of bwa-mem2
 
-How it works
+3) fix load balancing in MPI process
 
-1) install Bwa-mem2-2.1 from Source_code_including_submodules.tar.gz
-2) then replace the Makefile with the Makefile from mpiBWA2
-3) add the file main_parallel_version.cpp in the folder src/
-4) type make, it will build all targets 
-5) build reference with BWA-MEM2
-6) then use it with mpiBWA2
+4) fix parsing issue  
 
-example command lines:
+How it works:
 
-mpirun $MPIBWA2 mem -t 16 -o $SAM $REF $FASTQ1 $FASTQ2
+make
+mpirun -N 2 -n 2 -c 16 --tasks-per-node=1 mpibwa-mem2 mem -t 16 -o $SAM $REF $FASTQ1 $FASTQ2
 
 further dev and results will follow...

@@ -37,9 +37,9 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include <immintrin.h>
 #include <limits.h>
 #include <fstream>
-
 #include "read_index_ele.h"
 #include "bwa.h"
+#include "mpi.h"
 
 #define DUMMY_CHAR 6
 
@@ -92,11 +92,9 @@ class FMI_search: public indexEle
     //int64_t beCalls;
     
     int build_index();
+
     void load_index();
-    void load_shared_index(char *ref_file_name, 
-                           int8_t *shared_sa_byte, 
-                           uint32_t *shared_sa_word, 
-                           uint8_t *shared_pac);
+    void load_index_mpi(uint8_t *shr_pac);
 
     void getSMEMs(uint8_t *enc_qdb,
                   int32_t numReads,
