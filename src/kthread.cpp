@@ -56,7 +56,7 @@ static void *ktf_worker(void *data)
 	long i;
 	int tid = w->i;
 
-#if AFF && (__liunx__)
+#if AFF && (__linux__)
 	fprintf(stderr, "i: %d, CPU: %d\n", tid , sched_getcpu());
 #endif
 	
