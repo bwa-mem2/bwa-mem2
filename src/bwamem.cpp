@@ -164,6 +164,7 @@ KSORT_INIT(mem_ars_hash, mem_alnreg_t, alnreg_hlt)
 #define alnreg_hlt2(a, b) ((a).is_alt < (b).is_alt || ((a).is_alt == (b).is_alt && ((a).score > (b).score || ((a).score == (b).score && (a).hash < (b).hash))))
 KSORT_INIT(mem_ars_hash2, mem_alnreg_t, alnreg_hlt2)
 
+#if MATE_SORT
 void sort_alnreg_re(int n, mem_alnreg_t* a) {
     ks_introsort(mem_ars2, n, a);
 }
@@ -171,6 +172,8 @@ void sort_alnreg_re(int n, mem_alnreg_t* a) {
 void sort_alnreg_score(int n, mem_alnreg_t* a) {
     ks_introsort(mem_ars, n, a);
 }
+
+#endif
 
 #define PATCH_MAX_R_BW 0.05f
 #define PATCH_MIN_SC_RATIO 0.90f
@@ -238,6 +241,7 @@ int mem_patch_reg(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
 #define MEM_SEEDSW_COEF 0.05f
 int stat;
 
+#if MATE_SORT
 int mem_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
                     const uint8_t *pac, uint8_t *query, int n,
                     mem_alnreg_t *a)
@@ -289,6 +293,81 @@ int mem_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
     n = m;
     return m;
 }
+#endif
+
+#if MATE_SORT
+int mem_sort_dedup_patch_mate_sort(const mem_opt_t *opt, const bntseq_t *bns,
+                         const uint8_t *pac, uint8_t *query, int n,
+                         mem_alnreg_t *a, bool* useMateSort = NULL)
+{
+    int m, i, j;
+    if (n <= 1) return n;
+    ks_introsort(mem_ars2, n, a); // sort by the END position, not START!
+    
+    for (i = 0; i < n; ++i) a[i].n_comp = 1;
+    for (i = 1; i < n; ++i)
+    {
+        mem_alnreg_t *p = &a[i];
+        if (p->rid != a[i-1].rid || p->rb >= a[i-1].re + opt->max_chain_gap)
+            continue; // then no need to go into the loop below
+        
+        for (j = i - 1; j >= 0 && p->rid == a[j].rid && p->rb < a[j].re + opt->max_chain_gap; --j) {
+            mem_alnreg_t *q = &a[j];
+            int64_t or_, oq, mr, mq;
+            int score, w;
+            if (q->qe == q->qb) continue; // a[j] has been excluded
+            or_ = q->re - p->rb; // overlap length on the reference
+            oq = q->qb < p->qb? q->qe - p->qb : p->qe - q->qb; // overlap length on the query
+            mr = q->re - q->rb < p->re - p->rb? q->re - q->rb : p->re - p->rb; // min ref len in alignment
+            mq = q->qe - q->qb < p->qe - p->qb? q->qe - q->qb : p->qe - p->qb; // min qry len in alignment
+            if (or_ > opt->mask_level_redun * mr && oq > opt->mask_level_redun * mq) { // one of the hits is redundant
+                if (p->score < q->score)
+                {
+                    p->qe = p->qb;
+                    break;
+                }
+                else q->qe = q->qb;
+            }
+            else if (q->rb < p->rb && (score = mem_patch_reg(opt, bns, pac, query, q, p, &w)) > 0) { // then merge q into p
+                p->n_comp += q->n_comp + 1;
+                p->seedcov = p->seedcov > q->seedcov? p->seedcov : q->seedcov;
+                p->sub = p->sub > q->sub? p->sub : q->sub;
+                p->csub = p->csub > q->csub? p->csub : q->csub;
+                p->qb = q->qb, p->rb = q->rb;
+                p->truesc = p->score = score;
+                p->w = w;
+                q->qb = q->qe;
+            }
+        }
+    }
+    for (i = 0, m = 0; i < n; ++i) { // exclude identical hits
+        if (a[i].qe > a[i].qb) {
+            if (m != i) a[m++] = a[i];
+            else ++m;
+        }
+    }
+    n = m;
+    for (i = 0; i < n - 1; ++i) {
+        if (a[i].re == a[i+1].re) {
+            mem_alnreg_t *p = &a[i];
+            mem_alnreg_t *q = &a[i+1];
+            *useMateSort = false;
+            break;
+        }
+    }
+    ks_introsort(mem_ars, n, a);
+    for (i = 1; i < n; ++i) { // mark identical hits
+        if (a[i].score == a[i-1].score && a[i].rb == a[i-1].rb && a[i].qb == a[i-1].qb)
+            a[i].qe = a[i].qb;
+    }
+    for (i = 1, m = 1; i < n; ++i) // exclude identical hits
+        if (a[i].qe > a[i].qb) {
+            if (m != i) a[m++] = a[i];
+            else ++m;
+        }
+    return m;
+}
+#endif
 
 int mem_sort_dedup_patch(const mem_opt_t *opt, const bntseq_t *bns,
                          const uint8_t *pac, uint8_t *query, int n,
@@ -1263,6 +1342,9 @@ int mem_kernel2_core(FMI_search *fmi,
     {
         mem_alnreg_t *a = regs[l].a;
         int n = regs[l].n;
+        #if MATE_SORT
+            regs[l].useMateSort = true;
+        #endif
         for (i = 0, m = 0; i < n; ++i) // exclude identical hits
             if (a[i].qe > a[i].qb) {
                 if (m != i) a[m++] = a[i];
@@ -1271,11 +1353,18 @@ int mem_kernel2_core(FMI_search *fmi,
         regs[l].n = m;
     }
 
-    for (int l=0; l<nseq; l++) {        
-        regs[l].n = mem_sort_dedup_patch(opt, fmi->idx->bns,
+    for (int l=0; l<nseq; l++) {
+        #if MATE_SORT        
+        regs[l].n = mem_sort_dedup_patch_mate_sort(opt, fmi->idx->bns,
                                          fmi->idx->pac,
                                          (uint8_t*) seq_[l].seq,
-                                         regs[l].n, regs[l].a);
+                                         regs[l].n, regs[l].a, &regs[l].useMateSort);
+        #else
+        regs[l].n = mem_sort_dedup_patch(opt, fmi->idx->bns,
+                                    fmi->idx->pac,
+                                    (uint8_t*) seq_[l].seq,
+                                    regs[l].n, regs[l].a);
+        #endif
     }
 
     for (int l=0; l<nseq; l++)
