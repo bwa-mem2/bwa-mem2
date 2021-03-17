@@ -51,10 +51,10 @@ For general users, it is recommended to use the precompiled binaries from the
 runs faster than gcc-compiled binaries. The precompiled binaries also
 indirectly support CPU dispatch. The `bwa-mem2` binary can automatically choose
 the most efficient implementation based on the SIMD instruction set available
-on the running machine. Precompiled binaries were generated on a CentOS6
+on the running machine. Precompiled binaries were generated on a CentOS7
 machine using the following command line:
 ```sh
-make CXX=icpc
+make CXX=icpc multi
 ```
 
 [bwa]: https://github.com/lh3/bwa
