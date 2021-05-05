@@ -953,6 +953,7 @@ int main_mem(int argc, char *argv[])
     tprof[PROCESS][0] += __rdtsc() - tim;
 
     // free memory
+    int32_t nt = aux.opt->n_threads;
     _mm_free(ref_string);
     free(hdr_line);
     free(opt);
@@ -974,7 +975,7 @@ int main_mem(int argc, char *argv[])
 
     /* Display runtime profiling stats */
     tprof[MEM][0] = __rdtsc() - tprof[MEM][0];
-    display_stats(aux.opt->n_threads);
+    display_stats(nt);
     
     return 0;
 }

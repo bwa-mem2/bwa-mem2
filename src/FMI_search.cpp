@@ -1418,7 +1418,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         }
         else {
             int64_t occ_id_pp_ = pos >> CP_SHIFT;
-            _mm_prefetch((const char*)(&cp_occ[occ_id_pp_]), _MM_HINT_T0);
+            _mm_prefetch((char *)(&cp_occ[occ_id_pp_]), _MM_HINT_T0);
         }
         i++;
         j++;
@@ -1455,7 +1455,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                     }
                     else {
                         int64_t occ_id_pp_ = pos >> CP_SHIFT;
-                        _mm_prefetch((const char *)(&(cp_occ[occ_id_pp_])), _MM_HINT_T0);
+                        _mm_prefetch((char *)(&(cp_occ[occ_id_pp_])), _MM_HINT_T0);
                     }
                 }
                 else
@@ -1469,7 +1469,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                 }
                 else {
                     int64_t occ_id_pp_ = sp >> CP_SHIFT;
-                    _mm_prefetch((const char *)(&cp_occ[occ_id_pp_]), _MM_HINT_T0);
+                    _mm_prefetch((char *)(&cp_occ[occ_id_pp_]), _MM_HINT_T0);
                 }                
             }
         }
