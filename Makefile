@@ -41,13 +41,14 @@ EXE=		mpibwa-mem2
 CXX=        mpicxx	
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1
-CPPFLAGS+=	-DOMPI_SKIP_MPICXX -DNUMA_ENABLE=1 -DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS) 
+CPPFLAGS+=  -DNUMA_ENABLE=1 -DMPICH_SKIP_MPICXX -DENABLE_PREFETCH -DV17=1 -DMATE_SORT=1 $(MEM_FLAGS) 
 INCLUDES=   -Isrc -Iext/safestringlib/include
 LIBS=		-lpthread -lm -lz -L. -lbwa -Lext/safestringlib -lsafestring $(STATIC_GCC)
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
-			src/bwamem_extra.o src/kopen.o
+			src/bwamem_extra.o src/kopen.o src/tokenizer.o src/bgzf.o src/parallel_aux.o src/fixmate.o
+ 
 BWA_LIB=    libbwa.a
 SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
 
@@ -162,4 +163,8 @@ src/read_index_ele.o: src/read_index_ele.h src/utils.h src/bntseq.h
 src/read_index_ele.o: src/macro.h
 src/utils.o: src/utils.h src/ksort.h src/kseq.h
 src/memcpy_bwamem.o: src/memcpy_bwamem.h
-src/mainParallel.o: src/kstring.h src/utils.h src/macro.h src/bandedSWA.h src/fastmap.h src/profiling.h
+src/bgzf.o: src/bgzf.h
+src/tokenizer.o: src/tokenizer.h
+src/parallel_aux.o: src/fastmap.h src/parallel_aux.h src/tokenizer.h src/FMI_search.h
+src/fixmate.o: src/fixmate.h	
+src/mainParallel.o: src/kstring.h src/utils.h src/macro.h src/bandedSWA.h src/fastmap.h src/profiling.h src/parallel_aux.h src/bgzf.h src/fixmate.h
