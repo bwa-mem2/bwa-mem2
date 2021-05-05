@@ -12,9 +12,6 @@
 #SBATCH -e ${PATH_LOG_SLURM}/ERROR/test_1N_mpi_bwa2_%I.e
              
 
-cd ${BRIDGE_MSUB_PWD} 
-
-
 module purge
 module load licsrv/intel
 module load c/intel/20.0.4
