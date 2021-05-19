@@ -110,7 +110,7 @@ void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_re
 	int res; //used to assert success of MPI communications
 	MPI_File mpi_fd; // file descriptor used to open and read from the right file
 	MPI_Status status;
-	res = MPI_File_open(MPI_COMM_WORLD, file_to_read,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd); //open the wanted file
+	res = MPI_File_open(MPI_COMM_SELF, file_to_read,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd); //open the wanted file
 	assert(res==MPI_SUCCESS);
 	
 	///other resources
