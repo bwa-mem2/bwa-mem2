@@ -110,7 +110,7 @@ void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_re
 	int res; //used to assert success of MPI communications
 	MPI_File mpi_fd; // file descriptor used to open and read from the right file
 	MPI_Status status;
-	res = MPI_File_open(MPI_COMM_SELF, file_to_read,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd); //open the wanted file
+	res = MPI_File_open(MPI_COMM_WORLD, file_to_read,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd); //open the wanted file
 	assert(res==MPI_SUCCESS);
 	
 	///other resources
@@ -185,7 +185,7 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
     int count;
     //int fd;
     int res;
-    res = MPI_File_open(MPI_COMM_WORLD, file_to_read, MPI_MODE_RDONLY, MPI_INFO_NULL, &mpi_fd);
+    res = MPI_File_open(MPI_COMM_SELF, file_to_read, MPI_MODE_RDONLY, MPI_INFO_NULL, &mpi_fd);
     assert(res==MPI_SUCCESS);
     //fd = open(file_to_read, O_RDONLY);
     
@@ -1917,7 +1917,145 @@ void *call_fixmate(void *threadarg){
 
 }
 
-void *compress_and_write_thread(void *threadarg){
+void *compress_and_write_bgzf_thread(void *threadarg){
+
+        struct thread_data_compress *my_data;
+        my_data = (struct thread_data_compress *) threadarg;
+        int compression_level = my_data->comp_level;
+        int rank_num = my_data->job_rank;
+        int res = 0;
+        int count = 0;
+        MPI_Status status;
+        bseq1_t *seqs =  my_data->seqs_thr;
+        MPI_File mpifh = my_data->fh_out;
+        int start_index = (my_data->total_reads / my_data->total_thread) * my_data->thread_id;
+        int end_index = 0;
+        if (my_data->thread_id < my_data->total_thread)
+                end_index = (my_data->total_reads / my_data->total_thread) * (my_data->thread_id + 1) - 1;
+        else
+                end_index = my_data->total_reads;
+        
+
+        // compute size of the output buffer
+        int n = 0;
+        size_t localsize = 0;
+        for (n = start_index; n < end_index; n++) {
+            seqs[n].l_seq = strlen(seqs[n].sam);
+            localsize += seqs[n].l_seq;
+        }
+        assert(localsize <= INT_MAX);
+
+        char *buffer_out_final = malloc(localsize * sizeof(char));
+        char *p3 = buffer_out_final;
+        // we loop and compress each block
+        size_t total_read = (end_index - start_index)+1;
+        size_t number_read = 0;
+        int curr_read = start_index;
+        size_t block_sz=0;
+        size_t total_comp_size = 0;
+        int total_block = 0;        
+        int copy_length = 0;
+        const bgzf_byte_t *input;
+        size_t numread1 = 0;
+        char *buffer_out;
+        char *p;
+
+        BGZF *fp;
+        fp = calloc(1, sizeof(BGZF));
+        int block_length = MAX_BLOCK_SIZE;
+        int bytes_written;
+        fp->open_mode = 'w';
+        fp->uncompressed_block_size = MAX_BLOCK_SIZE;
+        fp->uncompressed_block = malloc(MAX_BLOCK_SIZE);
+        fp->compressed_block_size = MAX_BLOCK_SIZE;
+        fp->compressed_block = malloc(MAX_BLOCK_SIZE);
+        fp->cache_size = 0;
+        fp->cache = kh_init(cache);
+        fp->block_address = 0;
+        fp->block_offset = 0;
+        fp->block_length = 0;
+        fp->compress_level = compression_level < 0 ? Z_DEFAULT_COMPRESSION : compression_level;
+        if (fp->compress_level > 9) {
+              fp->compress_level = Z_DEFAULT_COMPRESSION;
+        }
+
+        size_t compressed_size =0;
+
+        while ( curr_read < end_index){
+
+            block_sz = 0;
+            size_t curr_start = curr_read;
+            //we compute buffer size to hold MAX_BLOCK_SIZE
+            block_sz += seqs[curr_read].l_seq;
+            while (1){
+                if (curr_read == end_index) break;
+                curr_read++;
+                numread1++;
+                block_sz += seqs[curr_read].l_seq;
+                if (block_sz > MAX_BLOCK_SIZE) break;
+                
+            }
+                   
+            if ( block_sz > MAX_BLOCK_SIZE) block_sz -=seqs[curr_read].l_seq;
+            else {curr_read++;numread1++;} 
+        
+            buffer_out = malloc((block_sz + 1)*sizeof(char));
+            assert(buffer_out != NULL);
+            buffer_out[block_sz] = 0;
+            p = buffer_out;
+            
+            for (n = curr_start; n < curr_read; n++) {
+                 memmove(p, seqs[n].sam, seqs[n].l_seq * sizeof(char));
+                 p += seqs[n].l_seq;
+            }
+             
+            copy_length = block_sz;
+            fp->cache_size = 0;
+            fp->block_address = 0;
+            fp->block_offset = 0;
+            fp->block_length = 0;
+            fp->compress_level = compression_level < 0 ? Z_DEFAULT_COMPRESSION : compression_level;
+            if (fp->compress_level > 9) {
+                fp->compress_level = Z_DEFAULT_COMPRESSION;
+            }
+            
+            input = (void *)buffer_out;
+                       
+            block_length = fp->uncompressed_block_size;
+            bytes_written = 0;
+
+            bgzf_byte_t *buffer = fp->uncompressed_block;
+            memcpy(buffer + fp->block_offset, input, copy_length);
+
+            fp->block_offset += copy_length;
+            input += copy_length;
+            bytes_written += copy_length;
+            block_length = deflate_block(fp, fp->block_offset);
+
+            memcpy(p3 + compressed_size, fp->compressed_block, block_length);
+            compressed_size += block_length;
+            fp->block_address += block_length;
+                         
+            free(buffer_out);
+        }//end while
+        
+        //assert (numread1 == total_read);       
+        size_t compSize = compressed_size;
+        res = MPI_File_write_shared(mpifh, buffer_out_final, compSize, MPI_BYTE, &status);
+        assert(res == MPI_SUCCESS);
+        res = MPI_Get_count(&status, MPI_BYTE, &count);
+        assert(res == MPI_SUCCESS);
+        assert(count == (int)compSize);
+        
+        free(fp->uncompressed_block);
+        free(fp->compressed_block);
+        my_data->thr_comp_sz = compSize;
+        kh_destroy(cache, fp->cache);
+        free(buffer_out_final);
+            
+}
+
+void *compress_and_write_bam_thread(void *threadarg){
 
         struct thread_data_compress *my_data;
         my_data = (struct thread_data_compress *) threadarg;
@@ -1942,14 +2080,14 @@ void *compress_and_write_thread(void *threadarg){
         }
         assert(localsize <= INT_MAX);
         char *buffer_out = malloc((localsize + 1)*sizeof(char));
-	    assert(buffer_out != NULL);
-	    buffer_out[localsize] = 0;
+        assert(buffer_out != NULL);
+        buffer_out[localsize] = 0;
         char *p = buffer_out;
         for (n = start_index; n < end_index; n++) {
                 memmove(p, seqs[n].sam, seqs[n].l_seq);
                 p += seqs[n].l_seq;
         }
-        
+
         uint8_t *p2 = buffer_out;
         size_t compressed_size =0;
         BGZF *fp;
@@ -2012,6 +2150,9 @@ void *compress_and_write_thread(void *threadarg){
         kh_destroy(cache, fp->cache);
         free(buffer_out);
 }
+
+
+
 
 void *compress_thread_by_chr(void *threadarg){
 
