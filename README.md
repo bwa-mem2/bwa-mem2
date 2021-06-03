@@ -27,7 +27,7 @@ make -j<num_threads>
 # Build index (Takes ~2 hr for human genome with 56 threads. 1 hr for BWT, 1 hr for ERT)
 ./bwa-mem2 index -a ert -t <num_threads> -p <index prefix> <input.fasta>
 
-# Perform alignment
+# Perform alignment (please specify the path prefix to the ERT index with -Z option)
 ./bwa-mem2 mem -Y -K 100000000 -t <num_threads> -Z <index prefix> <input_1.fastq> <input_2.fastq> -o <output_ert.sam>
 
 # To verify output with BWA-MEM
