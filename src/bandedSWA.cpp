@@ -2993,7 +2993,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
     
     int16_t i, j;
 
-    uint16_t tlen[SIMD_WIDTH16];
+    uint16_t tlen[SIMD_WIDTH16] __attribute((aligned(64)));
     uint16_t tail[SIMD_WIDTH16] __attribute((aligned(64)));
     uint16_t head[SIMD_WIDTH16] __attribute((aligned(64)));
     

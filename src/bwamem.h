@@ -166,7 +166,6 @@ typedef struct {
     size_t n, m; 
     mem_alnreg_t *a;
 #if MATE_SORT
-    size_t pad[4];
     bool useMateSort;
 #endif
 } mem_alnreg_v;
