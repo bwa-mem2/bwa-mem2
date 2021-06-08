@@ -852,40 +852,40 @@ int main(int argc, char *argv[]) {
         assert( local_read_bytes != NULL);
         assert( local_read_offsets != NULL);
         assert( local_read_size != NULL);
-         bef = MPI_Wtime();
+        bef = MPI_Wtime();
 
         pthread_attr_t attr;
-            pthread_attr_init(&attr);
-            pthread_attr_setstacksize(&attr, SMALL_STACK);
-            pthread_attr_setdetachstate(&attr, 0);
+        pthread_attr_init(&attr);
+        pthread_attr_setstacksize(&attr, SMALL_STACK);
+        pthread_attr_setdetachstate(&attr, 0);
 
-            pthread_t threads_1[NUM_THREADS];
+        pthread_t threads_1[NUM_THREADS];
 
-            struct struct_data_thread_1 *td_1 =  malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
+        struct struct_data_thread_1 *td_1 =  malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
 
         size_t *local_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
-            size_t *total_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
-            size_t **local_read_offsets_t        = calloc(NUM_THREADS, sizeof(size_t*));
-            size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
-            int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
+        size_t *total_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
+        size_t **local_read_offsets_t        = calloc(NUM_THREADS, sizeof(size_t*));
+        size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
+        int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
 
         int ret_code_1 = 0;
-            int goff_idx = 0;
-            for ( n = 0; n < NUM_THREADS; n++){
+        int goff_idx = 0;
+        for ( n = 0; n < NUM_THREADS; n++){
 
-                goff_idx = (rank_num * NUM_THREADS) + n;
-                td_1[n].offset_in_file_mt         = goff[goff_idx];
-                    td_1[n].size2read_mt              = goff[goff_idx + 1] - goff[goff_idx];
-                    td_1[n].file_r1_mt                = file_r1;
-                    td_1[n].local_num_reads_mt        = &local_num_reads_t[n];
-                    td_1[n].total_num_reads_mt        = &total_num_reads_t[n];
-                    td_1[n].local_read_offsets_mt     = &local_read_offsets_t[n];
-                    td_1[n].local_read_size_mt        = &local_read_size_t[n];
-                    td_1[n].local_read_bytes_mt       = &local_read_bytes_t[n];
-                    td_1[n].proc_num_mt               = proc_num;
-                    td_1[n].rank_num_mt               = rank_num;
-                    td_1[n].thread_num_mt             = n;
-                    td_1[n].previous_read_num         = 0;
+            goff_idx = (rank_num * NUM_THREADS) + n;
+            td_1[n].offset_in_file_mt         = goff[goff_idx];
+            td_1[n].size2read_mt              = goff[goff_idx + 1] - goff[goff_idx];
+            td_1[n].file_r1_mt                = file_r1;
+            td_1[n].local_num_reads_mt        = &local_num_reads_t[n];
+            td_1[n].total_num_reads_mt        = &total_num_reads_t[n];
+            td_1[n].local_read_offsets_mt     = &local_read_offsets_t[n];
+            td_1[n].local_read_size_mt        = &local_read_size_t[n];
+            td_1[n].local_read_bytes_mt       = &local_read_bytes_t[n];
+            td_1[n].proc_num_mt               = proc_num;
+            td_1[n].rank_num_mt               = rank_num;
+            td_1[n].thread_num_mt             = n;
+            td_1[n].previous_read_num         = 0;
             ret_code_1 = pthread_create(&threads_1[n], &attr, find_reads_size_and_offsets_mt, (void *)(&td_1[n]));
 
         }
@@ -1626,8 +1626,8 @@ int main(int argc, char *argv[]) {
                 free(buffer_r2);
 
                 }
-                //write BGZF or BAM
-                if ( write_format == 0 || write_format == 1) {
+                //write BGZF 
+                if ( write_format == 0 ) {
 
                         int ret_code = 0;
                         struct thread_data_compress *tdc;
@@ -1647,7 +1647,7 @@ int main(int argc, char *argv[]) {
                                 tdc[n].comp_level = compression_level;
                                 tdc[n].compressed_buffer_thread  = 0;
                                 tdc[n].fh_out = fh_out;
-                                ret_code = pthread_create(&threads[n], &attr, compress_and_write_thread, (void *)(&tdc[n]));
+                                ret_code = pthread_create(&threads[n], &attr, compress_and_write_bgzf_thread, (void *)(&tdc[n]));
                                 if (ret_code) {
                                     fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
                                 }
@@ -1693,6 +1693,45 @@ int main(int argc, char *argv[]) {
                         
                     }
 
+                    // write BAM
+                    if ( write_format == 1 ) {
+
+                        int ret_code = 0;
+                        struct thread_data_compress *tdc;
+                        tdc = malloc (NUM_THREADS * sizeof(struct thread_data_compress));
+                        bef = MPI_Wtime();
+                        pthread_attr_init(&attr);
+                        pthread_attr_setstacksize(&attr, SMALL_STACK);
+                        pthread_attr_setdetachstate(&attr, 0);
+
+                        for( n = 0; n < NUM_THREADS; n++ ){
+                            tdc[n].total_thread = NUM_THREADS;
+                                tdc[n].thread_id = n;
+                                tdc[n].seqs_thr = seqs;
+                                tdc[n].job_rank = rank_num;
+                                tdc[n].total_reads = reads;
+                                tdc[n].thr_comp_sz = 0;
+                                tdc[n].comp_level = compression_level;
+                                tdc[n].compressed_buffer_thread  = 0;
+                                tdc[n].fh_out = fh_out;
+                                ret_code = pthread_create(&threads[n], &attr, compress_and_write_bam_thread, (void *)(&tdc[n]));
+                                if (ret_code) {
+                                    fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
+                                }
+                        }
+                        for(n=0; n<NUM_THREADS; n++)
+                                pthread_join(threads[n], (void *)(&tdc[n]));
+
+
+                        pthread_attr_destroy(&attr);
+                        free(tdc);
+                        for (n = 0; n < reads; n++) free(seqs[n].sam);
+                            free(seqs);
+                        total_time_writing += (aft - bef);
+                        free(buffer_r1);
+                        free(buffer_r2);
+
+                    }
                     aft = MPI_Wtime();
                     fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
 
@@ -2810,7 +2849,7 @@ int main(int argc, char *argv[]) {
  
             }
 
-            if ( write_format == 0 || write_format == 1) {
+            if ( write_format == 0 ) {
 
                 int ret_code = 0;
                 struct thread_data_compress *tdc;
@@ -2831,7 +2870,7 @@ int main(int argc, char *argv[]) {
                     tdc[n].comp_level = compression_level;
                     tdc[n].compressed_buffer_thread  = 0;
                     tdc[n].fh_out = fh_out;
-                    ret_code = pthread_create(&threads[n], &attr, compress_and_write_thread, (void *)(&tdc[n]));
+                    ret_code = pthread_create(&threads[n], &attr, compress_and_write_bgzf_thread, (void *)(&tdc[n]));
                     if (ret_code) {
                         fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
                     }
@@ -2847,6 +2886,53 @@ int main(int argc, char *argv[]) {
                 free(buffer_r2);
             }
             
+            if ( write_format == 1 ) {
+
+                int ret_code = 0;
+                struct thread_data_compress *tdc;
+                tdc = malloc (NUM_THREADS * sizeof(struct thread_data_compress));
+                bef = MPI_Wtime();
+                pthread_attr_init(&attr);
+                pthread_attr_setstacksize(&attr, SMALL_STACK);
+                pthread_attr_setdetachstate(&attr, 0);
+
+                for( n = 0; n < NUM_THREADS; n++ ){
+
+                    tdc[n].total_thread = NUM_THREADS;
+                    tdc[n].thread_id = n;
+                    tdc[n].seqs_thr = seqs;
+                    tdc[n].job_rank = rank_num;
+                    tdc[n].total_reads = reads;
+                    tdc[n].thr_comp_sz = 0;
+                    tdc[n].comp_level = compression_level;
+                    tdc[n].compressed_buffer_thread  = 0;
+                    tdc[n].fh_out = fh_out;
+                    ret_code = pthread_create(&threads[n], &attr, compress_and_write_bam_thread, (void *)(&tdc[n]));
+                    if (ret_code) {
+                        fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
+                    }
+                }
+                for(n=0; n<NUM_THREADS; n++)
+                   pthread_join(threads[n], (void *)(&tdc[n]));
+                pthread_attr_destroy(&attr);
+                free(tdc);
+                for (n = 0; n < reads; n++) free(seqs[n].sam);
+                free(seqs);
+                total_time_writing += (aft - bef);
+                free(buffer_r1);
+                free(buffer_r2);
+            }
+
+            MPI_Barrier(MPI_COMM_WORLD);
+            if ( (write_format == 1) && (rank_num == 0)) {
+
+                res = MPI_File_write_shared(fh_out, magic, 28, MPI_BYTE, &status);
+                assert(res == MPI_SUCCESS);
+                res = MPI_Get_count(&status, MPI_BYTE, &count);
+                assert(res == MPI_SUCCESS);
+                assert(count == 28);
+            }
+
             aft = MPI_Wtime();
             fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
 			fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
@@ -3613,7 +3699,7 @@ if (file_r1 != NULL && file_r2 == NULL){
                 free(buffer_r1);
 
             }
-            if ( write_format == 0 || write_format == 1) {
+            if ( write_format == 0 ) {
 
                 int ret_code = 0;
                 struct thread_data_compress *tdc;
@@ -3633,7 +3719,7 @@ if (file_r1 != NULL && file_r2 == NULL){
                     tdc[n].comp_level = compression_level;
                     tdc[n].compressed_buffer_thread  = 0;
                     tdc[n].fh_out = fh_out;
-                    ret_code = pthread_create(&threads[n], &attr, compress_and_write_thread, (void *)(&tdc[n]));
+                    ret_code = pthread_create(&threads[n], &attr, compress_and_write_bgzf_thread, (void *)(&tdc[n]));
                     if (ret_code) {
                         fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
                     }
@@ -3647,6 +3733,43 @@ if (file_r1 != NULL && file_r2 == NULL){
                 free(buffer_r1);
             }
 
+            if ( write_format == 1 ) {
+
+                int ret_code = 0;
+                struct thread_data_compress *tdc;
+                tdc = malloc (NUM_THREADS * sizeof(struct thread_data_compress));
+                bef = MPI_Wtime();
+                pthread_attr_init(&attr);
+                pthread_attr_setstacksize(&attr, SMALL_STACK);
+                pthread_attr_setdetachstate(&attr, 0);
+
+                for( n = 0; n < NUM_THREADS; n++ ){
+                    tdc[n].total_thread = NUM_THREADS;
+                    tdc[n].thread_id = n;
+                    tdc[n].seqs_thr = seqs;
+                    tdc[n].job_rank = rank_num;
+                    tdc[n].total_reads = reads;
+                    tdc[n].thr_comp_sz = 0;
+                    tdc[n].comp_level = compression_level;
+                    tdc[n].compressed_buffer_thread  = 0;
+                    tdc[n].fh_out = fh_out;
+                    ret_code = pthread_create(&threads[n], &attr, compress_and_write_bam_thread, (void *)(&tdc[n]));
+                    if (ret_code) {
+                        fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
+                    }
+                 }
+                 for(n=0; n<NUM_THREADS; n++)
+                    pthread_join(threads[n], (void *)(&tdc[n]));
+                pthread_attr_destroy(&attr);
+                free(tdc);
+                for (n = 0; n < reads; n++) free(seqs[n].sam);
+                free(seqs);
+                free(buffer_r1);
+            }
+
+
+
+
 			aft = MPI_Wtime();
 			fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
 			total_time_writing += (aft - bef);
@@ -3656,7 +3779,16 @@ if (file_r1 != NULL && file_r2 == NULL){
 		} //end for loop on chunks
 
          MPI_Barrier(MPI_COMM_WORLD);
+
         /* Dealloc memory allcoated in the header section */   
+        if ( (write_format == 1) && (rank_num == 0)) {
+
+            res = MPI_File_write_shared(fh_out, magic, 28, MPI_BYTE, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_BYTE, &count);
+            assert(res == MPI_SUCCESS);
+            assert(count == 28);
+        }
 
         free(w2.chain_ar);
         free(w2.regs);

@@ -62,6 +62,8 @@ void create_sam_header_by_chr_file(char *file_out[],
 		bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, int rank_num);
 
 void *compress_and_write_thread(void *threadarg);
+void *compress_and_write_bam_thread(void *threadarg);
+void *compress_and_write_bgzf_thread(void *threadarg);
 void *compress_thread_by_chr(void *threadarg);
 void *compress_thread_by_chr_single(void *threadarg);
 void *call_fixmate(void *threadarg);

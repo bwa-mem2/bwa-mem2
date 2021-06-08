@@ -1,5 +1,16 @@
 # mpiBWA2
 
+Upate: 04/06/21
+---------------
+
+Pre-release
+
+1) review the BGZF compression
+
+Now each BGZF block contains entire SAM, reads are not truncated.
+And a BGZF block can be read and uncompressed independantly in parallel.
+
+
 Upate: 05/05/21
 ---------------
 
