@@ -349,8 +349,6 @@ int mem_sort_dedup_patch_mate_sort(const mem_opt_t *opt, const bntseq_t *bns,
     n = m;
     for (i = 0; i < n - 1; ++i) {
         if (a[i].re == a[i+1].re) {
-            mem_alnreg_t *p = &a[i];
-            mem_alnreg_t *q = &a[i+1];
             *useMateSort = false;
             break;
         }
