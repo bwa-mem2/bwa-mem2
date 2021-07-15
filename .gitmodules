@@ -1,3 +1,3 @@
-[submodule "ext/safestringlib"]
-	path = ext/safestringlib
-	url = https://github.com/intel/safestringlib.git
+[submodule "ext/TAL"]
+	path = ext/TAL
+	url = https://github.com/IntelLabs/Trans-Omics-Acceleration-Library.git
