@@ -847,7 +847,8 @@ int main_mem(int argc, char *argv[])
     
     fprintf(stderr, "* Ref file: %s\n", argv[optind]);          
     aux.fmi = new FMI_search(argv[optind]);
-    aux.fmi->load_index();
+    // aux.fmi->load_index();
+    aux.fmi->load_index(0);
     tprof[FMI][0] += __rdtsc() - tim;
     
     // reading ref string from the file

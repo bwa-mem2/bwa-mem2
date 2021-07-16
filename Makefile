@@ -42,13 +42,14 @@ endif
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS)
-EXT=         ext/TAL/
-EXTB=        $(EXT)/src/BSW/
-INCLUDES=   -Isrc -I$(EXT)/ext/safestringlib/include -I$(EXTB)
+EXT=         ext/TAL
+EXTBSW=      $(EXT)/src/BSW
+EXTFMI=      $(EXT)/src/FMI
+INCLUDES=   -Isrc -I$(EXT)/ext/safestringlib/include -I$(EXTBSW) -I$(EXTFMI)
 LIBS=		-lpthread -lm -lz -L. -lbwa -L$(EXT)/ext/safestringlib -lsafestring $(STATIC_GCC)
-OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
-			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o $(EXTB)/bandedSWA.o \
-			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
+OBJS=		src/fastmap.o src/bwtindex.o $(EXTFMI)/utils.o src/memcpy_bwamem.o src/kthread.o \
+			src/kstring.o src/ksw.o $(EXTFMI)/bntseq.o src/bwamem.o src/profiling.o $(EXTBSW)/bandedSWA.o \
+			$(EXTFMI)/FMI_search.o $(EXTFMI)/read_index_ele.o src/bwamem_pair.o src/kswv.o $(EXTFMI)/bwa.o \
 			src/bwamem_extra.o src/kopen.o
 BWA_LIB=    libbwa.a
 SAFE_STR_LIB=    $(EXT)/ext/safestringlib/libsafestring.a
@@ -128,49 +129,51 @@ $(SAFE_STR_LIB):
 clean:
 	rm -fr src/*.o $(BWA_LIB) $(EXE) bwa-mem2.sse41 bwa-mem2.sse42 bwa-mem2.avx bwa-mem2.avx2 bwa-mem2.avx512bw
 	cd $(EXT)/ext/safestringlib/ && $(MAKE) clean
-	rm -rf $(EXTB)/*.o
+	rm -rf $(EXTBSW)/*.o
+	rm -rf $(EXTFMI)/*.o
 
 depend:
 	(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CXXFLAGS) $(CPPFLAGS) -I. -- src/*.cpp)
 
 # DO NOT DELETE
 
-$(EXTB)/bandedSWA.o: $(EXTB)/bandedSWA.h $(EXTB)/bandedSWA.cpp src/macro.h
-src/FMI_search.o: src/FMI_search.h src/bntseq.h src/read_index_ele.h
-src/FMI_search.o: src/utils.h src/macro.h src/bwa.h src/bwt.h src/sais.h
-src/bntseq.o: src/bntseq.h src/utils.h src/macro.h src/kseq.h src/khash.h
-src/bwa.o: src/bntseq.h src/bwa.h src/bwt.h src/macro.h src/ksw.h src/utils.h
-src/bwa.o: src/kstring.h src/kvec.h src/kseq.h
-src/bwamem.o: src/bwamem.h src/bwt.h src/bntseq.h src/bwa.h src/macro.h
-src/bwamem.o: src/kthread.h $(EXTB)/bandedSWA.h src/kstring.h src/ksw.h
-src/bwamem.o: src/kvec.h src/ksort.h src/utils.h src/profiling.h
-src/bwamem.o: src/FMI_search.h src/read_index_ele.h src/kbtree.h
-src/bwamem_extra.o: src/bwa.h src/bntseq.h src/bwt.h src/macro.h src/bwamem.h
-src/bwamem_extra.o: src/kthread.h $(EXTB)/bandedSWA.h src/kstring.h src/ksw.h
-src/bwamem_extra.o: src/kvec.h src/ksort.h src/utils.h src/profiling.h
-src/bwamem_extra.o: src/FMI_search.h src/read_index_ele.h
-src/bwamem_pair.o: src/kstring.h src/bwamem.h src/bwt.h src/bntseq.h
-src/bwamem_pair.o: src/bwa.h src/macro.h src/kthread.h $(EXTB)/bandedSWA.h
-src/bwamem_pair.o: src/ksw.h src/kvec.h src/ksort.h src/utils.h
-src/bwamem_pair.o: src/profiling.h src/FMI_search.h src/read_index_ele.h
+$(EXTBSW)/bandedSWA.o: $(EXTBSW)/bandedSWA.h $(EXTBSW)/bandedSWA.cpp src/macro.h
+$(EXTFMI)/FMI_search.o: $(EXTFMI)/FMI_search.h $(EXTFMI)/bntseq.h $(EXTFMI)/read_index_ele.h
+##$(EXTFMI)/FMI_search.o: $(EXTFMI)/utils.h src/macro.h $(EXTFMI)/bwa.h src/bwt.h src/sais.h
+$(EXTFMI)/FMI_search.o: $(EXTFMI)/sais.h $(EXTFMI)/bwa.h
+$(EXTFMI)/bntseq.o: $(EXTFMI)/bntseq.h $(EXTFMI)/utils.h src/macro.h src/kseq.h src/khash.h
+$(EXTFMI)/bwa.o: $(EXTFMI)/bntseq.h $(EXTFMI)/bwa.h src/bwt.h src/macro.h src/ksw.h $(EXTFMI)/utils.h
+$(EXTFMI)/bwa.o: src/kstring.h src/kvec.h src/kseq.h
+src/bwamem.o: src/bwamem.h src/bwt.h $(EXTFMI)/bntseq.h $(EXTFMI)/bwa.h src/macro.h
+src/bwamem.o: src/kthread.h $(EXTBSW)/bandedSWA.h src/kstring.h src/ksw.h
+src/bwamem.o: src/kvec.h src/ksort.h $(EXTFMI)/utils.h src/profiling.h
+src/bwamem.o: $(EXTFMI)/FMI_search.h $(EXTFMI)/read_index_ele.h src/kbtree.h
+src/bwamem_extra.o: $(EXTFMI)/bwa.h $(EXTFMI)/bntseq.h src/bwt.h src/macro.h src/bwamem.h
+src/bwamem_extra.o: src/kthread.h $(EXTBSW)/bandedSWA.h src/kstring.h src/ksw.h
+src/bwamem_extra.o: src/kvec.h src/ksort.h $(EXTFMI)/utils.h src/profiling.h
+src/bwamem_extra.o: $(EXTFMI)/FMI_search.h $(EXTFMI)/read_index_ele.h
+src/bwamem_pair.o: src/kstring.h src/bwamem.h src/bwt.h $(EXTFMI)/bntseq.h
+src/bwamem_pair.o: $(EXTFMI)/bwa.h src/macro.h src/kthread.h $(EXTBSW)/bandedSWA.h
+src/bwamem_pair.o: src/ksw.h src/kvec.h src/ksort.h $(EXTFMI)/utils.h
+src/bwamem_pair.o: src/profiling.h $(EXTFMI)/FMI_search.h $(EXTFMI)/read_index_ele.h
 src/bwamem_pair.o: src/kswv.h
-src/bwtindex.o: src/bntseq.h src/bwa.h src/bwt.h src/macro.h src/utils.h
-src/bwtindex.o: src/FMI_search.h src/read_index_ele.h
-src/fastmap.o: src/fastmap.h src/bwa.h src/bntseq.h src/bwt.h src/macro.h
-src/fastmap.o: src/bwamem.h src/kthread.h $(EXTB)/bandedSWA.h src/kstring.h
-src/fastmap.o: src/ksw.h src/kvec.h src/ksort.h src/utils.h src/profiling.h
-src/fastmap.o: src/FMI_search.h src/read_index_ele.h src/kseq.h
+src/bwtindex.o: $(EXTFMI)/bntseq.h $(EXTFMI)/bwa.h src/bwt.h src/macro.h $(EXTFMI)/utils.h
+src/bwtindex.o: $(EXTFMI)/FMI_search.h $(EXTFMI)/read_index_ele.h
+src/fastmap.o: src/fastmap.h $(EXTFMI)/bwa.h $(EXTFMI)/bntseq.h src/bwt.h src/macro.h
+src/fastmap.o: src/bwamem.h src/kthread.h $(EXTBSW)/bandedSWA.h src/kstring.h
+src/fastmap.o: src/ksw.h src/kvec.h src/ksort.h $(EXTFMI)/utils.h src/profiling.h
+src/fastmap.o: $(EXTFMI)/FMI_search.h $(EXTFMI)/read_index_ele.h src/kseq.h
 src/kstring.o: src/kstring.h
 src/ksw.o: src/ksw.h src/macro.h
-src/kswv.o: src/kswv.h src/macro.h src/ksw.h $(EXTB)/bandedSWA.h
-src/kthread.o: src/kthread.h src/macro.h src/bwamem.h src/bwt.h src/bntseq.h
-src/kthread.o: src/bwa.h $(EXTB)/bandedSWA.h src/kstring.h src/ksw.h src/kvec.h
-src/kthread.o: src/ksort.h src/utils.h src/profiling.h src/FMI_search.h
-src/kthread.o: src/read_index_ele.h
-src/main.o: src/main.h src/kstring.h src/utils.h src/macro.h $(EXTB)/bandedSWA.h
+src/kswv.o: src/kswv.h src/macro.h src/ksw.h $(EXTBSW)/bandedSWA.h
+src/kthread.o: src/kthread.h src/macro.h src/bwamem.h src/bwt.h $(EXTFMI)/bntseq.h
+src/kthread.o: $(EXTFMI)/bwa.h $(EXTBSW)/bandedSWA.h src/kstring.h src/ksw.h src/kvec.h
+src/kthread.o: src/ksort.h $(EXTFMI)/utils.h src/profiling.h $(EXTFMI)/FMI_search.h
+src/kthread.o: $(EXTFMI)/read_index_ele.h
+src/main.o: src/main.h src/kstring.h $(EXTFMI)/utils.h src/macro.h $(EXTBSW)/bandedSWA.h
 src/main.o: src/profiling.h
 src/profiling.o: src/macro.h
-src/read_index_ele.o: src/read_index_ele.h src/utils.h src/bntseq.h
-src/read_index_ele.o: src/macro.h
-src/utils.o: src/utils.h src/ksort.h src/kseq.h
+$(EXTFMI)/read_index_ele.o: $(EXTFMI)/read_index_ele.h $(EXTFMI)/utils.h $(EXTFMI)/bntseq.h
+##$(EXTFMI)/read_index_ele.o: $(EXTFMI)/macro.h
+$(EXTFMI)/utils.o: $(EXTFMI)/utils.h src/ksort.h src/kseq.h
 src/memcpy_bwamem.o: src/memcpy_bwamem.h

@@ -73,7 +73,8 @@ int bwa_idx_build(const char *fa, const char *prefix)
 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
 		err_gzclose(fp);
         FMI_search *fmi = new FMI_search(prefix);
-        fmi->build_index();
+        // fmi->build_index();
+        fmi->build_index(0);
         delete fmi;
 	}
 	return 0;
