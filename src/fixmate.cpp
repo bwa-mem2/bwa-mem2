@@ -275,7 +275,7 @@ int readParsing (char *sam_buff, readInfo *read, bwaidx_t *indix) {
         	int i;
 		
     		for (i = 0; i < strlen(read->seq); i++) {
-        	    if (u[i] >= MD_MIN_QUALITY) read->score += u[i];
+        	    if ((u[i]-33) >= MD_MIN_QUALITY) read->score += (u[i]-33);
     		}
 
                 q = strchr(q, '\t') + 1;	
