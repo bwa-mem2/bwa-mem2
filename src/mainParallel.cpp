@@ -1521,7 +1521,7 @@ int main(int argc, char *argv[]) {
 			bef = MPI_Wtime();
 			
 			ret->seqs   = seqs;
-            ret->n_seqs = reads;				
+            		ret->n_seqs = reads;				
 
             //int64_t size = 0;
             //for (int i = 0; i < ret->n_seqs; ++i) size += ret->seqs[i].l_seq;
@@ -1591,14 +1591,14 @@ int main(int argc, char *argv[]) {
 
             // write SAM format
             if ( write_format == 2){
-                bef = MPI_Wtime();
+            	bef = MPI_Wtime();
                 pthread_attr_t attr;
                 pthread_attr_init(&attr);
                 pthread_attr_setstacksize(&attr, BIG_STACK);
                 pthread_attr_setdetachstate(&attr, 0);
 
                 struct struct_data_thread *td;
-                td = calloc (opt->n_threads, sizeof(struct_data_thread));
+                td = calloc (opt->n_threads, sizeof(struct struct_data_thread));
 
                 int rest = reads%NUM_THREADS;
                 int quot = reads/NUM_THREADS;
@@ -1627,7 +1627,7 @@ int main(int argc, char *argv[]) {
 
                 }
                 //write BGZF 
-                if ( write_format == 0 ) {
+		if ( write_format == 0 ) {
 
                         int ret_code = 0;
                         struct thread_data_compress *tdc;
@@ -1687,6 +1687,7 @@ int main(int argc, char *argv[]) {
                         free(tdc);
                         for (n = 0; n < reads; n++) free(seqs[n].sam);
                             free(seqs);
+			aft = MPI_Wtime();
                         total_time_writing += (aft - bef);
                         free(buffer_r1);
                         free(buffer_r2);
@@ -1727,15 +1728,16 @@ int main(int argc, char *argv[]) {
                         free(tdc);
                         for (n = 0; n < reads; n++) free(seqs[n].sam);
                             free(seqs);
+			aft = MPI_Wtime();
                         total_time_writing += (aft - bef);
                         free(buffer_r1);
                         free(buffer_r2);
 
                     }
-                    aft = MPI_Wtime();
-                    fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
+                    	
+                    	fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
 
-            u1 += proc_num;
+            		u1 += proc_num;
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
 
         MPI_Barrier(MPI_COMM_WORLD);
@@ -2881,6 +2883,7 @@ int main(int argc, char *argv[]) {
                 free(tdc);
                 for (n = 0; n < reads; n++) free(seqs[n].sam);
                 free(seqs);
+		aft = MPI_Wtime();
                 total_time_writing += (aft - bef);
                 free(buffer_r1);
                 free(buffer_r2);
@@ -2918,31 +2921,30 @@ int main(int argc, char *argv[]) {
                 free(tdc);
                 for (n = 0; n < reads; n++) free(seqs[n].sam);
                 free(seqs);
+		aft = MPI_Wtime();
                 total_time_writing += (aft - bef);
                 free(buffer_r1);
                 free(buffer_r2);
             }
 
-            MPI_Barrier(MPI_COMM_WORLD);
-            if ( (write_format == 1) && (rank_num == 0)) {
+            
+            fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
+			fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
+            u1 += proc_num;
+
+	} //end for loop on chunks
+
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        if ( (write_format == 1) && (rank_num == 0)) {
 
                 res = MPI_File_write_shared(fh_out, magic, 28, MPI_BYTE, &status);
                 assert(res == MPI_SUCCESS);
                 res = MPI_Get_count(&status, MPI_BYTE, &count);
                 assert(res == MPI_SUCCESS);
                 assert(count == 28);
-            }
+        }
 
-            aft = MPI_Wtime();
-            fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
-			fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
-            u1 += proc_num;
-
-		} //end for loop on chunks
-
-
-        MPI_Barrier(MPI_COMM_WORLD);
-        
         free(w2.chain_ar);
         free(w2.regs);
         free(w2.seedBuf);
@@ -3767,16 +3769,13 @@ if (file_r1 != NULL && file_r2 == NULL){
                 free(buffer_r1);
             }
 
+		aft = MPI_Wtime();
+		fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
+		total_time_writing += (aft - bef);
+		fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
+            	u1 += proc_num;
 
-
-
-			aft = MPI_Wtime();
-			fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
-			total_time_writing += (aft - bef);
-			fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
-            u1 += proc_num;
-
-		} //end for loop on chunks
+	} //end for loop on chunks
 
          MPI_Barrier(MPI_COMM_WORLD);
 
