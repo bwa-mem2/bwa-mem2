@@ -29,9 +29,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 *****************************************************************************************/
 
 #include "bwamem.h"
-#include "FMI_search.h"
 #include "memcpy_bwamem.h"
-
 //----------------
 extern uint64_t tprof[LIM_R][LIM_C];
 //----------------
@@ -623,7 +621,17 @@ int mem_chain_flt(const mem_opt_t *opt, int n_chn_, mem_chain_t *a_, int tid)
     return n_numc;
 }
 
-SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
+bool smem_sort(SMEM_out a, SMEM_out b) { 
+	return a.id < b.id || (a.id == b.id && a.q_l < b.q_l);
+}
+
+bool tal_smem_sort(SMEM a, SMEM b) { 
+	return a.rid < b.rid || (a.rid == b.rid && a.m < b.m);
+}
+
+SMEM *mem_collect_smem(FMI_search *fmi, 
+		       QBWT_HYBRID<index_t> *qbwt,
+		       const mem_opt_t *opt,
                        const bseq1_t *seq_,
                        int nseq,
                        SMEM *matchArray,
@@ -631,7 +639,8 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
                        int16_t *query_pos_ar,
                        uint8_t *enc_qdb,
                        int32_t *rid,
-                       int64_t &tot_smem)
+                       int64_t &tot_smem,
+		       threadData *thread_data)
 {
     int64_t pos = 0;
     int split_len = (int)(opt->min_seed_len * opt->split_factor + .499);
@@ -641,12 +650,37 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
     int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(nseq * sizeof(int32_t), 64);
         
     int offset = 0;
+    
+#ifdef ENABLE_LISA
+    std::vector<Info> lisa_qdb;
+#endif
     for (int l=0; l<nseq; l++)
     {
         min_intv_ar[l] = 1;
-        for (int j=0; j<seq_[l].l_seq; j++) 
-            enc_qdb[offset + j] = seq_[l].seq[j];
-        
+	int j=0;
+	while(j < seq_[l].l_seq) {
+		int prev_j = j;
+		for ( ;j < seq_[l].l_seq; j++) { 
+		    enc_qdb[offset + j] = seq_[l].seq[j];
+		    if((int) seq_[l].seq[j] > 3)  break;
+ 		}
+		//----------------------- LISA --------
+
+#ifdef ENABLE_LISA
+		Info temp_q;
+		temp_q.p = &enc_qdb[offset + prev_j];
+		temp_q.id = l;
+		temp_q.id |= ((int64_t)prev_j <<24);
+		temp_q.l = j - prev_j; //seq_[l].l_seq;
+		temp_q.r = j - prev_j; //seq_[l].l_seq;
+		temp_q.intv = {0, qbwt->n};
+		if(j - prev_j >= opt->min_seed_len ){	
+			lisa_qdb.push_back(temp_q);
+		}
+		//------------------------------------
+#endif
+		j++;
+	}
         offset += seq_[l].l_seq;        
         rid[l] = l;
     }
@@ -659,9 +693,76 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
             max_readlength = seq_[i].l_seq;
     }
 
+  //  fprintf(stderr, "mem2 smem search start \n");
+   
+    uint64_t tal_start, tal_end, lisa_start, lisa_end;
+#ifndef ENABLE_LISA
+    tal_start = __rdtsc();
     fmi->getSMEMsAllPosOneThread(enc_qdb, min_intv_ar, rid, nseq, nseq,
                                  seq_, query_cum_len_ar, max_readlength, opt->min_seed_len,
                                  matchArray, &num_smem1);
+
+    tal_end = __rdtsc();
+
+    tprof[TAL_SMEM][0] += (tal_end - tal_start);
+
+#else
+// ---------- LISA SMEM call ---------
+   lisa_start = __rdtsc();
+   threadData td = *thread_data;
+   int64_t vAnsAllocation = nseq * 20;  
+   Output op(0);
+   op.smem = (SMEM_out*) malloc(vAnsAllocation * sizeof(SMEM_out));
+   
+   smem_rmi_batched(&lisa_qdb[0], lisa_qdb.size(), 10000, *qbwt, td, &op, opt->min_seed_len);
+
+   SMEM_out *lisa_smems = op.smem;
+   for(int i = 0; i < td.numSMEMs; i++){
+	int offset = (lisa_smems[i].id>>24);
+	lisa_smems[i].id = lisa_smems[i].id & 0x0FFF;
+	lisa_smems[i].q_l += offset;
+	lisa_smems[i].q_r += offset;
+   }
+
+// Copy SMEMs to TAL smem-output format
+// TODO: Change LISA to return TAL's smems format
+   for(int64_t i = 0; i < td.numSMEMs; i++) { 
+	SMEM *p = &matchArray[i];
+	SMEM_out q = lisa_smems[i];
+
+	p->rid = q.id;
+	p->m = q.q_l; 
+	p->n = q.q_r - 1;
+	p->k = q.ref_l;
+ 	p->s = q.ref_r - p->k;
+	
+   }
+   num_smem1 = td.numSMEMs;
+   lisa_end = __rdtsc();
+   tprof[LISA_SMEM][0] += (lisa_end - lisa_start);
+
+
+
+#ifdef LISA_DEBUG
+   sort(lisa_smems, lisa_smems + td.numSMEMs, smem_sort);
+   sort(matchArray, matchArray + num_smem1, tal_smem_sort);
+   for(int64_t i = 0; i < num_smem1; i++) { 
+	SMEM *p = &matchArray[i];
+	SMEM_out q = lisa_smems[i];
+
+	bool assert_cond = ( p->rid == q.id && p->m == q.q_l && (p->n == q.q_r - 1) && p->k == q.ref_l && (p->k + p->s) == q.ref_r);
+
+	if(!assert_cond){
+		fprintf(stderr, "SMEM mismatch\n");
+		fprintf(stderr, "%ld %ld , %ld %ld,  %ld %ld,  %ld %ld,  %ld %ld \n", p->rid, q.id, p->m, q.q_l, p->n, q.q_r - 1, p->k, q.ref_l, (p->k + p->s), q.ref_r);
+	}
+	
+   }
+#endif
+   //td.dealloc_td();
+// ----------------------------------
+#endif
+
 
 
     for (int64_t i=0; i<num_smem1; i++)
@@ -900,6 +1001,7 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
 }
 
 int mem_kernel1_core(FMI_search *fmi,
+		     QBWT_HYBRID<index_t> *qbwt,	
                      const mem_opt_t *opt,
                      bseq1_t *seq_,
                      int nseq,
@@ -951,11 +1053,12 @@ int mem_kernel1_core(FMI_search *fmi,
     uint8_t *enc_qdb      = mmc->enc_qdb[tid];
     int32_t *rid          = mmc->rid[tid];
     int64_t  *wsize_mem   = &mmc->wsize_mem[tid];
+    threadData *td	  = mmc->td[tid];
     
     tim = __rdtsc();    
     /********************** Kernel 1: FM+SMEMs *************************/
     printf_(VER, "6. Calling mem_collect_smem.., tid: %d\n", tid);
-    mem_collect_smem(fmi, opt,
+    mem_collect_smem(fmi, qbwt, opt,
                      seq_,
                      nseq,
                      matchArray,
@@ -963,7 +1066,8 @@ int mem_kernel1_core(FMI_search *fmi,
                      query_pos_ar,
                      enc_qdb,
                      rid,
-                     num_smem);
+                     num_smem,
+		     td);
 
     if (num_smem >= *wsize_mem){
         fprintf(stderr, "num_smem: %ld\n", num_smem);
@@ -1122,7 +1226,7 @@ static void worker_bwt(void *data, int seq_id, int batch_size, int tid)
         // fprintf(stderr, "[%0.4d] Info: adjusted seedBufSz %d\n", tid, seedBufSz);
     }
 
-    mem_kernel1_core(w->fmi, w->opt,
+    mem_kernel1_core(w->fmi, w->qbwt, w->opt,
                      w->seqs + seq_id,
                      batch_size,
                      w->chain_ar + seq_id,
