@@ -75,7 +75,7 @@ int display_stats(int nthreads)
     fprintf(stderr, "\tReading IO time (Reference Genome) avg: %0.2lf, (%0.2lf, %0.2lf)\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
 
-    find_opt(tprof[FMI], 1, &max, &min, &avg);
+    find_opt(tprof[FMI_mem2], 1, &max, &min, &avg);
     fprintf(stderr, "\tIndex read time avg: %0.2lf, (%0.2lf, %0.2lf)\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
 
@@ -202,7 +202,7 @@ int display_stats(int nthreads)
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
 #endif
 
-#if HIDE
+#if 1 //HIDE
     fprintf(stderr, "\nSTATSV\n");
     fprintf(stderr, "%0.2lf\n", tprof[PROCESS][0]*1.0/proc_freq);
     find_opt(tprof[MEM_PROCESS2], 1, &max, &min, &avg);
@@ -229,8 +229,9 @@ int display_stats(int nthreads)
     fprintf(stderr, "%0.2lf\n", avg*1.0/proc_freq);
     val += avg;
     fprintf(stderr, "%0.2lf\n", val*1.0/proc_freq);
-    fprintf(stderr, "%0.2lf\n", (tprof[REF_IO][0] + tprof[FMI][0])*1.0/proc_freq);
+    fprintf(stderr, "%0.2lf\n", (tprof[REF_IO][0] + tprof[FMI_mem2][0])*1.0/proc_freq);
     fprintf(stderr, "%0.2lf\n", tprof[READ_IO][0]*1.0/proc_freq);
+    fprintf(stderr, "TAL_SMEM Ticks: %lld LISA_SMEM Ticks %lld Speedup: %f\n", tprof[TAL_SMEM][0], tprof[LISA_SMEM][0], (double)(tprof[TAL_SMEM][0])/tprof[LISA_SMEM][0]);
 #endif
     // printf("\tMemory usage (GB):\n");
     // printf("\tAvg: %0.2lf, Peak: %0.2lf\n", tprof[PE21][0]*1.0/1e9, tprof[PE22][0]*1.0/1e9);

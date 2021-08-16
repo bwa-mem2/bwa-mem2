@@ -29,6 +29,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 *****************************************************************************************/
 
 #include <limits.h>
+#include "sais.h"
 #include "bwa.h"
 #include "bwamem.h"
 #include "bntseq.h"

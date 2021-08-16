@@ -31,6 +31,7 @@ Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@
 #ifndef MAIN_HPP
 #define MAIN_HPP
 
+#include "sais.h"
 #include <stdio.h>
 #include <string.h>
 #include "kstring.h"
@@ -39,6 +40,6 @@ Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@
 #include "bandedSWA.h"
 #include "profiling.h"
 #include "fastmap.h"
-
+using namespace std;
 int bwa_index(int argc, char *argv[]);
 #endif

@@ -27,7 +27,7 @@
 Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
          Heng Li <hli@jimmy.harvard.edu>
 *****************************************************************************************/
-
+#include "sais.h"
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,7 +37,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #endif
 #include <sstream>
 #include "fastmap.h"
-#include "FMI_search.h"
 
 #if AFF && (__linux__)
 #include <sys/sysinfo.h>
@@ -174,6 +173,11 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
         w.mmc.lim[l]           = (int32_t *) _mm_malloc((BATCH_SIZE + 32) * sizeof(int32_t), 64); // candidate not for reallocation, deferred for next round of changes.
     }
 
+#ifdef ENABLE_LISA
+// LISA thread specific pools allocation
+    for (int l=0; l<nthreads; l++)
+	w.mmc.td[l] = new threadData(30000);
+#endif	
     allocMem = nthreads * BATCH_MUL * BATCH_SIZE * readLen * sizeof(SMEM) +
         nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t) +
         nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int16_t) +
@@ -466,6 +470,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     
     w.ref_string = aux->ref_string;
     w.fmi = aux->fmi;
+    w.qbwt = aux->qbwt;
     w.nreads  = nreads;
     // w.memSize = nreads;
     
@@ -845,16 +850,33 @@ int main_mem(int argc, char *argv[])
     /* Load bwt2/FMI index */
     uint64_t tim = __rdtsc();
     
-    fprintf(stderr, "* Ref file: %s\n", argv[optind]);          
+    
+
     aux.fmi = new FMI_search(argv[optind]);
     // aux.fmi->load_index();
     aux.fmi->load_index(0);
-    tprof[FMI][0] += __rdtsc() - tim;
+    tprof[FMI_mem2][0] += __rdtsc() - tim;
     
     // reading ref string from the file
     tim = __rdtsc();
     fprintf(stderr, "* Reading reference genome..\n");
-    
+
+    // LISA index 
+   
+#ifdef ENABLE_LISA 
+    QBWT_HYBRID<index_t> *qbwt;
+    string ref_seq_file = (string) argv[optind];
+    fprintf(stderr, "Reference file name: %s\n", ref_seq_file.c_str());
+    string size_file_name = ref_seq_file + "_SIZE";
+    ifstream fi(size_file_name.c_str());
+    int64_t size_file;
+    fi>>size_file;
+    fprintf(stderr, "Reference seq size = %lld\n",  size_file);
+    string seq; 
+    qbwt =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 21, 268435456);
+    aux.qbwt = qbwt;  
+ 
+#endif 
     char binary_seq_file[PATH_MAX];
     strcpy_s(binary_seq_file, PATH_MAX, argv[optind]);
     strcat_s(binary_seq_file, PATH_MAX, ".0123");
@@ -973,6 +995,7 @@ int main_mem(int argc, char *argv[])
 
     // new bwt/FMI
     delete(aux.fmi);    
+    delete(aux.qbwt);    
 
     /* Display runtime profiling stats */
     tprof[MEM][0] = __rdtsc() - tprof[MEM][0];

@@ -40,6 +40,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <limits.h>
 #include <ctype.h>
 #include <math.h>
+#include "sais.h"
 #include <fstream>
 #include "bwa.h"
 #include "bwamem.h"
@@ -49,6 +50,8 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "bntseq.h"
 #include "kseq.h"
 #include "profiling.h"
+#include "qbwt-rmi-batched.h"
+#include "FMI_search.h"
 
 KSEQ_DECLARE(gzFile)
 
@@ -64,7 +67,8 @@ typedef struct {
 	int64_t actual_chunk_size;
 	FILE *fp;
 	uint8_t *ref_string;
-	FMI_search *fmi;	
+	FMI_search *fmi;
+	QBWT_HYBRID<index_t> *qbwt;	
 } ktp_aux_t;
 
 typedef struct {

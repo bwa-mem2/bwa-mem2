@@ -30,7 +30,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 #ifndef BWAMEM_HPP
 #define BWAMEM_HPP
-
+#include "sais.h"
 #include "bwt.h"
 #include "bntseq.h"
 #include "bwa.h"
@@ -52,7 +52,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "macro.h"
 #include "profiling.h"
 #include "FMI_search.h"
-
+#include "qbwt-rmi-batched.h"
 #define MEM_MAPQ_COEF 30.0
 #define MEM_MAPQ_MAX  60
 
@@ -206,9 +206,11 @@ typedef struct
     uint8_t *enc_qdb[MAX_THREADS];
     
     int64_t wsize_mem[MAX_THREADS];
+
+    threadData *td[MAX_THREADS];
 } mem_cache;
 
-// chain moved to .h
+// chain moved to 
 typedef struct worker_t {
     const mem_opt_t      *opt;
     //const bntseq_t         *bns;
@@ -227,7 +229,8 @@ typedef struct worker_t {
     uint8_t          *ref_string;
     int16_t           nthreads;
     int32_t           nreads;
-    FMI_search       *fmi;  
+    FMI_search       *fmi; 
+    QBWT_HYBRID<index_t> *qbwt; 
 } worker_t;
 
 
@@ -259,7 +262,9 @@ void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq
 static inline int get_rlen(int n_cigar, const uint32_t *cigar);
 static inline int infer_bw(int l1, int l2, int score, int a, int q, int r);
 
-int mem_kernel1_core(FMI_search *fmi, const mem_opt_t *opt,
+int mem_kernel1_core(FMI_search *fmi, 
+                     QBWT_HYBRID<index_t> *qbwt, 
+		     const mem_opt_t *opt,
                      bseq1_t *seq_,
                      int nseq,
                      mem_chain_v *chain_ar,

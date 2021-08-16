@@ -33,6 +33,7 @@
 #define KTHREAD_HPP
 
 #include <stdint.h>
+#include "sais.h"
 #include "macro.h"
 #include "bwamem.h"
 #include <pthread.h>

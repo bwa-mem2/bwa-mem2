@@ -40,18 +40,25 @@ else ifeq ($(CXX), g++)
 	CC=gcc
 endif		
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
-MEM_FLAGS=	-DSAIS=1
+MEM_FLAGS=	-DSAIS=1 -std=c++17 
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS)
+LISA_SMEM_FLAGS= -DOUTPUT -DNO_DNA_ORD -DREV_COMP -DBWA_MEM_BUG -DNOCHUNK -DVECTORIZE  -DENABLE_PREFETCH -D_64BIT
+CPPFLAGS+= $(LISA_SMEM_FLAGS)
 EXT=         ext/TAL
 EXTEXT=      ext/TAL/ext
 EXTBSW=      $(EXT)/src/BSW
 EXTFMI=      $(EXT)/src/FMI
-INCLUDES=   -Isrc -I$(EXT)/ext/safestringlib/include -I$(EXTBSW) -I$(EXTFMI) -I$(EXTEXT)
+EXTLISA=     $(EXT)/LISA
+EXTLISASRC=  $(EXTLISA)/src-mix
+INCLUDES=   -Isrc -I$(EXT)/ext/safestringlib/include -I$(EXTBSW) -I$(EXTFMI) -I$(EXTEXT) -I$(EXTLISASRC)
 LIBS=		-lpthread -lm -lz -L. -lbwa -L$(EXT)/ext/safestringlib -lsafestring $(STATIC_GCC)
 OBJS=		src/fastmap.o src/bwtindex.o $(EXTEXT)/utils.o src/memcpy_bwamem.o src/kthread.o \
 			src/kstring.o src/ksw.o $(EXTEXT)/bntseq.o src/bwamem.o src/profiling.o $(EXTBSW)/bandedSWA.o \
 			$(EXTFMI)/FMI_search.o  src/bwamem_pair.o src/kswv.o src/bwa.o $(EXTEXT)/bseq.o\
-			src/bwamem_extra.o src/kopen.o
+			src/bwamem_extra.o src/kopen.o 
+LISA_OBJ=	$(EXTLISASRC)/chunkEncode.o $(EXTLISASRC)/common.o $(EXTLISASRC)/qbwt-rmi-batched.o
+OBJS+= $(LISA_OBJ)
+
 BWA_LIB=    libbwa.a
 SAFE_STR_LIB=    $(EXT)/ext/safestringlib/libsafestring.a
 

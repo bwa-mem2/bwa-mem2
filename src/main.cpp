@@ -30,11 +30,9 @@ Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@
 
 // ----------------------------------
 #include "main.h"
-
 #ifndef PACKAGE_VERSION
 #define PACKAGE_VERSION "2.2.1"
 #endif
-
 
 // ----------------------------------
 uint64_t proc_freq, tprof[LIM_R][LIM_C], prof[LIM_R];
@@ -97,6 +95,11 @@ int main(int argc, char* argv[])
         for (int i = 1; i < argc; ++i) ksprintf(&pg, " %s", argv[i]);
         ksprintf(&pg, "\n");
         bwa_pg = pg.s;
+	
+
+#if 1
+//	string ref_seq_file = "/cold_storage/omics/genomes-indexes-reads/human/ref/hs37d5/hs37d5.fa.gz";
+#endif
         ret = main_mem(argc-1, argv+1);
         free(bwa_pg);
         
@@ -123,6 +126,6 @@ int main(int argc, char* argv[])
         fprintf(stderr, "\tSIMD_WIDTH16 X: %d\n", SIMD_WIDTH16);
         fprintf(stderr, "\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
     }
-    
+	display_stats(1);    
     return ret;
 }

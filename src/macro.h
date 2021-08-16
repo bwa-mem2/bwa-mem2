@@ -164,12 +164,13 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define MEM_ALN2_DOWN 104
 #define MEM_ALN2_DOWN1 105
 #define SORT 106
-#define FMI 107
+#define FMI_mem2 107
 #define MEM_ALN2_D 108
 #define MEM_ALN2_E 109
 #define PE24 110
 #define PE25 111
 #define PE26 112
-
-
+#define TAL_SMEM 113
+#define LISA_SMEM 114
+#define ENABLE_LISA 1
 #endif
