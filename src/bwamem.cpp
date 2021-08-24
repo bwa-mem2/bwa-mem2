@@ -621,14 +621,85 @@ int mem_chain_flt(const mem_opt_t *opt, int n_chn_, mem_chain_t *a_, int tid)
     return n_numc;
 }
 
+//Debug funstions
+
+void print_smem(SMEM a){
+	fprintf(stderr, "smem: %ld %ld %ld %ld %ld %ld\n", a.rid, a.smem_id, a.m, a.n, a.k, a.s);
+}
+
 bool smem_sort(SMEM_out a, SMEM_out b) { 
 	return a.id < b.id || (a.id == b.id && a.q_l < b.q_l);
 }
 
 bool tal_smem_sort(SMEM a, SMEM b) { 
-	return a.rid < b.rid || (a.rid == b.rid && a.m < b.m);
+	return a.rid < b.rid || (a.rid == b.rid && a.m < b.m) || (a.rid == b.rid && a.m == b.m && a.n > b.n);
 }
 
+bool isEqual(SMEM a, SMEM b){
+	if(a.rid == b.rid && 
+		a.m ==b.m &&
+		a.n == b.n &&
+		a.k == b.k &&
+		a.s == b.s) return true;
+	else return false;
+}
+bool isSubset(SMEM *a, SMEM *b, int a_size, int b_size){
+	for(int i = 0; i < a_size; i++){
+		bool flag = false;
+		for(int j = 0; j < b_size; j++){
+			if(isEqual(a[i], b[j])){
+				flag = true;
+				break;
+			}
+		}
+		if(flag == false) { 
+			print_smem(a[i]);
+			return false;
+		}
+	}	
+	return true;
+}
+void for_all_smem(SMEM *a, int a_size, char* msg){
+	fprintf(stderr, "%s\n", msg);
+	for(int i = 0; i < a_size; i++){
+		print_smem(a[i]);
+	}
+
+}
+
+bool isSubsume(SMEM a, SMEM b){
+	if(a.rid == b.rid &&
+		a.smem_id == b.smem_id && 
+		a.m == b.m &&
+		a.n > b.n) return true;
+	else return false;
+}
+void get_subsuming_smem(SMEM* a, int* n){
+	int a_size = *n;
+	bool flag[a_size];
+	for(int i = 0; i < a_size; i++) flag[i] = true;
+
+	for(int i = 0; i < a_size; i++){
+		for(int j = i + 1; j < a_size; j++){
+			if(isSubsume(a[i], a[j])){
+				//a[j] = a[i];
+				flag[j] = false;
+			}
+		}
+	}
+//	for_all_smem(a, a_size, "duplicates present");
+	int cnt = 0;
+	for(int i = 0; i < a_size; i++){
+		if(flag[i] == true) 
+			a[cnt++] = a[i];
+	}
+	a_size = cnt;
+	*n = cnt; 
+//	for_all_smem(a, a_size, "duplicates removed");
+}
+
+
+// debug functions end
 SMEM *mem_collect_smem(FMI_search *fmi, 
 		       QBWT_HYBRID<index_t> *qbwt,
 		       const mem_opt_t *opt,
@@ -648,11 +719,11 @@ SMEM *mem_collect_smem(FMI_search *fmi,
     int max_readlength = -1;
     
     int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(nseq * sizeof(int32_t), 64);
-        
     int offset = 0;
     
 #ifdef ENABLE_LISA
     std::vector<Info> lisa_qdb;
+    std::vector<Info> lisa_qdb_k2;
 #endif
     for (int l=0; l<nseq; l++)
     {
@@ -664,20 +735,19 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 		    enc_qdb[offset + j] = seq_[l].seq[j];
 		    if((int) seq_[l].seq[j] > 3)  break;
  		}
-		//----------------------- LISA --------
-
 #ifdef ENABLE_LISA
 		Info temp_q;
 		temp_q.p = &enc_qdb[offset + prev_j];
 		temp_q.id = l;
 		temp_q.id |= ((int64_t)prev_j <<24);
-		temp_q.l = j - prev_j; //seq_[l].l_seq;
-		temp_q.r = j - prev_j; //seq_[l].l_seq;
+		temp_q.l = j - prev_j; 
+		temp_q.r = j - prev_j; 
 		temp_q.intv = {0, qbwt->n};
+		temp_q.min_intv = 0;
+		temp_q.mid = 0;
 		if(j - prev_j >= opt->min_seed_len ){	
 			lisa_qdb.push_back(temp_q);
 		}
-		//------------------------------------
 #endif
 		j++;
 	}
@@ -693,77 +763,39 @@ SMEM *mem_collect_smem(FMI_search *fmi,
             max_readlength = seq_[i].l_seq;
     }
 
-  //  fprintf(stderr, "mem2 smem search start \n");
-   
     uint64_t tal_start, tal_end, lisa_start, lisa_end;
 #ifndef ENABLE_LISA
     tal_start = __rdtsc();
     fmi->getSMEMsAllPosOneThread(enc_qdb, min_intv_ar, rid, nseq, nseq,
                                  seq_, query_cum_len_ar, max_readlength, opt->min_seed_len,
                                  matchArray, &num_smem1);
-
     tal_end = __rdtsc();
-
     tprof[TAL_SMEM][0] += (tal_end - tal_start);
-
 #else
 // ---------- LISA SMEM call ---------
    lisa_start = __rdtsc();
    threadData td = *thread_data;
-   int64_t vAnsAllocation = nseq * 20;  
    Output op(0);
-   op.smem = (SMEM_out*) malloc(vAnsAllocation * sizeof(SMEM_out));
-   
+   op.tal_smem = matchArray; 
    smem_rmi_batched(&lisa_qdb[0], lisa_qdb.size(), 10000, *qbwt, td, &op, opt->min_seed_len);
-
-   SMEM_out *lisa_smems = op.smem;
-   for(int i = 0; i < td.numSMEMs; i++){
-	int offset = (lisa_smems[i].id>>24);
-	lisa_smems[i].id = lisa_smems[i].id & 0x0FFF;
-	lisa_smems[i].q_l += offset;
-	lisa_smems[i].q_r += offset;
-   }
-
-// Copy SMEMs to TAL smem-output format
-// TODO: Change LISA to return TAL's smems format
-   for(int64_t i = 0; i < td.numSMEMs; i++) { 
-	SMEM *p = &matchArray[i];
-	SMEM_out q = lisa_smems[i];
-
-	p->rid = q.id;
-	p->m = q.q_l; 
-	p->n = q.q_r - 1;
-	p->k = q.ref_l;
- 	p->s = q.ref_r - p->k;
-	
-   }
    num_smem1 = td.numSMEMs;
+
+// Input read dataset for kernel 2
+//
+   SMEM *tal_smems = op.tal_smem;
+   for(int i = 0; i < num_smem1; i++){
+	int offset = (tal_smems[i].rid>>24);
+	tal_smems[i].rid = tal_smems[i].rid & 0x0FFF;
+	tal_smems[i].m += offset;
+	tal_smems[i].n += offset;
+	//fprintf(stderr, "kernel 1: %ld %ld %ld %ld %ld\n",tal_smems[i].rid, tal_smems[i].m, tal_smems[i].n, tal_smems[i].k, tal_smems[i].s);
+   }
+
    lisa_end = __rdtsc();
    tprof[LISA_SMEM][0] += (lisa_end - lisa_start);
-
-
-
-#ifdef LISA_DEBUG
-   sort(lisa_smems, lisa_smems + td.numSMEMs, smem_sort);
-   sort(matchArray, matchArray + num_smem1, tal_smem_sort);
-   for(int64_t i = 0; i < num_smem1; i++) { 
-	SMEM *p = &matchArray[i];
-	SMEM_out q = lisa_smems[i];
-
-	bool assert_cond = ( p->rid == q.id && p->m == q.q_l && (p->n == q.q_r - 1) && p->k == q.ref_l && (p->k + p->s) == q.ref_r);
-
-	if(!assert_cond){
-		fprintf(stderr, "SMEM mismatch\n");
-		fprintf(stderr, "%ld %ld , %ld %ld,  %ld %ld,  %ld %ld,  %ld %ld \n", p->rid, q.id, p->m, q.q_l, p->n, q.q_r - 1, p->k, q.ref_l, (p->k + p->s), q.ref_r);
-	}
-	
-   }
-#endif
-   //td.dealloc_td();
 // ----------------------------------
 #endif
-
-
+    
 
     for (int64_t i=0; i<num_smem1; i++)
     {
@@ -784,6 +816,63 @@ SMEM *mem_collect_smem(FMI_search *fmi,
         pos ++;
     }
 
+#ifdef ENABLE_LISA
+    SMEM *p_k2;
+    int lisa_min_intv[pos];
+    fmi->getSMEMsSeedForwardShrink(enc_qdb,
+                                 query_pos_ar,
+                                 min_intv_ar,
+                                 rid,
+                                 pos,
+                                 pos,
+                                 seq_,
+                                 query_cum_len_ar,
+                                 max_readlength,
+                                 opt->min_seed_len,
+                                 matchArray + num_smem1,
+                                 &num_smem2,
+				 lisa_min_intv);
+
+    p_k2 = matchArray + num_smem1;
+    for (int64_t i=0; i<num_smem2; i++)
+    {
+	SMEM s = p_k2[i];
+	Info q_temp;
+	q_temp.p =  &enc_qdb[query_cum_len_ar[s.rid]];
+	q_temp.id = s.rid;
+	q_temp.l = q_temp.r = s.n + 1;
+	q_temp.intv = {0, qbwt->n};
+	q_temp.min_intv =  lisa_min_intv[i];//min_intv_ar[s.rid] - 1;
+	q_temp.mid = s.m;
+	q_temp.smem_id = i;
+	lisa_qdb_k2.push_back(q_temp);		
+	//fprintf(stderr, "K2 input : %ld %ld %ld %ld %ld\n",s.rid, s.m, s.n, s.k, s.s);
+
+    }
+
+   op.tal_smem = matchArray + num_smem1;
+   td.numSMEMs = 0; 
+   smem_rmi_batched(&lisa_qdb_k2[0], lisa_qdb_k2.size(), 10000, *qbwt, td, &op, opt->min_seed_len, false);
+   num_smem2 = td.numSMEMs;
+   
+   //for_all_smem(matchArray, num_smem1, "kernel 1 smems"); 
+   //for_all_smem(matchArray+num_smem1, num_smem2, "kernel 2 smems"); 
+   get_subsuming_smem(&p_k2[0], &num_smem2);
+   //for_all_smem(matchArray+num_smem1, num_smem2, "kernel 2 smems after removing sumsumption"); 
+
+#ifdef LISA_DEBUG
+   p_k2 = matchArray + num_smem1;
+   vector<SMEM> smem_k2;
+   for (int64_t i=0; i<num_smem2; i++)
+   {
+	SMEM s = p_k2[i];
+	smem_k2.push_back(s);
+    }
+#endif
+#else
+
+    //num_smem2 = 0;
+   
     fmi->getSMEMsOnePosOneThread(enc_qdb,
                                  query_pos_ar,
                                  min_intv_ar,
@@ -796,6 +885,26 @@ SMEM *mem_collect_smem(FMI_search *fmi,
                                  opt->min_seed_len,
                                  matchArray + num_smem1,
                                  &num_smem2);
+#endif
+#ifdef LISA_DEBUG
+    p_k2 = matchArray + num_smem1;
+    //for_all_smem(matchArray+num_smem1, num_smem2, "kernel 2 TAL smems"); 
+
+    vector<SMEM> smem_k2_tal;
+    for (int64_t i=0; i<num_smem2; i++)
+    {
+	SMEM s = p_k2[i];
+	smem_k2_tal.push_back(s);
+    }
+   
+    if(!isSubset(&smem_k2_tal[0], &smem_k2[0], smem_k2_tal.size(), smem_k2.size()) || 
+	!isSubset(&smem_k2[0], &smem_k2_tal[0], smem_k2.size(), smem_k2_tal.size())){
+	fprintf(stderr, "Not a subset\n");
+    }
+    else 
+	fprintf(stderr, "Subset %ld %ld \n", smem_k2.size(), smem_k2_tal.size());
+
+#endif
 
     if (opt->max_mem_intv > 0)
     {
