@@ -621,10 +621,35 @@ int mem_chain_flt(const mem_opt_t *opt, int n_chn_, mem_chain_t *a_, int tid)
     return n_numc;
 }
 
-//Debug funstions
+//Debug functions
+void print_read(char *p, int len){
+	for(int i = 0; i < len; i++){
+		fprintf(stderr, "%d", p[i]);
+	}
+	fprintf(stderr, "\n");
+}
+void modify_to_rev_comp_read(Info *q){
+	char *p = q->p;
+	int len = q->r;
+	//print_read(p, len);	
+
+	int s = 0, e = len - 1;
+	while(s < e){
+		p[s] = 3 - p[s];
+		p[e] = 3 - p[e];
+		swap(p[s], p[e]);
+		s++; e--;
+	}
+	if(s == e){
+		p[s] = 3 - p[s];
+	}
+	//print_read(p, len);	
+
+}
 
 void print_smem(SMEM a){
 	fprintf(stderr, "smem: %ld %ld %ld %ld %ld %ld\n", a.rid, a.smem_id, a.m, a.n, a.k, a.s);
+	
 }
 
 bool smem_sort(SMEM_out a, SMEM_out b) { 
@@ -724,6 +749,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 #ifdef ENABLE_LISA
     std::vector<Info> lisa_qdb;
     std::vector<Info> lisa_qdb_k2;
+    std::vector<Info> lisa_qdb_k3;
 #endif
     for (int l=0; l<nseq; l++)
     {
@@ -754,6 +780,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
         offset += seq_[l].l_seq;        
         rid[l] = l;
     }
+    lisa_qdb_k3 = lisa_qdb;
 
     max_readlength = seq_[0].l_seq;
     query_cum_len_ar[0] = 0;
@@ -781,7 +808,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
    num_smem1 = td.numSMEMs;
 
 // Input read dataset for kernel 2
-//
+
    SMEM *tal_smems = op.tal_smem;
    for(int i = 0; i < num_smem1; i++){
 	int offset = (tal_smems[i].rid>>24);
@@ -872,7 +899,8 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 #else
 
     //num_smem2 = 0;
-   
+  
+ 
     fmi->getSMEMsOnePosOneThread(enc_qdb,
                                  query_pos_ar,
                                  min_intv_ar,
@@ -906,16 +934,120 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 
 #endif
 
+// Kernel 3 
     if (opt->max_mem_intv > 0)
     {
         for (int l=0; l<nseq; l++)
             min_intv_ar[l] = opt->max_mem_intv;
 
+
         num_smem3 = fmi->bwtSeedStrategyAllPosOneThread(enc_qdb, min_intv_ar,
                                                         nseq, seq_, query_cum_len_ar, 
                                                         opt->min_seed_len + 1,
-                                                        matchArray + num_smem1 + num_smem2);        
+                                                        matchArray + num_smem1 + num_smem2);       
+
+	SMEM *p = matchArray + num_smem1 + num_smem2;
+    	vector<SMEM> smem_k3_tal;
+	for(int i = 0; i<num_smem3; i++){
+		smem_k3_tal.push_back(p[i]);
+		//print_smem(smem_k3_tal[i]);
+		//int64_t pos = fmi->get_sa_entry_compressed(p[i].k, 0) ;
+		//fprintf(stderr, "position: %ld\n", pos);
+	}
+        
+	for(int i = 0; i < lisa_qdb_k3.size(); i++){
+		modify_to_rev_comp_read(&lisa_qdb_k3[i]);
+		lisa_qdb_k3[i].min_intv = opt->max_mem_intv;
+		lisa_qdb_k3[i].mid = lisa_qdb_k3[i].r;// - (lisa_qdb_k3[i].rid>>24); // Info.mid represents the length of the read forkernel 3
+	}
+
+
+	op.tal_smem = matchArray + num_smem1 + num_smem2;
+        td.numSMEMs = 0; 
+
+        exact_search_rmi_batched(&lisa_qdb_k3[0], lisa_qdb_k3.size(), 10000, *qbwt, td, &op, opt->min_seed_len + 1);
+	
+	SMEM *tal_smems = op.tal_smem;
+	for(int i = 0; i < num_smem3; i++){
+		int offset = (tal_smems[i].rid>>24);
+		tal_smems[i].rid = tal_smems[i].rid & 0x0FFF;
+		tal_smems[i].m = tal_smems[i].l - tal_smems[i].m - 1; //tal_smems[i].l represents the length of the read
+		tal_smems[i].n = tal_smems[i].l - tal_smems[i].n - 1;
+		tal_smems[i].m += offset;
+		tal_smems[i].n += offset;
+	}
+    	vector<SMEM> smem_k3_lisa;
+	for(int i = 0; i<td.numSMEMs; i++){
+		//print_smem(op.tal_smem[i]);
+		//int64_t pos = qbwt->n - fmi->get_sa_entry_compressed(op.tal_smem[i].k, 0) - (op.tal_smem[i].n - op.tal_smem[i].m + 1) ;
+		//fprintf(stderr, "Position: %ld\n", pos);
+    		smem_k3_lisa.push_back(op.tal_smem[i]);
+
+	}	
+    
+	sort(&smem_k3_lisa[0], &smem_k3_lisa[0]+smem_k3_lisa.size(), tal_smem_sort);
+	sort(&smem_k3_tal[0], &smem_k3_tal[0]+smem_k3_tal.size(), tal_smem_sort);
+	if(smem_k3_lisa.size() == smem_k3_tal.size()){
+		bool flag = true;
+		for(int i = 0; i < smem_k3_tal.size(); i++){
+			int64_t p1, p2;
+			p1 = fmi->get_sa_entry_compressed(smem_k3_tal[i].k, 0) ;
+			p2 = qbwt->n - fmi->get_sa_entry_compressed(smem_k3_lisa[i].k - smem_k3_lisa[i].s + 1, 0) - (smem_k3_lisa[i].n - smem_k3_lisa[i].m + 2) ;
+			bool assert_cond = smem_k3_lisa[i].rid == smem_k3_tal[i].rid &&
+					smem_k3_lisa[i].m == smem_k3_tal[i].m &&
+					smem_k3_lisa[i].n == smem_k3_tal[i].n &&
+					smem_k3_lisa[i].s == smem_k3_tal[i].s;// &&
+					//p1 == p2;
+			if(assert_cond == true){
+				vector<int64_t> lisa_seq_pos;
+				vector<int64_t> tal_seq_pos;
+				for (int s_i = 0; s_i < smem_k3_lisa[i].s; s_i++){
+					p2 = qbwt->n - fmi->get_sa_entry_compressed(smem_k3_lisa[i].k + s_i, 0) - (smem_k3_lisa[i].n - smem_k3_lisa[i].m + 2) ;
+					lisa_seq_pos.push_back(p2);
+} 
+				for (int s_i = 0; s_i < smem_k3_tal[i].s; s_i++){
+					p1 = fmi->get_sa_entry_compressed(smem_k3_tal[i].k + s_i, 0) ;
+					tal_seq_pos.push_back(p1);
+}
+				sort(&lisa_seq_pos[0], &lisa_seq_pos[0] + lisa_seq_pos.size());
+				sort(&tal_seq_pos[0], &tal_seq_pos[0] + tal_seq_pos.size());
+
+				bool pos_flag = true;
+				for (int s_i = 0; s_i < smem_k3_tal[i].s; s_i++){
+					if (tal_seq_pos[s_i] != lisa_seq_pos[s_i]){
+						pos_flag = false;
+						fprintf(stderr, "%lld %lld\n", tal_seq_pos[s_i], lisa_seq_pos[s_i]);
+						break;
+					}
+				}
+
+				assert_cond = assert_cond && pos_flag;
+			}	
+
+			if(assert_cond == false) { flag = false; 
+				print_smem(smem_k3_tal[i]);
+				print_smem(smem_k3_lisa[i]);
+
+				break;
+
+			}
+		}
+		fprintf(stderr, "Match %d\n", flag);	 
+
+	}
+	else{
+		fprintf(stderr, " Mismatch smems count %ld %ld\n", smem_k3_lisa.size(), smem_k3_tal.size());	 
+
+	}
+	p = matchArray + num_smem1 + num_smem2;
+	for(int i = 0; i<num_smem3; i++){
+		p[i] = smem_k3_tal[i]; 
+	}
+
     }
+    
+
+
     tot_smem = num_smem1 + num_smem2 + num_smem3;
 
     fmi->sortSMEMs(matchArray, &tot_smem, nseq, seq_[0].l_seq, 1); // seq_[0].l_seq - only used for blocking when using nthreads
