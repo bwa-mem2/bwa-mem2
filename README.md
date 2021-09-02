@@ -7,7 +7,7 @@ BWA-Mich produces identical results as BWA-MEM2 and is 1.2-1.4x faster.
 ## Getting Started
 ```sh
 # Compile from source
-git clone https://github.com/arun-sub/bwa-mem2.git ert
+git clone --recursive https://github.com/arun-sub/bwa-mem2.git ert
 cd ert
 
 # To find out vectorization features supported in your machine
