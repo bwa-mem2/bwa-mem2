@@ -2546,7 +2546,7 @@ void copy_buffer_write_thr(void *thread_arg){
     free(my_data->buffer_out);
 }
 */
-void write_sam_mt(void *thread_arg){
+void *write_sam_mt(void *thread_arg){
 
     struct struct_data_thread *my_data;
     my_data = (struct struct_data_thread *) thread_arg;
@@ -2587,7 +2587,7 @@ void write_sam_mt(void *thread_arg){
 
 
 
-void pread_fastq_chunck(void *thread_arg ){
+void *pread_fastq_chunck(void *thread_arg ){
 
     struct struct_pread_fastq *my_data;
     my_data = (struct struct_pread_fastq *) thread_arg;

@@ -1,5 +1,26 @@
 # mpiBWA2
 
+Upate: 03/09/21
+---------------
+
+Candidate release
+
+1) Some fixes
+
+2) Options 
+
+By default output is a SAM file
+
+	-b => BAM (compatible with Samtools)
+	-g => BGZF
+	-f => fixmate (for mpiMarkdup)
+
+
+Don't give extension  (.bam, .sam, .gz) with -o option.
+The programm automatically derived the file extension from the option. 
+If no option provided SAM is produced.
+
+
 Upate: 04/06/21
 ---------------
 

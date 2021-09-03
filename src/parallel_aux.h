@@ -69,17 +69,17 @@ void *compress_thread_by_chr_single(void *threadarg);
 void *call_fixmate(void *threadarg);
 void *copy_local_read_info_mt(void *thread_arg);
 void *find_reads_size_and_offsets_mt(void *thread_arg);
-void copy_buffer_write_thr(void *thread_arg);
-void compute_buffer_size_thr(void *thread_arg);
+void *copy_buffer_write_thr(void *thread_arg);
+void *compute_buffer_size_thr(void *thread_arg);
 void create_bam_header(char *file_out, bwaidx_fm_t *indix, int *count, 
     char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level);
 void create_bam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count, 
     char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level, int dofixmate);
-void write_sam_mt(void *thread_arg);
+void *write_sam_mt(void *thread_arg);
 
 
 
-void pread_fastq_chunck(void *thread_arg );
+void *pread_fastq_chunck(void *thread_arg );
 
 
 /****************************************
