@@ -648,7 +648,7 @@ void modify_to_rev_comp_read(Info *q){
 }
 
 void print_smem(SMEM a){
-	fprintf(stderr, "smem: %ld %ld %ld %ld %ld %ld\n", a.rid, a.smem_id, a.m, a.n, a.k, a.s);
+	fprintf(stderr, "smem: %ld %ld %ld %ld %ld\n", a.rid,  a.m, a.n, a.k, a.s);
 	
 }
 
@@ -694,7 +694,7 @@ void for_all_smem(SMEM *a, int a_size, char* msg){
 
 bool isSubsume(SMEM a, SMEM b){
 	if(a.rid == b.rid &&
-		a.smem_id == b.smem_id && 
+		//a.smem_id == b.smem_id && 
 		a.m == b.m) { return true;}
 	else return false;
 }
@@ -743,6 +743,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 		       threadData *thread_data,
 			int tid)
 {
+    uint64_t tim = __rdtsc();
 
     int64_t pos = 0;
     int split_len = (int)(opt->min_seed_len * opt->split_factor + .499);
@@ -801,17 +802,12 @@ SMEM *mem_collect_smem(FMI_search *fmi,
     }
 
     uint64_t tal_start, tal_end, lisa_start, lisa_end;
-  //uint64_t tim = __rdtsc();
 #ifndef ENABLE_LISA
-  //  tal_start = __rdtsc();
     fmi->getSMEMsAllPosOneThread(enc_qdb, min_intv_ar, rid, nseq, nseq,
                                  seq_, query_cum_len_ar, max_readlength, opt->min_seed_len,
                                  matchArray, &num_smem1);
-  //  tal_end = __rdtsc();
-  //  tprof[TAL_SMEM][0] += (tal_end - tal_start);
 #else
 // ---------- LISA SMEM call ---------
-  // lisa_start = __rdtsc();
    threadData td = *thread_data;
    Output op(0);
    op.tal_smem = matchArray; 
@@ -828,13 +824,10 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 	tal_smems[i].n += offset;
 	//fprintf(stderr, "kernel 1: %ld %ld %ld %ld %ld\n",tal_smems[i].rid, tal_smems[i].m, tal_smems[i].n, tal_smems[i].k, tal_smems[i].s);
    }
-
-   //lisa_end = __rdtsc();
-   //tprof[LISA_SMEM][0] += (lisa_end - lisa_start);
 // ----------------------------------
 #endif
-    //tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
-    
+    tprof[K1_TIMER][tid] += __rdtsc() - tim; 
+    tim = __rdtsc();
 
     for (int64_t i=0; i<num_smem1; i++)
     {
@@ -854,7 +847,6 @@ SMEM *mem_collect_smem(FMI_search *fmi,
         min_intv_ar[pos] = p->s + 1;
         pos ++;
     }
-  uint64_t tim = __rdtsc();
 
 #ifdef ENABLE_LISA_K2
     SMEM *p_k2;
@@ -884,7 +876,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 	q_temp.intv = {0, qbwt->n};
 	q_temp.min_intv =  lisa_min_intv[i];//min_intv_ar[s.rid] - 1;
 	q_temp.mid = s.m;
-	q_temp.smem_id = i;
+	//q_temp.smem_id = i;
 	lisa_qdb_k2.push_back(q_temp);		
 	//fprintf(stderr, "K2 input : %ld %ld %ld %ld %ld\n",s.rid, s.m, s.n, s.k, s.s);
 
@@ -932,8 +924,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
                                  matchArray + num_smem1,
                                  &num_smem2);
 #endif
-    tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
-
+    tprof[K2_TIMER][tid] += __rdtsc() - tim; 
 
 #ifdef LISA_DEBUG
     p_k2 = matchArray + num_smem1;
@@ -955,7 +946,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 
 #endif
 
-  //uint64_t tim = __rdtsc();
+    tim = __rdtsc();
 // ********************************************   Kernel 3 *************************
     if (opt->max_mem_intv > 0)
     {
@@ -1097,10 +1088,8 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 #endif //LISA_kernel3 end
 #endif //ENABLE_LISA_K3
     }
-    //tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
+    tprof[K3_TIMER][tid] += __rdtsc() - tim; 
     
-
-	//fprintf(stderr, "rival log k1 k2 %ld %ld %ld\n",num_smem1, num_smem2, num_smem1 + num_smem2);
 
     tot_smem = num_smem1 + num_smem2 + num_smem3;
 
@@ -1351,7 +1340,7 @@ int mem_kernel1_core(FMI_search *fmi,
     int64_t  *wsize_mem   = &mmc->wsize_mem[tid];
     threadData *td	  = mmc->td[tid];
     
-    //tim = __rdtsc();    
+    tim = __rdtsc();    
     /********************** Kernel 1: FM+SMEMs *************************/
     printf_(VER, "6. Calling mem_collect_smem.., tid: %d\n", tid);
     mem_collect_smem(fmi, qbwt, opt,
@@ -1371,7 +1360,7 @@ int mem_kernel1_core(FMI_search *fmi,
         assert(num_smem < *wsize_mem);
     }
     printf_(VER, "6. Done! mem_collect_smem, num_smem: %ld\n", num_smem);
-    //tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
+    tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
     //fprintf(stderr, "6. Done! mem_collect_smem, num_smem: %d %ld\n", tid, __rdtsc() - tim);
 
 

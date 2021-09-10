@@ -172,8 +172,14 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define PE26 112
 #define TAL_SMEM 113
 #define LISA_SMEM 114
+#define K1_TIMER 115
+#define K2_TIMER 116
+#define K3_TIMER 117
+
 #define ENABLE_LISA 1
 #define ENABLE_LISA_K2 1
+
+
 //#define ENABLE_LISA_K3 1
 //#define LISA_ENABLE_K3 0
 //#define KERNEL3_DEBUG 0

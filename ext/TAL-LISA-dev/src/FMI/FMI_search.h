@@ -394,7 +394,7 @@ typedef struct smem_struct
     uint32_t rid;
     uint32_t m, n;
     int64_t k, l, s;
-    int smem_id;
+    //int smem_id;
 }SMEM;
 
 #define SAL_PFD 16

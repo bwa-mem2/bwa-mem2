@@ -206,7 +206,7 @@ void fmi_extend_batched_exact_search( QBWT_HYBRID<index_t> &qbwt, int cnt, Info*
 							output->tal_smem[td.numSMEMs].k = q.intv.first;                                                                                               			
 							output->tal_smem[td.numSMEMs].l = q.mid; // Here length of the read                                                                                               			
 							output->tal_smem[td.numSMEMs].s = q.intv.second - q.intv.first;
-							output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
+							//output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
 							td.numSMEMs++;                                                                                               			
 	#endif
 						}
@@ -246,7 +246,7 @@ void fmi_extend_batched_exact_search( QBWT_HYBRID<index_t> &qbwt, int cnt, Info*
 							output->tal_smem[td.numSMEMs].k = q.intv.first;                                                                                               			
 							output->tal_smem[td.numSMEMs].l = q.mid; // Here length of the read                                                                                               			
 							output->tal_smem[td.numSMEMs].s = q.intv.second - q.intv.first;
-							output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
+							//output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
 							td.numSMEMs++;                                                                                               			
 #endif
 					}
@@ -316,7 +316,7 @@ void fmi_extend_batched( QBWT_HYBRID<index_t> &qbwt, int cnt, Info* q_batch, thr
 						output->tal_smem[td.numSMEMs].k = q.intv.first;                                                                                               			
 						output->tal_smem[td.numSMEMs].l = 0;                                                                                               			
 						output->tal_smem[td.numSMEMs].s = q.intv.second - q.intv.first;
-						output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
+						//output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
 						td.numSMEMs++;                       
 						q.prev_l = q.l;                                                                        			
 #endif
@@ -350,7 +350,7 @@ void fmi_extend_batched( QBWT_HYBRID<index_t> &qbwt, int cnt, Info* q_batch, thr
 						output->tal_smem[td.numSMEMs].k = q.intv.first;                                                                                               			
 						output->tal_smem[td.numSMEMs].l = 0;                                                                                               			
 						output->tal_smem[td.numSMEMs].s = q.intv.second - q.intv.first;
-						output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
+						//output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
 						td.numSMEMs++;                                                                                               			
 						q.prev_l = q.l;                                                                        			
 #endif
@@ -434,7 +434,7 @@ void smem_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID
 						output->tal_smem[td.numSMEMs].k = q.intv.first;                                                                                               			
 						output->tal_smem[td.numSMEMs].l = 0;                                                                                               			
 						output->tal_smem[td.numSMEMs].s = q.intv.second - q.intv.first;
-						output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
+						//output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
 						td.numSMEMs++;                                                                                               			
 						q.prev_l = q.l;                                                                        			
 #endif
@@ -535,7 +535,7 @@ void exact_search_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBW
 						output->tal_smem[td.numSMEMs].k = q.intv.first;                                                                                               			
 						output->tal_smem[td.numSMEMs].l = 0;                                                                                               			
 						output->tal_smem[td.numSMEMs].s = q.intv.second - q.intv.first;
-						output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
+						//output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
 						td.numSMEMs++;                                                                                               			
 #endif
 					}
