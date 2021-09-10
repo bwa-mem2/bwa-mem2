@@ -45,7 +45,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define SEEDS_PER_READ 500           /* Avg seeds per read */
 #define MAX_SEEDS_PER_READ 500       /* Max seeds per read */
 #define AVG_SEEDS_PER_READ 64        /* Used for storing seeds in chains*/
-#define BATCH_SIZE 512               /* Block of reads alloacted to a thread for processing*/
+#define BATCH_SIZE 512              /* Block of reads alloacted to a thread for processing*/
 #define BATCH_MUL 20
 #define SEEDS_PER_CHAIN 1
 
@@ -173,4 +173,8 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define TAL_SMEM 113
 #define LISA_SMEM 114
 #define ENABLE_LISA 1
+#define ENABLE_LISA_K2 1
+//#define ENABLE_LISA_K3 1
+//#define LISA_ENABLE_K3 0
+//#define KERNEL3_DEBUG 0
 #endif

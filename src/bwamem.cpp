@@ -695,8 +695,7 @@ void for_all_smem(SMEM *a, int a_size, char* msg){
 bool isSubsume(SMEM a, SMEM b){
 	if(a.rid == b.rid &&
 		a.smem_id == b.smem_id && 
-		a.m == b.m &&
-		a.n > b.n) return true;
+		a.m == b.m) { return true;}
 	else return false;
 }
 void get_subsuming_smem(SMEM* a, int* n){
@@ -708,16 +707,21 @@ void get_subsuming_smem(SMEM* a, int* n){
 		for(int j = i + 1; j < a_size; j++){
 			if(isSubsume(a[i], a[j])){
 				//a[j] = a[i];
+				print_smem(a[i]);
+				print_smem(a[j]);
+				fprintf(stderr, "-----------------\n");
 				flag[j] = false;
 			}
 		}
 	}
+
 //	for_all_smem(a, a_size, "duplicates present");
 	int cnt = 0;
 	for(int i = 0; i < a_size; i++){
 		if(flag[i] == true) 
 			a[cnt++] = a[i];
 	}
+	
 	a_size = cnt;
 	*n = cnt; 
 //	for_all_smem(a, a_size, "duplicates removed");
@@ -736,8 +740,10 @@ SMEM *mem_collect_smem(FMI_search *fmi,
                        uint8_t *enc_qdb,
                        int32_t *rid,
                        int64_t &tot_smem,
-		       threadData *thread_data)
+		       threadData *thread_data,
+			int tid)
 {
+
     int64_t pos = 0;
     int split_len = (int)(opt->min_seed_len * opt->split_factor + .499);
     int64_t num_smem1 = 0, num_smem2 = 0, num_smem3 = 0;
@@ -767,7 +773,8 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 		temp_q.id = l;
 		temp_q.id |= ((int64_t)prev_j <<24);
 		temp_q.l = j - prev_j; 
-		temp_q.r = j - prev_j; 
+		temp_q.r = j - prev_j;
+		temp_q.prev_l = temp_q.l; 
 		temp_q.intv = {0, qbwt->n};
 		temp_q.min_intv = 0;
 		temp_q.mid = 0;
@@ -780,8 +787,11 @@ SMEM *mem_collect_smem(FMI_search *fmi,
         offset += seq_[l].l_seq;        
         rid[l] = l;
     }
+   
+#ifdef ENABLE_LISA_K3
+//#if 0
     lisa_qdb_k3 = lisa_qdb;
-
+#endif
     max_readlength = seq_[0].l_seq;
     query_cum_len_ar[0] = 0;
     for(int i = 1; i < nseq; i++) {
@@ -791,16 +801,17 @@ SMEM *mem_collect_smem(FMI_search *fmi,
     }
 
     uint64_t tal_start, tal_end, lisa_start, lisa_end;
+  //uint64_t tim = __rdtsc();
 #ifndef ENABLE_LISA
-    tal_start = __rdtsc();
+  //  tal_start = __rdtsc();
     fmi->getSMEMsAllPosOneThread(enc_qdb, min_intv_ar, rid, nseq, nseq,
                                  seq_, query_cum_len_ar, max_readlength, opt->min_seed_len,
                                  matchArray, &num_smem1);
-    tal_end = __rdtsc();
-    tprof[TAL_SMEM][0] += (tal_end - tal_start);
+  //  tal_end = __rdtsc();
+  //  tprof[TAL_SMEM][0] += (tal_end - tal_start);
 #else
 // ---------- LISA SMEM call ---------
-   lisa_start = __rdtsc();
+  // lisa_start = __rdtsc();
    threadData td = *thread_data;
    Output op(0);
    op.tal_smem = matchArray; 
@@ -818,10 +829,11 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 	//fprintf(stderr, "kernel 1: %ld %ld %ld %ld %ld\n",tal_smems[i].rid, tal_smems[i].m, tal_smems[i].n, tal_smems[i].k, tal_smems[i].s);
    }
 
-   lisa_end = __rdtsc();
-   tprof[LISA_SMEM][0] += (lisa_end - lisa_start);
+   //lisa_end = __rdtsc();
+   //tprof[LISA_SMEM][0] += (lisa_end - lisa_start);
 // ----------------------------------
 #endif
+    //tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
     
 
     for (int64_t i=0; i<num_smem1; i++)
@@ -842,8 +854,9 @@ SMEM *mem_collect_smem(FMI_search *fmi,
         min_intv_ar[pos] = p->s + 1;
         pos ++;
     }
+  uint64_t tim = __rdtsc();
 
-#ifdef ENABLE_LISA
+#ifdef ENABLE_LISA_K2
     SMEM *p_k2;
     int lisa_min_intv[pos];
     fmi->getSMEMsSeedForwardShrink(enc_qdb,
@@ -867,7 +880,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 	Info q_temp;
 	q_temp.p =  &enc_qdb[query_cum_len_ar[s.rid]];
 	q_temp.id = s.rid;
-	q_temp.l = q_temp.r = s.n + 1;
+	q_temp.prev_l = q_temp.l = q_temp.r = s.n + 1;
 	q_temp.intv = {0, qbwt->n};
 	q_temp.min_intv =  lisa_min_intv[i];//min_intv_ar[s.rid] - 1;
 	q_temp.mid = s.m;
@@ -876,16 +889,21 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 	//fprintf(stderr, "K2 input : %ld %ld %ld %ld %ld\n",s.rid, s.m, s.n, s.k, s.s);
 
     }
+   
+
 
    op.tal_smem = matchArray + num_smem1;
    td.numSMEMs = 0; 
    smem_rmi_batched(&lisa_qdb_k2[0], lisa_qdb_k2.size(), 10000, *qbwt, td, &op, opt->min_seed_len, false);
    num_smem2 = td.numSMEMs;
+    
    
+   //uint64_t tim = __rdtsc();
    //for_all_smem(matchArray, num_smem1, "kernel 1 smems"); 
    //for_all_smem(matchArray+num_smem1, num_smem2, "kernel 2 smems"); 
-   get_subsuming_smem(&p_k2[0], &num_smem2);
+   //get_subsuming_smem(&p_k2[0], &num_smem2);
    //for_all_smem(matchArray+num_smem1, num_smem2, "kernel 2 smems after removing sumsumption"); 
+   //tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
 
 #ifdef LISA_DEBUG
    p_k2 = matchArray + num_smem1;
@@ -914,6 +932,9 @@ SMEM *mem_collect_smem(FMI_search *fmi,
                                  matchArray + num_smem1,
                                  &num_smem2);
 #endif
+    tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
+
+
 #ifdef LISA_DEBUG
     p_k2 = matchArray + num_smem1;
     //for_all_smem(matchArray+num_smem1, num_smem2, "kernel 2 TAL smems"); 
@@ -934,13 +955,22 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 
 #endif
 
-// Kernel 3 
+  //uint64_t tim = __rdtsc();
+// ********************************************   Kernel 3 *************************
     if (opt->max_mem_intv > 0)
     {
         for (int l=0; l<nseq; l++)
             min_intv_ar[l] = opt->max_mem_intv;
+#ifndef ENABLE_LISA_K3
 
-
+        num_smem3 = fmi->bwtSeedStrategyAllPosOneThread(enc_qdb, min_intv_ar,
+                                                        nseq, seq_, query_cum_len_ar, 
+                                                        opt->min_seed_len + 1,
+                                                        matchArray + num_smem1 + num_smem2);       
+#else // apply LISA kernel 3 
+#if 1
+#ifdef KERNEL3_DEBUG
+	// For debugging of seeding_strategy kernel
         num_smem3 = fmi->bwtSeedStrategyAllPosOneThread(enc_qdb, min_intv_ar,
                                                         nseq, seq_, query_cum_len_ar, 
                                                         opt->min_seed_len + 1,
@@ -954,11 +984,11 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 		//int64_t pos = fmi->get_sa_entry_compressed(p[i].k, 0) ;
 		//fprintf(stderr, "position: %ld\n", pos);
 	}
-        
+#endif 
 	for(int i = 0; i < lisa_qdb_k3.size(); i++){
 		modify_to_rev_comp_read(&lisa_qdb_k3[i]);
 		lisa_qdb_k3[i].min_intv = opt->max_mem_intv;
-		lisa_qdb_k3[i].mid = lisa_qdb_k3[i].r;// - (lisa_qdb_k3[i].rid>>24); // Info.mid represents the length of the read forkernel 3
+		lisa_qdb_k3[i].mid = lisa_qdb_k3[i].r;// - (lisa_qdb_k3[i].rid>>24); // Info.mid represents the length of the read for kernel 3
 	}
 
 
@@ -976,12 +1006,16 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 		tal_smems[i].m += offset;
 		tal_smems[i].n += offset;
 	}
+
+#ifdef KERNEL3_DEBUG
     	vector<SMEM> smem_k3_lisa;
 	for(int i = 0; i<td.numSMEMs; i++){
 		//print_smem(op.tal_smem[i]);
 		//int64_t pos = qbwt->n - fmi->get_sa_entry_compressed(op.tal_smem[i].k, 0) - (op.tal_smem[i].n - op.tal_smem[i].m + 1) ;
 		//fprintf(stderr, "Position: %ld\n", pos);
-    		smem_k3_lisa.push_back(op.tal_smem[i]);
+    		op.tal_smem[i].l = -1000;
+		smem_k3_lisa.push_back(op.tal_smem[i]);
+		
 
 	}	
     
@@ -1014,6 +1048,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 
 				bool pos_flag = true;
 				for (int s_i = 0; s_i < smem_k3_tal[i].s; s_i++){
+		//			fprintf(stderr, "%lld\n", tal_seq_pos[s_i]);
 					if (tal_seq_pos[s_i] != lisa_seq_pos[s_i]){
 						pos_flag = false;
 						fprintf(stderr, "%lld %lld\n", tal_seq_pos[s_i], lisa_seq_pos[s_i]);
@@ -1024,7 +1059,8 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 				assert_cond = assert_cond && pos_flag;
 			}	
 
-			if(assert_cond == false) { flag = false; 
+			if(assert_cond == false) { 
+				flag = false; 
 				print_smem(smem_k3_tal[i]);
 				print_smem(smem_k3_lisa[i]);
 
@@ -1032,21 +1068,39 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 
 			}
 		}
-		fprintf(stderr, "Match %d\n", flag);	 
+		fprintf(stderr, "Match %d %lld\n", flag, qbwt->n);	 
 
 	}
 	else{
 		fprintf(stderr, " Mismatch smems count %ld %ld\n", smem_k3_lisa.size(), smem_k3_tal.size());	 
 
 	}
-	p = matchArray + num_smem1 + num_smem2;
-	for(int i = 0; i<num_smem3; i++){
-		p[i] = smem_k3_tal[i]; 
-	}
 
+#endif
+
+	SMEM* all_smem_ptr = matchArray;// + num_smem1 + num_smem2;
+	int v_idx = 0;
+	int total_smem = num_smem1 + num_smem2 + num_smem3;
+	for(int i = 0; i < total_smem; i++){
+		if(i >= (num_smem1 + num_smem2)){
+#ifdef KERNEL3_DEBUG
+			all_smem_ptr[i] = smem_k3_lisa[v_idx++];
+		//	all_smem_ptr[i] = smem_k3_tal[v_idx++]; 
+#endif
+			all_smem_ptr[i].l = -1000;
+			
+		}
+		else
+			all_smem_ptr[i].l = 0;
+	}
+    
+#endif //LISA_kernel3 end
+#endif //ENABLE_LISA_K3
     }
+    //tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
     
 
+	//fprintf(stderr, "rival log k1 k2 %ld %ld %ld\n",num_smem1, num_smem2, num_smem1 + num_smem2);
 
     tot_smem = num_smem1 + num_smem2 + num_smem3;
 
@@ -1197,7 +1251,8 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
                 //uint64_t tim = __rdtsc();
                 if (to_add) // add the seed as a new chain
                 {
-                    tmp.n = 1; tmp.m = SEEDS_PER_CHAIN;
+                    //fprintf(stderr, "lisa-mem2 log: %lld %lld \n", s.rbeg, mypos);
+		    tmp.n = 1; tmp.m = SEEDS_PER_CHAIN;
                     if((seedBufCount + tmp.m) > seedBufSize)
                     {
                         tmp.m += 1;
@@ -1296,7 +1351,7 @@ int mem_kernel1_core(FMI_search *fmi,
     int64_t  *wsize_mem   = &mmc->wsize_mem[tid];
     threadData *td	  = mmc->td[tid];
     
-    tim = __rdtsc();    
+    //tim = __rdtsc();    
     /********************** Kernel 1: FM+SMEMs *************************/
     printf_(VER, "6. Calling mem_collect_smem.., tid: %d\n", tid);
     mem_collect_smem(fmi, qbwt, opt,
@@ -1308,14 +1363,16 @@ int mem_kernel1_core(FMI_search *fmi,
                      enc_qdb,
                      rid,
                      num_smem,
-		     td);
+		     td,
+		     tid);
 
     if (num_smem >= *wsize_mem){
         fprintf(stderr, "num_smem: %ld\n", num_smem);
         assert(num_smem < *wsize_mem);
     }
     printf_(VER, "6. Done! mem_collect_smem, num_smem: %ld\n", num_smem);
-    tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
+    //tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
+    //fprintf(stderr, "6. Done! mem_collect_smem, num_smem: %d %ld\n", tid, __rdtsc() - tim);
 
 
     /********************* Kernel 1.1: SA2REF **********************/
