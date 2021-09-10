@@ -1,0 +1,25 @@
+## Introduction
+LISA provides learned indexes based optimized implementations of two key kernels: exact-search and smem-search.
+
+The contributors to LISA are Saurabh Kalikar, Sanchit Misra and Darryl Ho.
+
+## Getting Started
+```sh
+git clone --recursive <REPO URL>
+make
+cd LISA
+make lisa
+```
+
+## LISA index building
+Learned hash-table uses an external training library that runs on Rust.
+Install Rust <i> https://rustup.rs/ </i> and add installation path to .bashrc file. 
+
+1. Build forward-only LISA index (for exact search).
+./build-index-forward-only-lisa.o full-path-to-ref_file K num_rmi_leaf_nodes
+
+2. Build LISA index for SMEM search.
+scripts/build-lisa-smem-index.sh full-path-to-ref_file K num_rmi_leaf_nodes
+
+	
+	
