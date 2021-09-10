@@ -840,7 +840,9 @@ inline void IPBWT_RMI<index_t, kenc_t>::last_mile_vectorized_search_final_step(i
    
     
     __mmask8 mask_gt = mask_gt_first | (mask_eq_first & mask_gt_second);
-    int32_t numgt = _mm_countbits_32(mask_gt & m_one_bits[m]);
+    //int32_t numgt = _mm_countbits_32(mask_gt & m_one_bits[m]);
+    int32_t numgt = _mm_popcnt_u32(mask_gt & m_one_bits[m]);
+    
     first = first + numgt;
     m = 0;
 }
