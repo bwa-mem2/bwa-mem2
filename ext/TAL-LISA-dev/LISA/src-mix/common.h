@@ -137,10 +137,12 @@ struct Info {
     // TODO use big int?
     const char* p;
     int l, r; 
+    int len;
     uint64_t id;
     pair<index_t, index_t> intv; //mem2: <l, l+s>
     int min_intv;
     int mid;
+    
     //int smem_id;
     int prev_l;
     void set(int a, int b, index_t c, index_t d);

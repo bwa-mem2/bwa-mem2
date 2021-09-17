@@ -29,7 +29,11 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 #ifndef _PROFILE_HPP
 #define _PROFILE_HPP
-
+#include <map>
+using namespace std;
+extern map<int64_t, int64_t> k3_seed_histogram;
+void insert_map(int64_t key);
+void display_map();
 int display_stats(int );
 extern uint64_t proc_freq, tprof[LIM_R][LIM_C];
 #endif

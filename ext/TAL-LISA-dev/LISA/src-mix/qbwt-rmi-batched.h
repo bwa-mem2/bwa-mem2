@@ -126,4 +126,17 @@ void fmi_extend_batched_exact_search( QBWT_HYBRID<index_t> &qbwt, int cnt, Info*
 void smem_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, bool apply_lisa = true);
 
 void exact_search_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, bool apply_lisa = true);
+
+void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, bool apply_lisa = true);
+
+int64_t bwtSeedStrategyAllPosOneThread_with_info(uint8_t *enc_qdb,
+                                                   int32_t *max_intv_array,
+                                                   int32_t numReads,
+                                                   const bseq1_t *seq_,
+                                                   int32_t *query_cum_len_ar,
+                                                   int32_t minSeedLen,
+                                                   SMEM *matchArray,
+						FMI_search* tal_fmi,
+						Info* qs);
+
 #endif

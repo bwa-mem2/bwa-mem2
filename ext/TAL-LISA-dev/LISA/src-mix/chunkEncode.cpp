@@ -141,6 +141,7 @@ void prepareChunkBatchVectorized(Info* qPool, int qPoolSize, uint64_t* str_enc, 
     }
 }
 
+
 void prepareChunkBatch(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* intv_all, int K){
 
 		    for(int64_t j = 0; j < qPoolSize; j++)
@@ -221,6 +222,37 @@ void prepareChunkBatch(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* i
 			intv_all[2 * j] = q.intv.first;
 			intv_all[2 * j + 1] = q.intv.second;
 			const char *p = qPool[j + 40].p; int offset = qPool[j + 40].l -  K;
+                        my_prefetch((const char*)(p + offset) , _MM_HINT_T0);
+		    }
+}
+
+void prepareChunkBatchForward(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* intv_all, int K){
+
+		    for(int64_t j = 0; j < qPoolSize; j++)
+		    {
+			Info &q = qPool[j];
+			uint64_t nxt_ext = 0;
+#ifndef NO_DNA_ORD
+			
+			for(int i = q.l; i < q.l + K; i++) {
+				int base = dna_ord(q.p[i]);
+				
+			    nxt_ext = (nxt_ext<<2) | base; 
+			}
+#else			
+
+			for(int i = q.l; i < q.l + K; i++) {
+				int base = q.p[i];
+			    nxt_ext = (nxt_ext<<2) | base; 
+			}
+#endif
+
+
+			str_enc[j] = nxt_ext;
+
+			intv_all[2 * j] = q.intv.first;
+			intv_all[2 * j + 1] = q.intv.second;
+			const char *p = qPool[j + 40].p; int offset = qPool[j + 40].l;
                         my_prefetch((const char*)(p + offset) , _MM_HINT_T0);
 		    }
 }

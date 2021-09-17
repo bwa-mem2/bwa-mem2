@@ -518,13 +518,15 @@ class FMI_search
     int64_t reference_seq_len;
     int64_t sentinel_index;
     bwaidx_fm_t *idx;    
+        
+    CP_OCC *cp_occ;
+    int64_t count[5];
+    SMEM backwardExt(SMEM smem, uint8_t a);
 private:
         char file_name[PATH_MAX];
         int64_t index_alloc;
-        int64_t count[5];
         uint32_t *sa_ls_word;
         int8_t *sa_ms_byte;
-        CP_OCC *cp_occ;
 
     uint64_t *one_hot_mask_array;
 
@@ -553,7 +555,6 @@ private:
                            int64_t ref_seq_len,
                            int64_t *sa_bwt,
                            int64_t *count);    
-        SMEM backwardExt(SMEM smem, uint8_t a);
 };
 
 #endif

@@ -33,6 +33,29 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <assert.h>
 #include "profiling.h"
 
+map<int64_t, int64_t> k3_seed_histogram;
+
+void insert_map(int64_t key){
+	if(k3_seed_histogram.find(key) == k3_seed_histogram.end())
+		k3_seed_histogram[key] = 1;
+	else
+		k3_seed_histogram[key]++;
+	
+}
+void display_map(){
+	int64_t sum = 0;
+	uint64_t cumm_sum = 0;	
+	for(auto i : k3_seed_histogram){
+		sum += i.second;
+		cumm_sum +=i.first * i.second;
+	}
+	for(auto i : k3_seed_histogram){
+		fprintf(stderr, "%lld %lld %lf\n", i.first, i.second, double(i.second/(double)sum));
+	}
+		fprintf(stderr, "cumm sum: %lld\n", cumm_sum);
+}
+
+
 int find_opt(uint64_t *a, int len, uint64_t *max, uint64_t *min, double *avg)
 {
     *max = 0;

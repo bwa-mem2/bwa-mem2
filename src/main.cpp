@@ -127,5 +127,6 @@ int main(int argc, char* argv[])
         fprintf(stderr, "\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
     }
 //	display_stats(1);    
+	display_map();
     return ret;
 }

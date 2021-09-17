@@ -508,7 +508,6 @@ void exact_search_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBW
 				auto next_intv = make_pair(intv_all[2*j],intv_all[2*j + 1]);
 
 				// next state: chunk batching
-				//if(next_intv.first < next_intv.second){//TODO: min_intv_size
 				
 				//fprintf(stderr, "rmi log: %ld %ld %ld %ld %ld %ld\n", j, q.l, q.r, next_intv.second , next_intv.first , q.min_intv);
 				if((next_intv.second - next_intv.first) > q.min_intv){//TODO: min_intv_size
@@ -543,6 +542,7 @@ void exact_search_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBW
 				else {
 					//Next state: fmi procssing
 					fmi_pool[fmi_cnt++] = q;
+					//fprintf(stderr, "Failed chunk\n");
 				}
 
 			}
@@ -561,3 +561,174 @@ void exact_search_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBW
 
 }
 
+void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, bool apply_lisa){
+	
+
+	Info *chunk_pool = td.chunk_pool;
+	int &chunk_cnt = td.chunk_cnt;
+
+	uint64_t *str_enc = td.str_enc;
+	int64_t *intv_all = td.intv_all;
+
+	Info* fmi_pool = td.fmi_pool;
+	int &fmi_cnt = td.fmi_cnt;
+
+
+	int K = qbwt.rmi->K;		
+	
+	
+	int64_t next_q = 0;
+	while(next_q < qs_size || chunk_cnt > 0){
+		
+		while(next_q < qs_size && chunk_cnt < batch_size){
+				//fprintf(stderr,"Here %ld %ld %ld %ld\n", next_q , qs_size , chunk_cnt , batch_size);	
+				if(qs[next_q].l <= qs[next_q].len - K){
+					chunk_pool[chunk_cnt++] = qs[next_q];
+				}
+				next_q++;
+		}
+	
+		// process chunk batch
+		if(next_q >= qs_size || !(chunk_cnt < batch_size)){
+			
+			prepareChunkBatchForward(chunk_pool, chunk_cnt, str_enc, intv_all, K);
+
+			qbwt.rmi->backward_extend_chunk_batched(&str_enc[0], chunk_cnt, intv_all);
+	
+
+			auto cnt = chunk_cnt;
+			chunk_cnt = 0;
+			for(int64_t j = 0; j < cnt; j++) {
+				Info &q = chunk_pool[j];
+				auto next_intv = make_pair(intv_all[2*j],intv_all[2*j + 1]);
+				int max_intv = q.min_intv;//TODO: used as max_intv_size here
+
+				if((next_intv.second - next_intv.first) < max_intv) { 
+					/*&& q.r - q.l >= min_seed_len -- this is always true for K==seed_len*/
+					
+					q.intv = next_intv;
+					q.r = q.l + K - 1;
+					if(next_intv.second - next_intv.first > 0){
+						
+						SMEM s_out;
+						s_out.rid = q.id;
+						s_out.m = q.l;
+						s_out.n = q.r;
+						s_out.k = q.intv.first;
+						s_out.l = 0;        
+						s_out.s = q.intv.second - q.intv.first;                                                                                       			
+						output->tal_smem[td.numSMEMs++] = s_out; 
+
+					}
+					q.l += K;
+					q.intv = {0, qbwt.n};
+					if(q.l <= q.len - K)
+						chunk_pool[chunk_cnt++] = q;
+				}
+				else {
+					//Next state: fmi procssing
+					
+					fmi_pool[fmi_cnt++] = q;
+					//fprintf(stderr, "Failed chunk\n");
+				}
+
+			}
+		}
+		
+	}
+
+
+}
+
+int64_t bwtSeedStrategyAllPosOneThread_with_info(uint8_t *enc_qdb,
+                                                   int32_t *max_intv_array,
+                                                   int32_t numReads,
+                                                   const bseq1_t *seq_,
+                                                   int32_t *query_cum_len_ar,
+                                                   int32_t minSeedLen,
+                                                   SMEM *matchArray,
+						FMI_search* tal_fmi,
+						Info* qs)
+{
+    int32_t i;
+
+    int64_t numTotalSeed = 0;
+
+    for(i = 0; i < numReads; i++)
+    {
+        int readlength = qs[i].len;
+        int16_t x = qs[i].l;
+
+
+        while(x < readlength && readlength - x >= minSeedLen)
+        {
+            int next_x = x + 1;
+
+            // Forward search
+            SMEM smem;
+            smem.rid = qs[i].id;
+            smem.m = x;
+            smem.n = x;
+            
+            int offset = query_cum_len_ar[i];
+            uint8_t a = qs[i].p[x];//enc_qdb[offset + x];
+            // uint8_t a = enc_qdb[i * readlength + x];
+
+            if(a < 4)
+            {
+                smem.k = tal_fmi->count[a];
+                smem.l = tal_fmi->count[3 - a];
+                smem.s = tal_fmi->count[a+1] - tal_fmi->count[a];
+
+
+                int j;
+                for(j = x + 1; j < readlength; j++)
+                {
+                    next_x = j + 1;
+                    // a = enc_qdb[i * readlength + j];
+                    a = qs[i].p[j];//enc_qdb[offset + j];
+                    if(a < 4)
+                    {
+                        SMEM smem_ = smem;
+
+                        // Forward extension is backward extension with the BWT of reverse complement
+                        smem_.k = smem.l;
+                        smem_.l = smem.k;
+                        SMEM newSmem_ = tal_fmi->backwardExt(smem_, 3 - a);
+                        //SMEM smem = backwardExt(smem, 3 - a);
+                        //smem.n = j;
+                        SMEM newSmem = newSmem_;
+                        newSmem.k = newSmem_.l;
+                        newSmem.l = newSmem_.k;
+                        newSmem.n = j;
+                        smem = newSmem;
+#ifdef ENABLE_PREFETCH
+                        _mm_prefetch((const char *)(&tal_fmi->cp_occ[(smem.k) >> CP_SHIFT]), _MM_HINT_T0);
+                        _mm_prefetch((const char *)(&tal_fmi->cp_occ[(smem.l) >> CP_SHIFT]), _MM_HINT_T0);
+#endif
+
+
+		//	fprintf(stderr, "fmi-tal-log: %ld %ld %ld %ld %ld %ld %ld\n", 3 - a, smem.m, smem.n, smem.k, smem.k + smem.s, smem.s, (long) max_intv_array[i]);
+                        if((smem.s < max_intv_array[i]) && ((smem.n - smem.m + 1) >= minSeedLen)) // acgtcg
+                        {
+
+                            if(smem.s > 0)
+                            {
+                                matchArray[numTotalSeed++] = smem;
+                            }
+                            break;
+                        }
+                    }
+                    else
+                    {
+
+                        break;
+                    }
+                }
+
+            }
+            x = next_x;
+        }
+    }
+    return numTotalSeed;
+}

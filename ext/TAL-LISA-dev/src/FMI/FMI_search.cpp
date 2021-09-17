@@ -1365,6 +1365,8 @@ void FMI_search::getSMEMsAllPosOneThread(uint8_t *enc_qdb,
     _mm_free(query_pos_array);
 }
 
+
+
 int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
                                                    int32_t *max_intv_array,
                                                    int32_t numReads,
@@ -1926,7 +1928,8 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
     int64_t *pos_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
     int64_t *map_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
 //LISA
-#if 0
+
+#if REV_CMP_SEARCH
 //    bool *lisa_rev_comp_ar = (bool *) _mm_malloc( mem_lim * sizeof(bool), 64);
     int lisa_rev_comp_ar[mem_lim];// * sizeof(bool), 64);
 #endif
@@ -1934,7 +1937,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
     {
         int32_t c = 0;
         SMEM smem = smemArray[i];
-#if 0
+#if REV_CMP_SEARCH
 	bool rev_comp_flag = smem.l == -1000 ? true : false;
 #endif     
    	int64_t hi = smem.k + smem.s;
@@ -1945,7 +1948,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
             int64_t pos = j;
              pos_ar[id]  = pos;
 //LISA -----------------------------
-#if 0
+#if REV_CMP_SEARCH
 	    lisa_rev_comp_ar[id] = rev_comp_flag;
 	     if (rev_comp_flag)
 	     	coordArray[id] = (int64_t)774967607 - (smem.n - smem.m + 2);
@@ -1965,7 +1968,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
     const int32_t sa_batch_size = 20;
     int64_t working_set[sa_batch_size], map_pos[sa_batch_size];;
 // LISA
-#if 0
+#if REV_CMP_SEARCH
     bool lisa_rev_comp_batch[sa_batch_size];
 #endif
     int64_t offset[sa_batch_size] = {-1};
@@ -1977,7 +1980,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         working_set[j] = pos;
         map_pos[j] = map_ar[i];
 //LISA
-#if 0
+#if REV_CMP_SEARCH
 	lisa_rev_comp_batch[j] = lisa_rev_comp_ar[i];		
 #endif
         offset[j] = 0;
@@ -2009,7 +2012,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                 continue;
             
             if (quit) {
-#if 0
+#if REV_CMP_SEARCH
 		if(lisa_rev_comp_batch[k])
 		{
 			coordArray[map_pos[k]] -= sp;
@@ -2028,7 +2031,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                     pos = pos_ar[i];
                     working_set[k] = pos;
 //LISA
-#if 0
+#if REV_CMP_SEARCH
 		    lisa_rev_comp_batch[k] = lisa_rev_comp_ar[i];		
 #endif
                     map_pos[k] = map_ar[i++];
