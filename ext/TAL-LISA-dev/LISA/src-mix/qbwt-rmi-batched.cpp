@@ -309,16 +309,20 @@ void fmi_extend_batched( QBWT_HYBRID<index_t> &qbwt, int cnt, Info* q_batch, thr
 						output[q.id].smem.push_back(SMEM_out(q.id, q.l, q.r, q.intv.first, q.intv.second));
 */
 //						output->smem[td.numSMEMs] = SMEM_out(q.id, q.l, q.r, q.intv.first, q.intv.second);             
-						
-						output->tal_smem[td.numSMEMs].rid = q.id;                                                                                               			
-						output->tal_smem[td.numSMEMs].m = q.l;                                                                                               			
-						output->tal_smem[td.numSMEMs].n = q.r - 1;                                                                                               			
-						output->tal_smem[td.numSMEMs].k = q.intv.first;                                                                                               			
-						output->tal_smem[td.numSMEMs].l = 0;                                                                                               			
-						output->tal_smem[td.numSMEMs].s = q.intv.second - q.intv.first;
-						//output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
-						td.numSMEMs++;                       
-						q.prev_l = q.l;                                                                        			
+					
+						if(q.mid == 0 || q.mid > 0 && q.l <= q.mid){
+	
+							output->tal_smem[td.numSMEMs].rid = q.id;                                                                                               			
+							output->tal_smem[td.numSMEMs].m = q.l;                                                                                               			
+							output->tal_smem[td.numSMEMs].n = q.r - 1;                                                                                               			
+							output->tal_smem[td.numSMEMs].k = q.intv.first;                                                                                               			
+							output->tal_smem[td.numSMEMs].l = 0;                                                                                               			
+							output->tal_smem[td.numSMEMs].s = q.intv.second - q.intv.first;
+							//output->tal_smem[td.numSMEMs].smem_id = q.smem_id;                                                                                               			
+							td.numSMEMs++;                       
+							q.prev_l = q.l;                             
+
+						}                                           			
 #endif
 					}
 					tree_pool[tree_cnt++] = q;  //State change
@@ -629,7 +633,6 @@ void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, 
 					//Next state: fmi procssing
 					
 					fmi_pool[fmi_cnt++] = q;
-					//fprintf(stderr, "Failed chunk\n");
 				}
 
 			}
@@ -707,9 +710,9 @@ int64_t bwtSeedStrategyAllPosOneThread_with_info(uint8_t *enc_qdb,
                         _mm_prefetch((const char *)(&tal_fmi->cp_occ[(smem.l) >> CP_SHIFT]), _MM_HINT_T0);
 #endif
 
-
-		//	fprintf(stderr, "fmi-tal-log: %ld %ld %ld %ld %ld %ld %ld\n", 3 - a, smem.m, smem.n, smem.k, smem.k + smem.s, smem.s, (long) max_intv_array[i]);
-                        if((smem.s < max_intv_array[i]) && ((smem.n - smem.m + 1) >= minSeedLen)) // acgtcg
+			
+			//fprintf(stderr, "fmi-tal-log: %d %ld %ld %ld %ld %ld %ld %ld\n", qs[i].id & 0x0FFF, 3 - a, smem.m, smem.n, smem.k, smem.k + smem.s, smem.s, (long) max_intv_array[i]);
+                        if((smem.s < qs[i].min_intv) && ((smem.n - smem.m + 1) >= minSeedLen)) // acgtcg
                         {
 
                             if(smem.s > 0)
