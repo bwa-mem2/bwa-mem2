@@ -45,12 +45,14 @@ void insert_map(int64_t key){
 void display_map(){
 	int64_t sum = 0;
 	uint64_t cumm_sum = 0;	
+	double cumm_perc = 0;	
 	for(auto i : k3_seed_histogram){
 		sum += i.second;
 		cumm_sum +=i.first * i.second;
 	}
 	for(auto i : k3_seed_histogram){
-		fprintf(stderr, "%lld %lld %lf\n", i.first, i.second, double(i.second/(double)sum));
+		cumm_perc +=double(i.second/(double)sum);
+		fprintf(stderr, "%lld %lld %lf %lf \n", i.first, i.second, double(i.second/(double)sum), cumm_perc);
 	}
 		fprintf(stderr, "cumm sum: %lld\n", cumm_sum);
 }

@@ -843,8 +843,8 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 // ----------------------------------
 #endif
     tprof[K1_TIMER][tid] += __rdtsc() - tim; 
-    tim = __rdtsc();
 
+    tim = __rdtsc();
     for (int64_t i=0; i<num_smem1; i++)
     {
         SMEM *p = &matchArray[i];
@@ -863,7 +863,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 
         min_intv_ar[pos] = p->s + 1;
     
-#if ENABLE_LISA_K2
+#if ENABLE_LISA_K2_V2
 	SMEM s = *p;
 	Info q_temp;
 	q_temp.p =  &enc_qdb[query_cum_len_ar[s.rid]];
@@ -871,9 +871,15 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 	q_temp.prev_l = q_temp.l = q_temp.r = get_rightmost_seed_index(matchArray, i, num_smem1);//101;//s.n + 1;
 	//fprintf(stderr, "right loc: %d -- %d\n", pos, get_rightmost_seed_index(matchArray, i, num_smem1));
 	q_temp.intv = {0, qbwt->n};
-	q_temp.min_intv =  min_intv_ar[pos] - 1;
+	q_temp.min_intv =  min_intv_ar[pos];// - 1;
 	q_temp.mid = query_pos_ar[pos];
 	//q_temp.smem_id = i;
+	
+#if 1 // fmi_shrink_lisa
+	q_temp.l = q_temp.mid;
+
+#endif
+
 	lisa_qdb_k2.push_back(q_temp);		
 #endif
         pos ++;
@@ -881,9 +887,16 @@ SMEM *mem_collect_smem(FMI_search *fmi,
     }
 
 #ifdef ENABLE_LISA_K2
-#if 0
+
+	#ifdef ENABLE_LISA_K2_V2
+    	Info k2_fmi_out[lisa_qdb_k2.size()];
+    	fmi_shrink_batched(*qbwt, lisa_qdb_k2.size(), &lisa_qdb_k2[0], td, &k2_fmi_out[0], opt->min_seed_len);
+	#endif		
+//#if 1
     SMEM *p_k2;
     int lisa_min_intv[pos];
+ 
+#ifdef ENABLE_LISA_K2_V1
     fmi->getSMEMsSeedForwardShrink(enc_qdb,
                                  query_pos_ar,
                                  min_intv_ar,
@@ -897,8 +910,35 @@ SMEM *mem_collect_smem(FMI_search *fmi,
                                  matchArray + num_smem1,
                                  &num_smem2,
 				 lisa_min_intv);
-
     p_k2 = matchArray + num_smem1;
+ //   for_all_smem(p_k2, num_smem2, "right location"); 
+#endif
+
+	
+
+//#if 1
+#ifdef ENABLE_LISA_K2_V2
+    num_smem2 = lisa_qdb_k2.size();
+
+    lisa_qdb_k2.clear();
+    for (int64_t i=0; i<num_smem2; i++)
+    {
+	SMEM s = p_k2[i];
+	Info q_temp;
+	q_temp.p =  k2_fmi_out[i].p;//&enc_qdb[query_cum_len_ar[s.rid]];
+	q_temp.id = k2_fmi_out[i].id;//s.rid;
+	q_temp.prev_l = q_temp.l = q_temp.r = k2_fmi_out[i].r;//s.n + 1;
+	//insert_map(s.n - s.m);
+	q_temp.intv = {0, qbwt->n};
+	q_temp.min_intv =  k2_fmi_out[i].min_intv - 1;//lisa_min_intv[i];//min_intv_ar[s.rid] - 1;
+	q_temp.mid = k2_fmi_out[i].mid;//s.m;
+	//q_temp.smem_id = i;
+	lisa_qdb_k2.push_back(q_temp);		
+//	fprintf(stderr, "K2 input : %ld %ld %ld %ld %ld\n",q_temp.id, q_temp.mid, q_temp.l, q_temp.r, q_temp.min_intv);
+    }
+#endif
+
+#if ENABLE_LISA_K2_V1
     for (int64_t i=0; i<num_smem2; i++)
     {
 	SMEM s = p_k2[i];
@@ -906,30 +946,24 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 	q_temp.p =  &enc_qdb[query_cum_len_ar[s.rid]];
 	q_temp.id = s.rid;
 	q_temp.prev_l = q_temp.l = q_temp.r = s.n + 1;
+	//insert_map(s.n - s.m);
 	q_temp.intv = {0, qbwt->n};
 	q_temp.min_intv =  lisa_min_intv[i];//min_intv_ar[s.rid] - 1;
 	q_temp.mid = s.m;
 	//q_temp.smem_id = i;
 	lisa_qdb_k2.push_back(q_temp);		
 	//fprintf(stderr, "K2 input : %ld %ld %ld %ld %ld\n",s.rid, s.m, s.n, s.k, s.s);
-
+	//fprintf(stderr, "K2 input : %ld %ld %ld %ld %ld\n",q_temp.id, q_temp.mid, q_temp.l, q_temp.r, q_temp.min_intv);
     }
-   
 #endif
+//#endif
 
    op.tal_smem = matchArray + num_smem1;
    td.numSMEMs = 0; 
+
    smem_rmi_batched(&lisa_qdb_k2[0], lisa_qdb_k2.size(), 10000, *qbwt, td, &op, opt->min_seed_len, false);
    num_smem2 = td.numSMEMs;
     
-   //for_all_smem(op.tal_smem, num_smem2, "kernel 2 smems"); 
-   
-   //uint64_t tim = __rdtsc();
-   //for_all_smem(matchArray, num_smem1, "kernel 1 smems"); 
-   //for_all_smem(matchArray+num_smem1, num_smem2, "kernel 2 smems"); 
-   //get_subsuming_smem(&p_k2[0], &num_smem2);
-   //for_all_smem(matchArray+num_smem1, num_smem2, "kernel 2 smems after removing sumsumption"); 
-   //tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
 
 #ifdef LISA_DEBUG
    p_k2 = matchArray + num_smem1;

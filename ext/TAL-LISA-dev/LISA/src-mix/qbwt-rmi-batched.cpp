@@ -92,11 +92,13 @@ void tree_shrink_batched( QBWT_HYBRID<index_t> &qbwt, int cnt, threadData &td){
 }
 
 
-void fmi_shrink_batched( QBWT_HYBRID<index_t> &qbwt, int cnt, Info* q_batch, threadData &td, Output* output, int min_seed_len){
+void fmi_shrink_batched( QBWT_HYBRID<index_t> &qbwt, int cnt, Info* q_batch, threadData &td, Info* output, int min_seed_len){
 
 	Info* tree_pool = td.tree_pool;
 	int &tree_cnt = td.tree_cnt;
-	
+	tree_cnt = 0;
+	int output_cnt = 0;	
+
 	int pref_dist = 30;
 	int fmi_batch_size = pref_dist = min(pref_dist, cnt);
 	pref_dist = fmi_batch_size;
@@ -125,9 +127,10 @@ void fmi_shrink_batched( QBWT_HYBRID<index_t> &qbwt, int cnt, Info* q_batch, thr
 
 			if(it < q.r){			
 				auto next = qbwt.fmi->backward_extend({q.intv.first, q.intv.second}, 3 - q.p[it]);
-				if(next.low >= next.high) { 
-				
-					tree_pool[tree_cnt++] = q;  //State change
+				if((next.high - next.low) < q.min_intv) { 
+					
+					q.r = q.l;	
+					output[output_cnt++] = q;  //State change
 
 					if(cnt1< cnt) //More queries to be processed?
 						q = q_batch[cnt1++]; //direction +
@@ -141,6 +144,7 @@ void fmi_shrink_batched( QBWT_HYBRID<index_t> &qbwt, int cnt, Info* q_batch, thr
 				}
 			}	
 			else{
+					output[output_cnt++] = q;  //State change
 					//query finished
 					if(cnt1 < cnt) //More queries to be processed?
 						q = q_batch[cnt1++];
@@ -310,7 +314,8 @@ void fmi_extend_batched( QBWT_HYBRID<index_t> &qbwt, int cnt, Info* q_batch, thr
 */
 //						output->smem[td.numSMEMs] = SMEM_out(q.id, q.l, q.r, q.intv.first, q.intv.second);             
 					
-						if(q.mid == 0 || q.mid > 0 && q.l <= q.mid){
+						if(q.mid == 0 || q.mid > 0 && q.l <= q.mid)
+						{
 	
 							output->tal_smem[td.numSMEMs].rid = q.id;                                                                                               			
 							output->tal_smem[td.numSMEMs].m = q.l;                                                                                               			
