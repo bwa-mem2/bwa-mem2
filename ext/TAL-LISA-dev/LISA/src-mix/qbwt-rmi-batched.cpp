@@ -570,7 +570,7 @@ void exact_search_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBW
 
 }
 
-void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, bool apply_lisa){
+void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, FMI_search* tal_fmi){
 	
 
 	Info *chunk_pool = td.chunk_pool;
@@ -642,21 +642,27 @@ void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, 
 
 			}
 		}
+		if(next_q >= qs_size || !(fmi_cnt < batch_size)){
+		td.numSMEMs += bwtSeedStrategyAllPosOneThread_with_info(
+                                                        fmi_cnt,  
+                                                        min_seed_len ,
+                                                        &output->tal_smem[td.numSMEMs],
+							tal_fmi, fmi_pool, td, qbwt.n);      
+		fmi_cnt = 0; 
 		
+		}
+	
+	
 	}
 
 
 }
 
-int64_t bwtSeedStrategyAllPosOneThread_with_info(uint8_t *enc_qdb,
-                                                   int32_t *max_intv_array,
-                                                   int32_t numReads,
-                                                   const bseq1_t *seq_,
-                                                   int32_t *query_cum_len_ar,
-                                                   int32_t minSeedLen,
-                                                   SMEM *matchArray,
-						FMI_search* tal_fmi,
-						Info* qs)
+int64_t bwtSeedStrategyAllPosOneThread_with_info( int32_t numReads,
+                                                  int32_t minSeedLen,
+                                                  SMEM *matchArray,
+						  FMI_search* tal_fmi,
+						  Info* qs, threadData &td, uint64_t qbwt_n)
 {
     int32_t i;
 
@@ -678,7 +684,7 @@ int64_t bwtSeedStrategyAllPosOneThread_with_info(uint8_t *enc_qdb,
             smem.m = x;
             smem.n = x;
             
-            int offset = query_cum_len_ar[i];
+            //int offset = query_cum_len_ar[i];
             uint8_t a = qs[i].p[x];//enc_qdb[offset + x];
             // uint8_t a = enc_qdb[i * readlength + x];
 
@@ -736,6 +742,12 @@ int64_t bwtSeedStrategyAllPosOneThread_with_info(uint8_t *enc_qdb,
 
             }
             x = next_x;
+       	    if(x < readlength && readlength - x >= minSeedLen){
+		qs[i].l = qs[i].r = x;
+		qs[i].intv = {0, qbwt_n};
+		td.chunk_pool[td.chunk_cnt++] = qs[i];
+		break;	
+	    }
         }
     }
     return numTotalSeed;

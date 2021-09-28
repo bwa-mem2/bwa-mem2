@@ -873,8 +873,8 @@ int main_mem(int argc, char *argv[])
     fi>>size_file;
     fprintf(stderr, "Reference seq size = %lld\n",  size_file);
     string seq; 
-    qbwt =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 21, 268435456);
-    //qbwt =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 21, 16777216);
+    qbwt =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 20, 268435456);
+    //qbwt =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 20, 16777216);
     
 
     aux.qbwt = qbwt;  

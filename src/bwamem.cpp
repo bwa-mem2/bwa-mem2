@@ -1017,10 +1017,10 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 // ********************************************   Kernel 3 *************************
     if (opt->max_mem_intv > 0)
     {
+    tim = __rdtsc();
         for (int l=0; l<nseq; l++)
             min_intv_ar[l] = opt->max_mem_intv;
 #ifndef ENABLE_LISA_K3
-    tim = __rdtsc();
 
         num_smem3 = fmi->bwtSeedStrategyAllPosOneThread(enc_qdb, min_intv_ar,
                                                         nseq, seq_, query_cum_len_ar, 
@@ -1033,10 +1033,9 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 		insert_map(k3_ptr[i].n - k3_ptr[i].m + 1);
 	}	
 	#endif
-    tprof[K3_TIMER][tid] += __rdtsc() - tim; 
+    //tprof[K3_TIMER][tid] += __rdtsc() - tim; 
 
 #else // apply LISA kernel 3 
-    tim = __rdtsc();
 	for(int i = 0; i < lisa_qdb_k3.size(); i++){
 		lisa_qdb_k3[i].min_intv = opt->max_mem_intv;
 		lisa_qdb_k3[i].len = lisa_qdb_k3[i].r;
@@ -1047,8 +1046,9 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 	op.tal_smem = matchArray + num_smem1 + num_smem2;
         td.numSMEMs = 0; 
 
+    //tim = __rdtsc();
 	td.fmi_cnt = 0;
-        exact_search_rmi_batched_k3(&lisa_qdb_k3[0], lisa_qdb_k3.size(), 10000, *qbwt, td, &op, opt->min_seed_len + 1, true);
+        exact_search_rmi_batched_k3(&lisa_qdb_k3[0], lisa_qdb_k3.size(), 10000, *qbwt, td, &op, opt->min_seed_len + 1, fmi);
 	int num_smem_rmi = td.numSMEMs;
 
 #if 0
@@ -1058,21 +1058,19 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 	}	
 #endif
 
-	int num_smem_fmi = bwtSeedStrategyAllPosOneThread_with_info(enc_qdb, min_intv_ar,
-                                                        td.fmi_cnt, seq_, query_cum_len_ar, 
+/*	int num_smem_fmi = bwtSeedStrategyAllPosOneThread_with_info(
+                                                        td.fmi_cnt,  
                                                         opt->min_seed_len + 1,
                                                         matchArray + num_smem1 + num_smem2 + num_smem_rmi,
-							fmi, td.fmi_pool);       
+							fmi, td.fmi_pool);      */ 
 #if 0
-	SMEM* k3_ptr = matchArray + num_smem1 + num_smem2 + num_smem_rmi;
+	SMEM* k3_ptr_fmi = matchArray + num_smem1 + num_smem2 + num_smem_rmi;
 	for(int i = 0; i < num_smem_fmi; i++){
-		insert_map(k3_ptr[i].n - k3_ptr[i].m + 1);
+		insert_map(k3_ptr_fmi[i].n - k3_ptr_fmi[i].m + 1);
 	}	
 #endif
-    tprof[K3_TIMER][tid] += __rdtsc() - tim; 
 	td.fmi_cnt = 0;
-	num_smem3 = num_smem_fmi + num_smem_rmi;
-	//fprintf(stderr, "num smem: %lld %lld\n", num_smem_rmi, num_smem_fmi);
+	num_smem3 = num_smem_rmi;
 	tal_smems = matchArray + num_smem1 + num_smem2;
 	for(int i = 0; i < num_smem3; i++){
 		int offset = (tal_smems[i].rid>>24);
@@ -1081,6 +1079,7 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 		tal_smems[i].n += offset;
 	}
 #endif //ENABLE_LISA_K3
+    tprof[K3_TIMER][tid] += __rdtsc() - tim; 
     }
     //for_all_smem(matchArray + num_smem1 + num_smem2, num_smem3, "kernel 3 LISA smems"); 
     

@@ -52,7 +52,7 @@ void display_map(){
 	}
 	for(auto i : k3_seed_histogram){
 		cumm_perc +=double(i.second/(double)sum);
-		fprintf(stderr, "%lld %lld %lf %lf \n", i.first, i.second, double(i.second/(double)sum), cumm_perc);
+		fprintf(stderr, "%lld %lld %lf %lf %lf\n", i.first, i.second, double(i.second/(double)sum), cumm_perc, double(i.first*i.second/(double)cumm_sum));
 	}
 		fprintf(stderr, "cumm sum: %lld\n", cumm_sum);
 }
