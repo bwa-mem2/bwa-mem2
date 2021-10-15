@@ -111,16 +111,18 @@ int main(int argc, char* argv[])
         fprintf(stderr, "ERROR: unknown command '%s'\n", argv[1]);
         return 1;
     }
-        
-    fprintf(stderr, "\nImportant parameter settings: \n");
-    fprintf(stderr, "\tBATCH_SIZE: %d\n", BATCH_SIZE);
-    fprintf(stderr, "\tMAX_SEQ_LEN_REF: %d\n", MAX_SEQ_LEN_REF);
-    fprintf(stderr, "\tMAX_SEQ_LEN_QER: %d\n", MAX_SEQ_LEN_QER);
-    fprintf(stderr, "\tMAX_SEQ_LEN8: %d\n", MAX_SEQ_LEN8);
-    fprintf(stderr, "\tSEEDS_PER_READ: %d\n", SEEDS_PER_READ);
-    fprintf(stderr, "\tSIMD_WIDTH8 X: %d\n", SIMD_WIDTH8);
-    fprintf(stderr, "\tSIMD_WIDTH16 X: %d\n", SIMD_WIDTH16);
-    fprintf(stderr, "\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
+
+    if (ret == 0) {
+        fprintf(stderr, "\nImportant parameter settings: \n");
+        fprintf(stderr, "\tBATCH_SIZE: %d\n", BATCH_SIZE);
+        fprintf(stderr, "\tMAX_SEQ_LEN_REF: %d\n", MAX_SEQ_LEN_REF);
+        fprintf(stderr, "\tMAX_SEQ_LEN_QER: %d\n", MAX_SEQ_LEN_QER);
+        fprintf(stderr, "\tMAX_SEQ_LEN8: %d\n", MAX_SEQ_LEN8);
+        fprintf(stderr, "\tSEEDS_PER_READ: %d\n", SEEDS_PER_READ);
+        fprintf(stderr, "\tSIMD_WIDTH8 X: %d\n", SIMD_WIDTH8);
+        fprintf(stderr, "\tSIMD_WIDTH16 X: %d\n", SIMD_WIDTH16);
+        fprintf(stderr, "\tAVG_SEEDS_PER_READ: %d\n", AVG_SEEDS_PER_READ);
+    }
     
-    return 0;
+    return ret;
 }

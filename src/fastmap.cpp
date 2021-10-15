@@ -240,10 +240,10 @@ void memoryAllocErt(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthread
 
     char kmer_tbl_file_name[PATH_MAX];
     strcpy_s(kmer_tbl_file_name, PATH_MAX, idx_prefix); 
-    strcat_s(kmer_tbl_file_name, PATH_MAX, ".kmer_table");
+    strcat_s(kmer_tbl_file_name, PATH_MAX, ".ert.kmer.table");
     char ml_tbl_file_name[PATH_MAX];
     strcpy_s(ml_tbl_file_name, PATH_MAX, idx_prefix);
-    strcat_s(ml_tbl_file_name, PATH_MAX, ".mlt_table");
+    strcat_s(ml_tbl_file_name, PATH_MAX, ".ert.mlt.table");
 
 
 #if MMAP_ERT_INDEX
@@ -1129,7 +1129,10 @@ int main_mem(int argc, char *argv[])
     }
     else {
         idx_prefix = argv[optind];
-        aux.fmi = new FMI_search(argv[optind]);
+        char refFileNameErt[PATH_MAX] = {};
+        strcpy_s(refFileNameErt, PATH_MAX, argv[optind]);
+        strcat_s(refFileNameErt, PATH_MAX, ".ert");
+        aux.fmi = new FMI_search(refFileNameErt);
         aux.fmi->load_index_other_elements(BWA_IDX_BNS | BWA_IDX_PAC);
         
     }
@@ -1154,10 +1157,15 @@ int main_mem(int argc, char *argv[])
     fprintf(stderr, "* Reading reference genome..\n");
     
     char binary_seq_file[PATH_MAX];
-    strcpy_s(binary_seq_file, PATH_MAX, argv[optind]);
-    strcat_s(binary_seq_file, PATH_MAX, ".0123");
-    //sprintf(binary_seq_file, "%s.0123", argv[optind]);
-    
+    if (useErt) {
+        strcpy_s(binary_seq_file, PATH_MAX, argv[optind]);
+        strcat_s(binary_seq_file, PATH_MAX, ".ert.0123");
+    }
+    else {
+        strcpy_s(binary_seq_file, PATH_MAX, argv[optind]);
+        strcat_s(binary_seq_file, PATH_MAX, ".0123");
+        //sprintf(binary_seq_file, "%s.0123", argv[optind]);
+    }
     fprintf(stderr, "* Binary seq file = %s\n", binary_seq_file);
     FILE *fr = fopen(binary_seq_file, "r");
     
@@ -1196,7 +1204,7 @@ int main_mem(int argc, char *argv[])
         if (is_o) 
             fclose(aux.fp);
         delete aux.fmi;
-        kclose(ko);
+        // kclose(ko);
         _mm_free(ref_string);
         return 1;
     }
@@ -1225,7 +1233,7 @@ int main_mem(int argc, char *argv[])
                     fclose(aux.fp);             
                 delete aux.fmi;
                 kclose(ko);
-                kclose(ko2);
+                // kclose(ko2);
                 _mm_free(ref_string);
                 return 1;
             }            
