@@ -910,9 +910,9 @@ void buildKmerTrees(char* kmer_tbl_file_name, bwaidx_t* bid, char* prefix, int n
 	// 
 	// Merge all per-thread trees
 	//
-	char ml_tbl_file_name[PATH_MAX];
+	char ml_tbl_file_name[PATH_MAX] = {};
 	strcpy_s(ml_tbl_file_name, PATH_MAX, prefix);
-	strcat_s(ml_tbl_file_name, PATH_MAX, ".mlt_table");
+	strcat_s(ml_tbl_file_name, PATH_MAX, ".mlt.table");
 
 	if (remove(ml_tbl_file_name) == 0) {
 		fprintf(stderr, "[M::%s] Overwriting existing index file (tree)\n", __func__);

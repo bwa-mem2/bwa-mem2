@@ -270,10 +270,17 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 		return 1;
 	}
 	if (prefix == 0) {
-		prefix = malloc(strnlen_s(argv[optind], PATH_MAX) + 4);
-		assert(prefix != NULL);
-		strcpy_s(prefix, PATH_MAX, argv[optind]);
-		if (is_64) strcat_s(prefix, PATH_MAX, ".64");
+			prefix = malloc(strnlen_s(argv[optind], PATH_MAX) + 4);
+			assert(prefix != NULL);
+			strcpy_s(prefix, PATH_MAX, argv[optind]);
+			if (is_64) strcat_s(prefix, PATH_MAX, ".64");
+	}
+	char prefixNameErt[PATH_MAX] = {};
+	if (algo_type == BWTALGO_MLTS) {
+		strcpy_s(prefixNameErt, PATH_MAX, prefix);
+		strcat_s(prefixNameErt, PATH_MAX, ".ert");
+	}
+	else {
 	}
 	if (algo_type == BWTALGO_MLTS) {
 		if (bwa_verbose >= 3) {
@@ -282,26 +289,26 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 
 		// First build the BWT index with the prefix
 		algo_type = BWTALGO_AUTO;
-		bwa_idx_build(argv[optind], prefix, algo_type, block_size);
+		bwa_idx_build(argv[optind], prefixNameErt, algo_type, block_size);
 
 		// Load BWT index
-		bwaidx_t* bid = bwa_idx_load_from_disk(prefix, BWA_IDX_BNS | BWA_IDX_BWT | BWA_IDX_PAC);
+		bwaidx_t* bid = bwa_idx_load_from_disk(prefixNameErt, BWA_IDX_BNS | BWA_IDX_BWT | BWA_IDX_PAC);
 		assert(bid != NULL);
 		if (bwa_verbose >= 3) {
 			fprintf(stderr, "[M::%s] Building ERT.. BWT length: %lu threads: %d ...\n", __func__, bid->bwt->seq_len, num_threads);
 		}
 		char kmer_tbl_file_name[PATH_MAX];
-		strcpy_s(kmer_tbl_file_name, PATH_MAX, prefix);
-		strcat_s(kmer_tbl_file_name, PATH_MAX, ".kmer_table");
+		strcpy_s(kmer_tbl_file_name, PATH_MAX, prefixNameErt);
+		strcat_s(kmer_tbl_file_name, PATH_MAX, ".kmer.table");
 
 		// Build ERT
-		buildKmerTrees(kmer_tbl_file_name, bid, prefix, num_threads, readLength);
+		buildKmerTrees(kmer_tbl_file_name, bid, prefixNameErt, num_threads, readLength);
 
 		// Build reference in .0123 format similar to BWA-MEM2
 		if (bwa_verbose >= 3) {
 			fprintf(stderr, "[M::%s] Building binary reference 0123 for BWA-MEM2 ...\n", __func__);
 		}
-		build_binaryRef(prefix);
+		build_binaryRef(prefixNameErt);
 		bwa_idx_destroy(bid);
 	}
 	else if (algo_type == BWTALGO_MEM2) {
