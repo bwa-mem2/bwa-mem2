@@ -1,5 +1,14 @@
 # mpiBWA2
 
+
+Upate: 14/10/21
+---------------
+
+Candidate release
+
+1) Leverage load balancing (only work for fixed read length)
+
+
 Upate: 03/09/21
 ---------------
 
