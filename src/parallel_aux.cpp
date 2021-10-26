@@ -25,7 +25,7 @@ The fact that you are presently reading this means that you have had knowledge o
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
 #endif
-
+#include <time.h>
 #include <mpi.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -45,6 +45,7 @@ The fact that you are presently reading this means that you have had knowledge o
 #include "parallel_aux.h"
 #include "bgzf.h"
 #include "bgzf.c"
+#include "time.h"
 #include "FMI_search.h"
 #define DEFAULT_INBUF_SIZE (1024*1024*1024)
 #define NB_PROC  "16" //numer of threads for writing
@@ -63,7 +64,72 @@ The fact that you are presently reading this means that you have had knowledge o
 #else
 #define xfprintf(...) /**/
 #endif
+/*
+typedef void * queue_data_type;
 
+struct queue_item {
+    char *contents;
+    struct queue_item* next;
+};
+struct queue_root {
+    struct queue_item* head;
+    struct queue_item* tail;
+};
+*/
+void init_queue(struct queue_root* queue){
+    queue->head = queue->tail = NULL;
+    queue->size = 0;
+    queue->total_to_wrt = 0;
+}
+
+void push_queue(struct queue_root* queue, char *contents){
+    struct queue_item *item = malloc(sizeof(queue_item));
+    item->contents = malloc(strlen(contents)+1);
+    item->contents[strlen(contents)]=0;
+    memcpy(item->contents, contents, strlen(contents));
+    queue->total_to_wrt += strlen(contents); 
+    free(contents);
+    item->next = NULL;
+    if (queue->head == NULL){
+        queue->head = queue->tail = item;
+    } else {
+        queue->tail = queue->tail->next = item;
+    }
+     queue->size++;
+}
+
+int size_queue(struct queue_root* queue){ return queue->size;}
+size_t size_to_write_queue(struct queue_root* queue){ return queue->total_to_wrt;}
+
+
+char *pop_queue(struct queue_root* queue){
+    char *popped;
+    if (queue->head == NULL){
+        return NULL; // causes a compile warning.  Just check for ==NULL when popping.
+    } else {
+        popped = queue->head->contents;
+        struct queue_item* next = queue->head->next;
+        free(queue->head);
+        queue->head = next;
+        if (queue->head == NULL)
+            queue->tail = NULL;
+    }
+    queue->size--;
+    queue->total_to_wrt = queue->total_to_wrt - strlen(popped);
+    return popped;
+}
+/*
+void process_queue(struct queue_root* queue, void (*func)(queue_data_type)){
+    if (queue == NULL)
+        return;
+    struct queue_item* current = queue->head;
+    while (current != NULL){
+        next = current->next
+        func(current->contents);
+        current = next;
+    }
+}
+*/
 
 
 void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank){
@@ -179,15 +245,16 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
     int    proc_num                 = my_data->proc_num_mt;
     int    rank_num                 = my_data->rank_num_mt;
     int    thread_num               = my_data->thread_num_mt;
+    MPI_Comm comm                   = my_data->comm_mt;    
 
     MPI_File  mpi_fd;
     MPI_Status status;
     int count;
-    //int fd;
+    int fd;
     int res;
-    res = MPI_File_open(MPI_COMM_SELF, file_to_read, MPI_MODE_RDONLY, MPI_INFO_NULL, &mpi_fd);
-    assert(res==MPI_SUCCESS);
-    //fd = open(file_to_read, O_RDONLY);
+    //res = MPI_File_open(comm, file_to_read, MPI_MODE_RDONLY, MPI_INFO_NULL, &mpi_fd);
+    //assert(res==MPI_SUCCESS);
+    fd = open(file_to_read, O_RDONLY);
     
 
     char *buffer_r;
@@ -214,13 +281,14 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
         assert( buffer_r != NULL );
         buffer_r[read_buffer_sz] = '0';
 
-        //pread(fd, buffer_r, read_buffer_sz, offset_in_file);
+        pread(fd, buffer_r, read_buffer_sz, offset_in_file);    
+        /*
         res = MPI_File_read_at(mpi_fd, (MPI_Offset)offset_in_file, buffer_r, read_buffer_sz, MPI_CHAR, &status);
         assert(res == MPI_SUCCESS);
         res = MPI_Get_count(&status, MPI_CHAR, &count);
         assert(res == MPI_SUCCESS);
         assert(count == (int)read_buffer_sz && *buffer_r == '@');
-	   
+	    */
 
         b = buffer_r;
         r = b + read_buffer_sz;
@@ -306,8 +374,8 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
     }
 
     assert(total_parsing == siz2read);
-    MPI_File_close(&mpi_fd);
-    //close(fd);
+    //MPI_File_close(&mpi_fd);
+    close(fd);
 }
 
 void *copy_local_read_info_mt(void *thread_arg){
@@ -1562,7 +1630,7 @@ void map_indexes(char *file_ref, ktp_aux_t *aux, MPI_Win *win_shr_ref, MPI_Win *
 //			count of top level elements in the file
 //			header string
 //			rg = read group string
-void create_sam_header(char *file_out, bwaidx_fm_t *indix, int *count, char *hdr_line, char *rg_line, char* pg_line, int rank_num)
+size_t create_sam_header(char *file_out, bwaidx_fm_t *indix, int *count, char *hdr_line, char *rg_line, char* pg_line, int rank_num)
 {
 
 	//MPI resources
@@ -1572,7 +1640,7 @@ void create_sam_header(char *file_out, bwaidx_fm_t *indix, int *count, char *hdr
 	//non MPI related resources
 	int bef,aft;
 	int res;
-	
+    size_t total_write = 0;	
 	//the rank 0 takes care of that task
 	
 		int s, len;
@@ -1580,13 +1648,25 @@ void create_sam_header(char *file_out, bwaidx_fm_t *indix, int *count, char *hdr
 		struct stat stat_file_out;
 
 		//We test if the output sam exists
-		if ( stat(file_out, &stat_file_out)  != -1 ) {
-		    res = MPI_File_delete(file_out, MPI_INFO_NULL);
-		    assert(res == MPI_SUCCESS);
-		}
-				
-		res = MPI_File_open(MPI_COMM_SELF, file_out,  MPI_MODE_CREATE|MPI_MODE_WRONLY , MPI_INFO_NULL, &fh_out);
+		//if ( stat(file_out, &stat_file_out)  != -1 ) {
+		  //  res = MPI_File_delete(file_out, MPI_INFO_NULL);
+		   // assert(res == MPI_SUCCESS);
+		//}
+		
+        MPI_Info finfo;
+        MPI_Info_create(&finfo);
+        //MPI_Info_set(finfo,"nb_proc", "48");
+        MPI_Info_set(finfo,"striping_factor", "6");
+        MPI_Info_set(finfo,"striping_unit", "268435456");
+        MPI_Info_set(finfo, "collective_buffering", "true");
+        MPI_Info_set(finfo,"romio_cb_write","enable");
+         MPI_Info_set(finfo,"cb_buffer_size","536870912");
+		 MPI_Info_set(finfo,"cb_nodes","12");
+          MPI_Info_set(finfo,"nb_proc","8");
+		res = MPI_File_open(MPI_COMM_SELF, file_out,  MPI_MODE_CREATE|MPI_MODE_WRONLY , finfo, &fh_out);
 		assert(res == MPI_SUCCESS);
+        MPI_Info_free(&finfo);
+        
 		/* Add reference sequence lines */
 		for (s = 0; s < (*indix).bns->n_seqs; ++s) {
 		len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", (*indix).bns->anns[s].name, (*indix).bns->anns[s].len);
@@ -1595,6 +1675,7 @@ void create_sam_header(char *file_out, bwaidx_fm_t *indix, int *count, char *hdr
 		res = MPI_Get_count(&status, MPI_CHAR, count);
 		assert(res == MPI_SUCCESS);
 		assert(*count == len);
+        total_write += len;
 		free(buff);
 		}
 		/* Add header lines */
@@ -1605,6 +1686,7 @@ void create_sam_header(char *file_out, bwaidx_fm_t *indix, int *count, char *hdr
 		res = MPI_Get_count(&status, MPI_CHAR, count);
 		assert(res == MPI_SUCCESS);
 		assert(*count == len);
+        total_write += len;
 		free(buff);
 		}
 		/* Add read group line */
@@ -1615,6 +1697,7 @@ void create_sam_header(char *file_out, bwaidx_fm_t *indix, int *count, char *hdr
 		res = MPI_Get_count(&status, MPI_CHAR, count);
 		assert(res == MPI_SUCCESS);
 		assert(*count == len);
+        total_write += len;
 		free(buff);
 		}
 
@@ -1626,12 +1709,14 @@ void create_sam_header(char *file_out, bwaidx_fm_t *indix, int *count, char *hdr
         res = MPI_Get_count(&status, MPI_CHAR, count);
         assert(res == MPI_SUCCESS);
         assert(*count == len);
+        total_write += len;
         free(buff);
         }
 
 		res = MPI_File_close(&fh_out);
 		assert(res == MPI_SUCCESS);
-	
+
+        return total_write;	
 }
 
 void create_bam_header(char *file_out, bwaidx_fm_t *indix, int *count, 
@@ -2506,7 +2591,7 @@ void create_sam_header_by_chr_file(char *file_out[],
         xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
 }
 /*
-void compute_buffer_size_thr(void *thread_arg){
+void *compute_buffer_size_thr(void *thread_arg){
 
     struct struct_data_thread *my_data;
     my_data = (struct struct_data_thread *) thread_arg;
@@ -2516,44 +2601,43 @@ void compute_buffer_size_thr(void *thread_arg){
         my_data->size_thr += my_data->seqs_thr[i].l_seq;
     }
 }
-
-void copy_buffer_write_thr(void *thread_arg){
+*/
+void *copy_buffer_thr_bckp(void *thread_arg){
     struct struct_data_thread *my_data;
     my_data = (struct struct_data_thread *) thread_arg;
+
+    int i = 0;
+    for (i = my_data->begin_index; i < my_data->end_index; i++){
+        my_data->seqs_thr[i].l_seq = strlen(my_data->seqs_thr[i].sam);
+        my_data->size_thr += my_data->seqs_thr[i].l_seq;
+    }
 
     my_data->buffer_out = malloc( my_data->size_thr + 1);
     assert(my_data->buffer_out);
     my_data->buffer_out[my_data->size_thr] = '0';
     char *p = my_data->buffer_out;
-    int i = 0;
-    int count;
     MPI_Status status;
     for (i = my_data->begin_index; i < my_data->end_index; i++){
-        assert( strlen(my_data->seqs_thr[i].sam)> 0 );
         memmove(p, my_data->seqs_thr[i].sam, strlen(my_data->seqs_thr[i].sam) * sizeof(char));
         p += my_data->seqs_thr[i].l_seq;
-        free(my_data->seqs_thr[i].sam);
     }
-    //fprintf(stderr, "in copy_buffer_write_thr \n");
-    //size_t res = pwrite(my_data->file_desc, my_data->buffer_out, my_data->size_thr, 0);
-    //assert(res == my_data->size_thr);
+    my_data->size_thr = strlen(my_data->buffer_out);    
       
-    int res = MPI_File_write_shared(my_data->file_desc, my_data->buffer_out, my_data->size_thr, MPI_CHAR, &status);
-    assert(res == MPI_SUCCESS);
-    res = MPI_Get_count(&status, MPI_CHAR, &count);
-    assert(res == MPI_SUCCESS);
-    assert(count == (int)my_data->size_thr);
-    free(my_data->buffer_out);
 }
-*/
-void *write_sam_mt(void *thread_arg){
+
+void *write_sam_mt_bckp(void *thread_arg){
 
     struct struct_data_thread *my_data;
     my_data = (struct struct_data_thread *) thread_arg;
-    int i = 0;
-    int j = 0;
-    int count;
+        
+
+    pthread_detach(pthread_self()); 
     MPI_Status status;
+    size_t count;
+    time_t now, later;
+    double seconds;
+
+    /*
     size_t total_to_wrt = 0;
     size_t *l_seq = malloc((my_data->end_index - my_data->begin_index + 1)*sizeof(size_t));
 
@@ -2573,15 +2657,47 @@ void *write_sam_mt(void *thread_arg){
         j++;
         free(my_data->seqs_thr[i].sam);
     }
- 
-    int res = MPI_File_write_shared(my_data->file_desc, buffer_out, total_to_wrt, MPI_CHAR, &status);
+    */
+    //int fh_out2 = open("/ccc/scratch/cont007/fg0012/jarlierf/RESULTS/SRR7733443_test.sam", O_APPEND|O_WRONLY);
+    //count = pwrite(my_data->file_desc, my_data->buffer_out, my_data->size_thr, 0);
+
+    //while (1){
+
+        //if (ftrylockfile(&((FILE)my_data->file_desc)) == 0){
+            //flockfile (my_data->file_desc);
+            /*size_t offset = lseek(my_data->file_desc, 0, SEEK_END);
+            time(&now);        
+            count = pwrite64(my_data->file_desc, my_data->buffer_out, my_data->size_thr, offset);
+            //funlockfile(&((FILE)my_data->file_desc));
+            fdatasync(my_data->file_desc);
+            fprintf(stderr, "in write sam mt success writing thread id =%d count =%zu data size = %zu \n",my_data->thread_id, count, my_data->size_thr );
+            time(&later);
+            seconds = difftime(later, now);
+
+            fprintf(stderr, "In thread ID %d my_data->thread_id time to write %.f seconds difference \n", my_data->thread_id, seconds);
+            */
+    //        pthread_mutex_lock(&lock);
+
+      //      my_data->buffer_written += count;
+      //      pthread_mutex_unlock(&lock);
+       
+            //break;
+        //}
+    //}
+    
+    //assert(count == my_data->size_thr);
+    //close(fh_out2);
+    /*
+    int res = MPI_File_write(my_data->file_desc, my_data->buffer_out, my_data->size_thr, MPI_CHAR, &status);
     assert(res == MPI_SUCCESS);
     res = MPI_Get_count(&status, MPI_CHAR, &count);
     assert(res == MPI_SUCCESS);
-    assert(count == (int)total_to_wrt);
-
-    free(buffer_out);   
-    free(l_seq);
+    assert(count == (int) my_data->size_thr);
+    fprintf(stderr, "in write sam mt success writing thread id =%d\n",my_data->thread_id ); 
+    free(my_data->buffer_out);   
+    */
+    //pthread_detach(pthread_self());
+    pthread_exit(0);
 
 }
 

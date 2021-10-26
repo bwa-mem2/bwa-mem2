@@ -1,5 +1,14 @@
 # mpiBWA2
 
+Upate: 26/10/21
+---------------
+
+Candidate release
+
+1) Load Balancing
+2) Asynchronous writing
+
+(Work only for fixed read length)
 
 Upate: 14/10/21
 ---------------

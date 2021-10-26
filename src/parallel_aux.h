@@ -4,7 +4,28 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+#include <mpi.h>
 
+typedef void * queue_data_type;
+
+struct queue_item {
+    char *contents;
+    struct queue_item* next;
+};
+struct queue_root {
+    struct queue_item* head;
+    struct queue_item* tail;
+    int size;
+    size_t total_to_wrt;
+};
+
+void init_queue(struct queue_root* queue);
+void push_queue(struct queue_root* queue, char *contents);
+char* pop_queue(struct queue_root* queue);
+int size_queue(struct queue_root* queue);
+size_t size_to_write_queue(struct queue_root* queue);
+
+//pthread_mutex_t lock;
 
 void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank);
 void find_process_starting_offset(size_t *goff, size_t size, char* file_to_read, int proc_num, int rank_num);
@@ -55,7 +76,7 @@ void find_chunks_info(  size_t *begin_offset_chunk,
 			size_t *chunk_count);
 
 void map_indexes(char *file_map, ktp_aux_t *aux, MPI_Win *win_shr_ref, MPI_Win *win_shr_pac);
-void create_sam_header(char *file_out, bwaidx_fm_t *indix, int *count, char *hdr_line, char *rg_line, char *pg_line, int rank_num);
+size_t create_sam_header(char *file_out, bwaidx_fm_t *indix, int *count, char *hdr_line, char *rg_line, char *pg_line, int rank_num);
 
 int getChr(char *str, char *chrNames[], int nbchr, char *tmp_chr);
 void create_sam_header_by_chr_file(char *file_out[], 
@@ -69,13 +90,13 @@ void *compress_thread_by_chr_single(void *threadarg);
 void *call_fixmate(void *threadarg);
 void *copy_local_read_info_mt(void *thread_arg);
 void *find_reads_size_and_offsets_mt(void *thread_arg);
-void *copy_buffer_write_thr(void *thread_arg);
+void *copy_buffer_thr_bckp(void *thread_arg);
 void *compute_buffer_size_thr(void *thread_arg);
 void create_bam_header(char *file_out, bwaidx_fm_t *indix, int *count, 
-    char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level);
+char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level);
 void create_bam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count, 
-    char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level, int dofixmate);
-void *write_sam_mt(void *thread_arg);
+char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level, int dofixmate);
+void *write_sam_mt_bckp(void *thread_arg);
 
 
 
@@ -87,6 +108,12 @@ void *pread_fastq_chunck(void *thread_arg );
  *       Thread Structures and functions
  *  
  ****************************************/
+
+struct foo{
+      size_t numer_reads_flushed;
+      int semaphore;
+};
+
 
 struct thread_data
 {
@@ -161,8 +188,15 @@ struct thread_data_compress_by_chr_single
 struct struct_data_thread{
     bseq1_t *seqs_thr;
     int begin_index;
+    int thread_id;
     int end_index;
+    char *buffer_out; 
+    size_t size_thr;
+    size_t buffer_written;
+    size_t chunck_number;
+    MPI_Request *request;
     MPI_File file_desc;
+    
 };
 
 
@@ -183,6 +217,7 @@ struct struct_data_thread_1{
             int proc_num_mt;
             int rank_num_mt;
             int thread_num_mt;
+            MPI_Comm comm_mt;
 };
 
 struct struct_pread_fastq{
