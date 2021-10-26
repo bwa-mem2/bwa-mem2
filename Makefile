@@ -41,9 +41,9 @@ EXE=		mpibwa-mem2
 CXX=        mpicxx	
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1
-CPPFLAGS+=  -DNUMA_ENABLE=1 -DMPICH_SKIP_MPICXX -DENABLE_PREFETCH -DV17=1 -DMATE_SORT=1 $(MEM_FLAGS) 
+CPPFLAGS+=  -DNUMA_ENABLE=1 -DENABLE_PREFETCH -DV17=1 -DMATE_SORT=1 $(MEM_FLAGS) 
 INCLUDES=   -Isrc -Iext/safestringlib/include
-LIBS=		-lpthread -lm -lz -L. -lbwa -Lext/safestringlib -lsafestring $(STATIC_GCC)
+LIBS=		-lpthread -lm -lz -L. -lmpi -lbwa -Lext/safestringlib -lsafestring $(STATIC_GCC)
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
@@ -69,7 +69,7 @@ else ifeq ($(arch),avx2)
 		ARCH_FLAGS=-mavx2
 	endif
 else ifeq ($(arch),avx512)
-	ifeq ($(CXX), mpicxx)
+	ifeq ($(CXX), mpiicpc)
 		ARCH_FLAGS=-xCORE-AVX512
 	else	
 		ARCH_FLAGS=-mavx512bw
@@ -83,7 +83,7 @@ else
 myall:multi
 endif
 
-CXXFLAGS+=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
+CXXFLAGS+=	-g -O3 -fpermissive $(ARCH_FLAGS) -lmpi -lpthread #-Wall ##-xSSE2
 
 .PHONY:all clean depend multi
 .SUFFIXES:.cpp .o
@@ -95,12 +95,12 @@ all:$(EXE)
 
 
 multi:
-	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
-	$(MAKE) arch=sse41    EXE=mpibwa-mem2.sse41    CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
-	$(MAKE) arch=sse42    EXE=mpibwa-mem2.sse42    CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
-	$(MAKE) arch=avx    EXE=mpibwa-mem2.avx    CXX=$(CXX) all
+	#rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	#$(MAKE) arch=sse41    EXE=mpibwa-mem2.sse41    CXX=$(CXX) all
+	#rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	#$(MAKE) arch=sse42    EXE=mpibwa-mem2.sse42    CXX=$(CXX) all
+	#rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	#$(MAKE) arch=avx    EXE=mpibwa-mem2.avx    CXX=$(CXX) all
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx2   EXE=mpibwa-mem2.avx2     CXX=$(CXX) all
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
