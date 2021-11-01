@@ -60,7 +60,6 @@ int affy[256];
 #include "bwamem.h"
 #include "parallel_aux.h"
 #include <errno.h>
-#include "threadpool.h"
 #include "external.h"
 
 extern int errno;
