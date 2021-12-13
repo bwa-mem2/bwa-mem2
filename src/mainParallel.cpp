@@ -60,7 +60,6 @@ int affy[256];
 #include "bwamem.h"
 #include "parallel_aux.h"
 #include <errno.h>
-#include "threadpool.h"
 #include "external.h"
 
 extern int errno;
@@ -1537,11 +1536,12 @@ int main(int argc, char *argv[]) {
                 MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
                 MPI_Win_flush(rank_target, win);
                 MPI_Win_unlock(rank_target, win);
-
+		aft = MPI_Wtime();	
                 fprintf(stderr, "rank %d ::: index chunk (init) = %zu :: time %.02f \n",rank_num, u1, aft-bef);
-                before_local_mapping = MPI_Wtime();
+               
        	    }
-
+	 
+	     before_local_mapping = MPI_Wtime();
             /*
              *  Allocation MPI request and status
              *
