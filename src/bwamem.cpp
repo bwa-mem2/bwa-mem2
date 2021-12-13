@@ -924,13 +924,13 @@ int mem_kernel1_core(FMI_search *fmi,
         for (i = 0; i < len; ++i)
             seq[i] = seq[i] < 4? seq[i] : nst_nt4_table[(int)seq[i]]; //nst_nt4??       
     }
-
+    tot_len *= N_SMEM_KERNEL;
     // This covers enc_qdb/SMEM reallocs
     if (tot_len >= mmc->wsize_mem[tid])
     {
         fprintf(stderr, "[%0.4d] Re-allocating SMEM data structures due to enc_qdb\n", tid);
         int64_t tmp = mmc->wsize_mem[tid];
-        mmc->wsize_mem[tid] *= 2;
+        mmc->wsize_mem[tid] = tot_len;
         mmc->matchArray[tid]   = (SMEM *) _mm_realloc(mmc->matchArray[tid],
                                                       tmp, mmc->wsize_mem[tid], sizeof(SMEM));
             //realloc(mmc->matchArray[tid], mmc->wsize_mem[tid] *   sizeof(SMEM));
@@ -966,8 +966,8 @@ int mem_kernel1_core(FMI_search *fmi,
                      num_smem);
 
     if (num_smem >= *wsize_mem){
-        fprintf(stderr, "num_smem: %ld\n", num_smem);
-        assert(num_smem < *wsize_mem);
+        fprintf(stderr, "Error [bug]: num_smem: %ld are more than allocated space.\n", num_smem);
+        exit(EXIT_FAILURE);
     }
     printf_(VER, "6. Done! mem_collect_smem, num_smem: %ld\n", num_smem);
     tprof[MEM_COLLECT][tid] += __rdtsc() - tim; 
