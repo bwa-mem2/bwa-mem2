@@ -135,6 +135,6 @@ int64_t bwtSeedStrategyAllPosOneThread_with_info(
                                                    int32_t minSeedLen,
                                                    SMEM *matchArray,
 						FMI_search* tal_fmi,
-						Info* qs, threadData & td, uint64_t qbwt_n);
+						Info* qs, threadData & td, QBWT_HYBRID<index_t> &qbwt);
 
 #endif

@@ -30,4 +30,6 @@ void prepareChunkBatchVectorized_v1(Info* qPool, int qPoolSize, uint64_t* str_en
 void prepareChunkBatchVectorized(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* intv_all, int K);
 
 void prepareChunkBatch(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* intv_all, int K); 
-void prepareChunkBatchForward(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* intv_all, int K); 
+void prepareChunkBatchForward(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* intv_all, int K);
+
+void prepareChunkBatchForwardComp(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* intv_all, int K, int64_t qbwt_n); 

@@ -611,11 +611,13 @@ void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, 
 				Info &q = chunk_pool[j];
 				auto next_intv = make_pair(intv_all[2*j],intv_all[2*j + 1]);
 				int max_intv = q.min_intv;//TODO: used as max_intv_size here
+					
+
+				q.intv = next_intv;
 
 				if((next_intv.second - next_intv.first) < max_intv) { 
 					/*&& q.r - q.l >= min_seed_len -- this is always true for K==seed_len*/
 					
-					q.intv = next_intv;
 					q.r = q.l + K - 1;
 					if(next_intv.second - next_intv.first > 0){
 						
@@ -642,12 +644,12 @@ void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, 
 
 			}
 		}
-		if(next_q >= qs_size || !(fmi_cnt < batch_size)){
+		if((next_q >= qs_size && fmi_cnt > 0) || !(fmi_cnt < batch_size)){
 		td.numSMEMs += bwtSeedStrategyAllPosOneThread_with_info(
                                                         fmi_cnt,  
                                                         min_seed_len ,
                                                         &output->tal_smem[td.numSMEMs],
-							tal_fmi, fmi_pool, td, qbwt.n);      
+							tal_fmi, fmi_pool, td, qbwt);      
 		fmi_cnt = 0; 
 		
 		}
@@ -662,26 +664,35 @@ int64_t bwtSeedStrategyAllPosOneThread_with_info( int32_t numReads,
                                                   int32_t minSeedLen,
                                                   SMEM *matchArray,
 						  FMI_search* tal_fmi,
-						  Info* qs, threadData &td, uint64_t qbwt_n)
+						  Info* qs, threadData &td,  QBWT_HYBRID<index_t> &qbwt)
 {
-    int32_t i;
+    int32_t i=0;
+    uint64_t *str_enc = td.str_enc;
+    int64_t *intv_all = td.intv_all;
 
     int64_t numTotalSeed = 0;
+    int K = qbwt.rmi->K;
+    prepareChunkBatchForwardComp(qs, numReads, str_enc, intv_all, K, qbwt.n);//hardcode
+    qbwt.rmi->backward_extend_chunk_batched(&str_enc[0], numReads, intv_all);
+
+    //fprintf(stderr, "%d: %lld %lld %lld -- %lld %lld\n", numReads, str_enc[0], qs[i].intv.first, qs[i].intv.second, intv_all[2*i], intv_all[2*i + 1]);
 
     for(i = 0; i < numReads; i++)
     {
         int readlength = qs[i].len;
-        int16_t x = qs[i].l;
+	qs[i].l += K;
+        int16_t x = qs[i].l;// + K;
 
 
-        while(x < readlength && readlength - x >= minSeedLen)
+	//fprintf(stderr, "ptr: %lld  \n", x);
+        //while(x < readlength && readlength - x >= minSeedLen)
         {
             int next_x = x + 1;
 
             // Forward search
             SMEM smem;
             smem.rid = qs[i].id;
-            smem.m = x;
+            smem.m = x - K;
             smem.n = x;
             
             //int offset = query_cum_len_ar[i];
@@ -690,13 +701,19 @@ int64_t bwtSeedStrategyAllPosOneThread_with_info( int32_t numReads,
 
             if(a < 4)
             {
+		#if 0
                 smem.k = tal_fmi->count[a];
                 smem.l = tal_fmi->count[3 - a];
                 smem.s = tal_fmi->count[a+1] - tal_fmi->count[a];
-
+                #endif
+		#if 1
+		smem.k = qs[i].intv.first;//tal_fmi->count[a];
+                smem.l = intv_all[2*i];//tal_fmi->count[3 - a];
+                smem.s = qs[i].intv.second -  qs[i].intv.first;//tal_fmi->count[a+1] - tal_fmi->count[a];
+		#endif
 
                 int j;
-                for(j = x + 1; j < readlength; j++)
+                for(j = x; j < readlength; j++)
                 {
                     next_x = j + 1;
                     // a = enc_qdb[i * readlength + j];
@@ -714,7 +731,9 @@ int64_t bwtSeedStrategyAllPosOneThread_with_info( int32_t numReads,
                         SMEM newSmem = newSmem_;
                         newSmem.k = newSmem_.l;
                         newSmem.l = newSmem_.k;
+
                         newSmem.n = j;
+		//	fprintf(stderr, "intv: %lld %lld %lld %d %d\n", newSmem.k, newSmem.l, newSmem.s, newSmem.m, newSmem.n);
                         smem = newSmem;
 #ifdef ENABLE_PREFETCH
                         _mm_prefetch((const char *)(&tal_fmi->cp_occ[(smem.k) >> CP_SHIFT]), _MM_HINT_T0);
@@ -744,9 +763,9 @@ int64_t bwtSeedStrategyAllPosOneThread_with_info( int32_t numReads,
             x = next_x;
        	    if(x < readlength && readlength - x >= minSeedLen){
 		qs[i].l = qs[i].r = x;
-		qs[i].intv = {0, qbwt_n};
+		qs[i].intv = {0, qbwt.n};
 		td.chunk_pool[td.chunk_cnt++] = qs[i];
-		break;	
+		//break;	
 	    }
         }
     }

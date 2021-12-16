@@ -226,6 +226,38 @@ void prepareChunkBatch(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* i
 		    }
 }
 
+
+void prepareChunkBatchForwardComp(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* intv_all, int K, int64_t qbwt_n){
+
+		    for(int64_t j = 0; j < qPoolSize; j++)
+		    {
+			Info &q = qPool[j];
+			uint64_t nxt_ext = 0;
+#ifndef NO_DNA_ORD
+			
+			for(int i = q.l + K - 1; i >= q.l; i--) {
+				int base = 3 - dna_ord(q.p[i]);
+				
+			    nxt_ext = (nxt_ext<<2) | base; 
+			}
+#else			
+
+			for(int i = q.l + K - 1; i >= q.l; i--) {
+				int base = 3 - q.p[i];
+			    nxt_ext = (nxt_ext<<2) | base; 
+			}
+#endif
+
+
+			str_enc[j] = nxt_ext;
+
+			intv_all[2 * j] = 0;
+			intv_all[2 * j + 1] = qbwt_n;
+			const char *p = qPool[j + 40].p; int offset = qPool[j + 40].l;
+                        my_prefetch((const char*)(p + offset) , _MM_HINT_T0);
+		    }
+}
+
 void prepareChunkBatchForward(Info* qPool, int qPoolSize, uint64_t* str_enc, int64_t* intv_all, int K){
 
 		    for(int64_t j = 0; j < qPoolSize; j++)
