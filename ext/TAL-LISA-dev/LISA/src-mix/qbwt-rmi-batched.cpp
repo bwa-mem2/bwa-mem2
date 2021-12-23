@@ -1,4 +1,6 @@
 #include "qbwt-rmi-batched.h"
+#include "macro.h"
+#include "profiling.h"
 
 threadData::threadData(int64_t pool_size){
 
@@ -570,8 +572,9 @@ void exact_search_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBW
 
 }
 
-void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, FMI_search* tal_fmi){
+void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, FMI_search* tal_fmi, int tid){
 	
+    uint64_t tim;// = __rdtsc();
 
 	Info *chunk_pool = td.chunk_pool;
 	int &chunk_cnt = td.chunk_cnt;
@@ -587,6 +590,7 @@ void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, 
 	
 	
 	int64_t next_q = 0;
+    	//tim = __rdtsc();
 	while(next_q < qs_size || chunk_cnt > 0){
 		
 		while(next_q < qs_size && chunk_cnt < batch_size){
@@ -645,18 +649,42 @@ void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, 
 			}
 		}
 		if((next_q >= qs_size && fmi_cnt > 0) || !(fmi_cnt < batch_size)){
-		td.numSMEMs += bwtSeedStrategyAllPosOneThread_with_info(
+
+		// RMI rev-complemented call to obtain "smem.l"
+		prepareChunkBatchForwardComp(fmi_pool, fmi_cnt, str_enc, intv_all, K, qbwt.n);//hardcode
+    		qbwt.rmi->backward_extend_chunk_batched(&str_enc[0], fmi_cnt, intv_all);
+
+		td.numSMEMs += bwtSeedStrategyAllPosOneThread_with_info_prefetch(
                                                         fmi_cnt,  
                                                         min_seed_len ,
                                                         &output->tal_smem[td.numSMEMs],
-							tal_fmi, fmi_pool, td, qbwt);      
+							tal_fmi, fmi_pool, td, qbwt, tid);      
 		fmi_cnt = 0; 
 		
 		}
 	
 	
 	}
+    	//	tprof[K3_TIMER][tid] += __rdtsc() - tim; 
 
+
+}
+
+void print_smem_lisa(SMEM a){
+	fprintf(stderr, "smem: %ld %ld %ld %ld %ld\n", a.rid,  a.m, a.n, a.k, a.s);
+	
+}
+
+SMEM get_info_to_smem(Info q, int64_t rmi_k, int K){
+	SMEM smem;
+	smem.rid = q.id;
+	smem.m = q.l;
+	smem.n = q.l + K;
+	smem.l = q.intv.first;
+	smem.k = rmi_k;
+	smem.s = q.intv.second -  q.intv.first;
+
+	return smem;
 
 }
 
@@ -664,110 +692,238 @@ int64_t bwtSeedStrategyAllPosOneThread_with_info( int32_t numReads,
                                                   int32_t minSeedLen,
                                                   SMEM *matchArray,
 						  FMI_search* tal_fmi,
-						  Info* qs, threadData &td,  QBWT_HYBRID<index_t> &qbwt)
+						  Info* qs, threadData &td,  QBWT_HYBRID<index_t> &qbwt, int tid)
 {
-    int32_t i=0;
-    uint64_t *str_enc = td.str_enc;
+    uint64_t tim;
     int64_t *intv_all = td.intv_all;
 
     int64_t numTotalSeed = 0;
     int K = qbwt.rmi->K;
-    prepareChunkBatchForwardComp(qs, numReads, str_enc, intv_all, K, qbwt.n);//hardcode
-    qbwt.rmi->backward_extend_chunk_batched(&str_enc[0], numReads, intv_all);
 
-    //fprintf(stderr, "%d: %lld %lld %lld -- %lld %lld\n", numReads, str_enc[0], qs[i].intv.first, qs[i].intv.second, intv_all[2*i], intv_all[2*i + 1]);
-
-    for(i = 0; i < numReads; i++)
+//    prepareChunkBatchForwardComp(qs, numReads, str_enc, intv_all, K, qbwt.n);//hardcode
+//    qbwt.rmi->backward_extend_chunk_batched(&str_enc[0], numReads, intv_all);
+    tim = __rdtsc();
+    for(int i = 0; i < numReads; i++)
     {
-        int readlength = qs[i].len;
-	qs[i].l += K;
-        int16_t x = qs[i].l;// + K;
-
-
-	//fprintf(stderr, "ptr: %lld  \n", x);
-        //while(x < readlength && readlength - x >= minSeedLen)
-        {
-            int next_x = x + 1;
-
-            // Forward search
-            SMEM smem;
-            smem.rid = qs[i].id;
-            smem.m = x - K;
-            smem.n = x;
-            
-            //int offset = query_cum_len_ar[i];
-            uint8_t a = qs[i].p[x];//enc_qdb[offset + x];
-            // uint8_t a = enc_qdb[i * readlength + x];
-
-            if(a < 4)
-            {
-		#if 0
-                smem.k = tal_fmi->count[a];
-                smem.l = tal_fmi->count[3 - a];
-                smem.s = tal_fmi->count[a+1] - tal_fmi->count[a];
-                #endif
-		#if 1
-		smem.k = qs[i].intv.first;//tal_fmi->count[a];
-                smem.l = intv_all[2*i];//tal_fmi->count[3 - a];
-                smem.s = qs[i].intv.second -  qs[i].intv.first;//tal_fmi->count[a+1] - tal_fmi->count[a];
-		#endif
-
-                int j;
-                for(j = x; j < readlength; j++)
-                {
-                    next_x = j + 1;
-                    // a = enc_qdb[i * readlength + j];
-                    a = qs[i].p[j];//enc_qdb[offset + j];
-                    if(a < 4)
-                    {
-                        SMEM smem_ = smem;
-
-                        // Forward extension is backward extension with the BWT of reverse complement
-                        smem_.k = smem.l;
-                        smem_.l = smem.k;
-                        SMEM newSmem_ = tal_fmi->backwardExt(smem_, 3 - a);
-                        //SMEM smem = backwardExt(smem, 3 - a);
-                        //smem.n = j;
-                        SMEM newSmem = newSmem_;
-                        newSmem.k = newSmem_.l;
-                        newSmem.l = newSmem_.k;
-
-                        newSmem.n = j;
-		//	fprintf(stderr, "intv: %lld %lld %lld %d %d\n", newSmem.k, newSmem.l, newSmem.s, newSmem.m, newSmem.n);
-                        smem = newSmem;
-#ifdef ENABLE_PREFETCH
-                        _mm_prefetch((const char *)(&tal_fmi->cp_occ[(smem.k) >> CP_SHIFT]), _MM_HINT_T0);
-                        _mm_prefetch((const char *)(&tal_fmi->cp_occ[(smem.l) >> CP_SHIFT]), _MM_HINT_T0);
-#endif
-
-			
-			//fprintf(stderr, "fmi-tal-log: %d %ld %ld %ld %ld %ld %ld %ld\n", qs[i].id & 0x0FFF, 3 - a, smem.m, smem.n, smem.k, smem.k + smem.s, smem.s, (long) max_intv_array[i]);
-                        if((smem.s < qs[i].min_intv) && ((smem.n - smem.m + 1) >= minSeedLen)) // acgtcg
-                        {
-
-                            if(smem.s > 0)
-                            {
-                                matchArray[numTotalSeed++] = smem;
-                            }
-                            break;
-                        }
-                    }
-                    else
-                    {
-
-                        break;
-                    }
-                }
-
-            }
-            x = next_x;
-       	    if(x < readlength && readlength - x >= minSeedLen){
-		qs[i].l = qs[i].r = x;
-		qs[i].intv = {0, qbwt.n};
-		td.chunk_pool[td.chunk_cnt++] = qs[i];
-		//break;	
+	    // Forward search
+	    SMEM smem = get_info_to_smem(qs[i], td.intv_all[2*i], K);
+	    const char* p = qs[i].p;
+	    int j;
+	    int readlength = qs[i].len;
+	    for(j = smem.n; j < readlength && p[j] < 4; j++)
+	    {
+		    smem = tal_fmi->backwardExt(smem, 3 - p[j]);
+		    if((smem.s < qs[i].min_intv) /*&& ((smem.n - smem.m + 1) >= minSeedLen)*/) {
+			    if(smem.s > 0){
+				    swap(smem.l, smem.k);
+				    smem.n = j;
+				    matchArray[numTotalSeed++] = smem;
+				    //print_smem_lisa(smem);
+			    }
+			    break;
+		    }
 	    }
-        }
+	    
+	    j++;
+	    if(j < readlength && readlength - j >= minSeedLen){
+		    qs[i].l = qs[i].r = j;
+		    qs[i].intv = {0, qbwt.n};
+		    td.chunk_pool[td.chunk_cnt++] = qs[i];
+	    }
     }
+    //tprof[K3_TIMER][tid] += __rdtsc() - tim; 
     return numTotalSeed;
+}
+
+
+void fmi_forward_strategy_batched( QBWT_HYBRID<index_t> &qbwt, int cnt, Info* q_batch, threadData &td, Info* output, int min_seed_len){
+
+	Info* tree_pool = td.tree_pool;
+	int &tree_cnt = td.tree_cnt;
+	tree_cnt = 0;
+	int output_cnt = 0;	
+
+	int pref_dist = 30;
+	int fmi_batch_size = pref_dist = min(pref_dist, cnt);
+	pref_dist = fmi_batch_size;
+
+	Info pf_batch[fmi_batch_size];
+	
+	auto cnt1 = fmi_batch_size;
+
+	// prepare first batch
+	for(int i = 0; i < fmi_batch_size; i++){
+		Info &q = q_batch[i];	
+		static constexpr int INDEX_T_BITS = sizeof(index_t)*__CHAR_BIT__;
+		static constexpr int shift = __lg(INDEX_T_BITS);
+		auto ls = ((q.intv.first>>shift)<<3), hs = ((q.intv.second>>shift)<<3); 
+		my_prefetch((const char*)(qbwt.fmi->occb + ls), _MM_HINT_T0); 
+		my_prefetch((const char*)(qbwt.fmi->occb + hs), _MM_HINT_T0); 
+                my_prefetch((const char*)(q.p + q.l) , _MM_HINT_T0); 
+	}
+	
+	while(fmi_batch_size > 0) {
+
+		for(int i = 0; i < fmi_batch_size; i++){
+			Info &q = q_batch[i];	
+			//process one step
+			int it = q.l;
+
+			if(it < q.r){			
+				auto next = qbwt.fmi->backward_extend({q.intv.first, q.intv.second}, 3 - q.p[it]);
+				if((next.high - next.low) < q.min_intv) { 
+					
+					q.r = q.l;	
+					output[output_cnt++] = q;  //State change
+
+					if(cnt1< cnt) //More queries to be processed?
+						q = q_batch[cnt1++]; //direction +
+					else
+						q = q_batch[--fmi_batch_size];
+          			      	my_prefetch((const char*)(q.p + q.l) , _MM_HINT_T0);
+
+				}
+				else {
+					q.l = it + 1, q.intv={next.low, next.high};  //fmi-continue
+				}
+			}	
+			else{
+					output[output_cnt++] = q;  //State change
+					//query finished
+					if(cnt1 < cnt) //More queries to be processed?
+						q = q_batch[cnt1++];
+					else
+						q = q_batch[--fmi_batch_size];
+                			my_prefetch((const char*)(q.p + q.l) , _MM_HINT_T0);
+			}
+			static constexpr int INDEX_T_BITS = sizeof(index_t)*__CHAR_BIT__;
+			static constexpr int shift = __lg(INDEX_T_BITS);
+			auto ls = ((q.intv.first>>shift)<<3), hs = ((q.intv.second>>shift)<<3); 
+			my_prefetch((const char*)(qbwt.fmi->occb + ls + 4), _MM_HINT_T0); 
+			my_prefetch((const char*)(qbwt.fmi->occb + hs + 4), _MM_HINT_T0); 
+		}
+	}
+}
+
+
+int64_t bwtSeedStrategyAllPosOneThread_with_info_prefetch( int32_t numReads,
+                                                  int32_t minSeedLen,
+                                                  SMEM *matchArray,
+						  FMI_search* tal_fmi,
+						  Info* qs, threadData &td,  QBWT_HYBRID<index_t> &qbwt, int tid)
+{
+	uint64_t tim;
+	int64_t *intv_all = td.intv_all;
+
+	int64_t numTotalSeed = 0;
+	int K = qbwt.rmi->K;
+
+	int pref_dist = 30;
+	int fmi_batch_size = pref_dist = min(pref_dist, numReads);
+	pref_dist = fmi_batch_size;
+
+	SMEM smem_batch[fmi_batch_size];
+	Info pf_batch[fmi_batch_size];
+	//const char* p_batch[fmi_batch_size];
+	
+
+	int next_read_idx = 0;
+	int max_intv = qs[0].min_intv;	
+
+	tim = __rdtsc();
+	// prepare first batch
+	for(int i = 0; i < fmi_batch_size; i++){
+
+		// Forward search
+		SMEM smem = get_info_to_smem(qs[i], intv_all[2*i], K);
+#if 0
+		smem.rid = qs[i].id;
+		smem.m = qs[i].l;
+		smem.n = qs[i].l + K;
+		smem.l = qs[i].intv.first;
+		smem.k = intv_all[2*i];
+		smem.s = qs[i].intv.second -  qs[i].intv.first;
+#endif
+		smem_batch[next_read_idx] = smem;	
+		pf_batch[next_read_idx++] = qs[i];
+#ifdef ENABLE_PREFETCH
+                        _mm_prefetch((const char *)(&tal_fmi->cp_occ[(smem.k + 4) >> CP_SHIFT]), _MM_HINT_T0);
+                        _mm_prefetch((const char *)(&tal_fmi->cp_occ[(smem.k + smem.s + 4) >> CP_SHIFT]), _MM_HINT_T0);
+                	_mm_prefetch((const char*)(qs[i].p + qs[i].l + K) , _MM_HINT_T0); 
+#endif
+	}
+
+	while(fmi_batch_size > 0) {
+
+		for(int i = 0; i < fmi_batch_size; i++)
+		{
+			// Forward search
+			Info &q  = qs[i];
+			SMEM &smem = smem_batch[i];
+			const char* p = q.p;
+			int j = smem.n;
+			int readlength = q.len;
+			//for(; j < readlength; j++)
+			
+			
+			if(j < readlength && p[j] < 4)
+			{
+				smem = tal_fmi->backwardExt(smem, 3 - p[j]);
+				//smem.n = j;
+				if((smem.s < max_intv) /*&& ((smem.n - smem.m + 1) >= minSeedLen)*/) 
+				{
+					if(smem.s > 0)
+					{
+						swap(smem.l, smem.k);
+						matchArray[numTotalSeed++] = smem;
+				    	//	print_smem_lisa(smem);
+					}
+					 // query finished - replace with new one.
+					j = smem.n + 1;
+					if(j < readlength && readlength - j >= minSeedLen){
+						q.l = q.r = j;
+						q.intv = {0, qbwt.n};
+						td.chunk_pool[td.chunk_cnt++] = q;
+					}
+					if (next_read_idx < numReads) { 
+						q = qs[next_read_idx];
+						smem = get_info_to_smem(q, intv_all[2*(next_read_idx)], K);
+						next_read_idx++;
+					}
+					else { 
+						q = qs[fmi_batch_size - 1]; 
+						smem = smem_batch[fmi_batch_size - 1];
+						fmi_batch_size--;
+					}
+				}
+				else smem.n++;
+			}
+			else {
+				j = smem.n + 1;
+				if(j < readlength && readlength - j >= minSeedLen){
+					q.l = q.r = j;
+					q.intv = {0, qbwt.n};
+					td.chunk_pool[td.chunk_cnt++] = q;
+				}
+				if (next_read_idx < numReads) { 
+					q = qs[next_read_idx];
+					smem = get_info_to_smem(q, intv_all[2*(next_read_idx)], K);
+					next_read_idx++;
+				}
+				else { 
+					q = qs[fmi_batch_size - 1]; 
+					smem = smem_batch[fmi_batch_size - 1];
+					fmi_batch_size--;
+				}
+			}
+#ifdef ENABLE_PREFETCH
+                        _mm_prefetch((const char *)(&tal_fmi->cp_occ[(smem.k + 4) >> CP_SHIFT]), _MM_HINT_T0);
+                        _mm_prefetch((const char *)(&tal_fmi->cp_occ[(smem.k + smem.s + 4) >> CP_SHIFT]), _MM_HINT_T0);
+                	_mm_prefetch((const char*)(q.p + q.l + K) , _MM_HINT_T0); 
+#endif
+		}
+
+	}
+	//tprof[K3_TIMER][tid] += __rdtsc() - tim; 
+	return numTotalSeed;
 }

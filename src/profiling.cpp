@@ -149,6 +149,9 @@ int display_stats(int nthreads)
     fprintf(stderr, "\t\tMEM_ALN_CHAIN_SEED avg: %0.2lf, (%0.2lf, %0.2lf)\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
 #endif
+    find_opt(tprof[PRE_SMEM_TIMER], nthreads, &max, &min, &avg);
+    fprintf(stderr, "\t\tSMEM compute pre-processing - avg: %0.2lf, (%0.2lf, %0.2lf)\n",
+            avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
     
     find_opt(tprof[MEM_COLLECT], nthreads, &max, &min, &avg);
     fprintf(stderr, "\t\tSMEM compute avg: %0.2lf, (%0.2lf, %0.2lf)\n",
@@ -166,8 +169,12 @@ int display_stats(int nthreads)
     find_opt(tprof[K3_TIMER], nthreads, &max, &min, &avg);
     fprintf(stderr, "\t\tSMEM compute K3 - avg: %0.2lf, (%0.2lf, %0.2lf)\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
+    
+    find_opt(tprof[POST_SMEM_TIMER], nthreads, &max, &min, &avg);
+    fprintf(stderr, "\t\tSMEM compute sort smem - avg: %0.2lf, (%0.2lf, %0.2lf)\n",
+            avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);
 
-#if HIDE
+#if 1 //HIDE
     find_opt(tprof[MEM_CHAIN], nthreads, &max, &min, &avg);
     fprintf(stderr, "\t\tMEM_CHAIN avg: %0.2lf, (%0.2lf, %0.2lf)\n",
             avg*1.0/proc_freq, max*1.0/proc_freq, min*1.0/proc_freq);

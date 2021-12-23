@@ -42,6 +42,8 @@ KBTREE_INIT(chn, mem_chain_t, chain_cmp)
 KSORT_INIT(mem_intv, bwtintv_t, intv_lt)
 #define intv_lt1(a, b) ((((uint64_t)(a).m) <<32 | ((uint64_t)(a).n)) < (((uint64_t)(b).m) <<32 | ((uint64_t)(b).n)))  // trial
 KSORT_INIT(mem_intv1, SMEM, intv_lt1)  // debug
+#define intv_lt1_lisa(a, b) ((a).rid < (b).rid) || ( ((a).rid == (b).rid) && ((((uint64_t)(a).m) <<32 | ((uint64_t)(a).n)) < (((uint64_t)(b).m) <<32 | ((uint64_t)(b).n))))  // trial
+KSORT_INIT(mem_intv1_lisa, SMEM, intv_lt1_lisa)  // debug
             
 #define max_(x, y) ((x)>(y)?(x):(y))
 #define min_(x, y) ((x)>(y)?(y):(x))
@@ -659,6 +661,9 @@ bool smem_sort(SMEM_out a, SMEM_out b) {
 bool tal_smem_sort(SMEM a, SMEM b) { 
 	return a.rid < b.rid || (a.rid == b.rid && a.m < b.m) || (a.rid == b.rid && a.m == b.m && a.n > b.n);
 }
+bool tal_smem_sort_rid(SMEM a, SMEM b) { 
+	return a.rid < b.rid;//  || (a.rid == b.rid && a.m < b.m) || (a.rid == b.rid && a.m == b.m && a.n > b.n);
+}
 
 bool isEqual(SMEM a, SMEM b){
 	if(a.rid == b.rid && 
@@ -1015,9 +1020,9 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 #endif
 
 // ********************************************   Kernel 3 *************************
+    tim = __rdtsc();
     if (opt->max_mem_intv > 0)
     {
-    tim = __rdtsc();
         for (int l=0; l<nseq; l++)
             min_intv_ar[l] = opt->max_mem_intv;
 #ifndef ENABLE_LISA_K3
@@ -1048,8 +1053,10 @@ SMEM *mem_collect_smem(FMI_search *fmi,
 
     //tim = __rdtsc();
 	td.fmi_cnt = 0;
-        exact_search_rmi_batched_k3(&lisa_qdb_k3[0], lisa_qdb_k3.size(), 10000, *qbwt, td, &op, opt->min_seed_len + 1, fmi);
+ //   tim = __rdtsc();
+        exact_search_rmi_batched_k3(&lisa_qdb_k3[0], lisa_qdb_k3.size(), 10000, *qbwt, td, &op, opt->min_seed_len + 1, fmi, tid);
 	int num_smem_rmi = td.numSMEMs;
+//    tprof[K3_TIMER][tid] += __rdtsc() - tim; 
 
 #if 0
 	SMEM* k3_ptr = matchArray + num_smem1 + num_smem2;
@@ -1083,10 +1090,16 @@ SMEM *mem_collect_smem(FMI_search *fmi,
     }
     //for_all_smem(matchArray + num_smem1 + num_smem2, num_smem3, "kernel 3 LISA smems"); 
     
+    tim = __rdtsc();
 
     tot_smem = num_smem1 + num_smem2 + num_smem3;
 
-    fmi->sortSMEMs(matchArray, &tot_smem, nseq, seq_[0].l_seq, 1); // seq_[0].l_seq - only used for blocking when using nthreads
+    //fmi->sortSMEMs(matchArray, &tot_smem, nseq, seq_[0].l_seq, 1); // seq_[0].l_seq - only used for blocking when using nthreads
+   
+#if 0
+    //sort(matchArray, matchArray + tot_smem, tal_smem_sort_rid);
+
+
 
     pos = 0;
     int64_t smem_ptr = 0;
@@ -1101,7 +1114,12 @@ SMEM *mem_collect_smem(FMI_search *fmi,
             ks_introsort(mem_intv1, n, &matchArray[smem_ptr]);
         smem_ptr = pos + 1;
     }
+#endif
+    if (tot_smem > 0)
+        ks_introsort(mem_intv1_lisa, tot_smem, &matchArray[0]);
 
+
+    tprof[POST_SMEM_TIMER][tid] += __rdtsc() - tim; 
     _mm_free(query_cum_len_ar);
     return matchArray;
 }
@@ -1692,6 +1710,7 @@ int mem_kernel1_core(FMI_search *fmi,
     mem_chain_v *chn;
     
     uint64_t tim;
+    tim = __rdtsc();    
     /* convert to 2-bit encoding if we have not done so */
     for (int l=0; l<nseq; l++)
     {
@@ -1731,6 +1750,8 @@ int mem_kernel1_core(FMI_search *fmi,
     int64_t  *wsize_mem   = &mmc->wsize_mem[tid];
     threadData *td	  = mmc->td[tid];
     
+    tprof[PRE_SMEM_TIMER][tid] += __rdtsc() - tim; 
+    
     tim = __rdtsc();    
     /********************** Kernel 1: FM+SMEMs *************************/
     printf_(VER, "6. Calling mem_collect_smem.., tid: %d\n", tid);
@@ -1756,6 +1777,7 @@ int mem_kernel1_core(FMI_search *fmi,
 
 
     /********************* Kernel 1.1: SA2REF **********************/
+    tim = __rdtsc();    
     printf_(VER, "6.1. Calling mem_chain..\n");
     mem_chain_seeds(fmi, opt, fmi->idx->bns,
                     seq_, nseq, tid,
@@ -1766,7 +1788,7 @@ int mem_kernel1_core(FMI_search *fmi,
                     num_smem);
     
     printf_(VER, "5. Done mem_chain..\n");
-    // tprof[MEM_CHAIN][tid] += __rdtsc() - tim;
+    tprof[MEM_CHAIN][tid] += __rdtsc() - tim;
 
     /************** Post-processing of collected smems/chains ************/
     // tim = __rdtsc();

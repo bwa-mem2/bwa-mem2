@@ -128,13 +128,19 @@ void smem_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID
 
 void exact_search_rmi_batched(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, bool apply_lisa = true);
 
-void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, FMI_search* tal_fmi);
+void exact_search_rmi_batched_k3(Info *qs, int64_t qs_size, int64_t batch_size, QBWT_HYBRID<index_t> &qbwt, threadData &td, Output* output, int min_seed_len, FMI_search* tal_fmi, int tid = 0);
 
 int64_t bwtSeedStrategyAllPosOneThread_with_info(
                                                    int32_t numReads,
                                                    int32_t minSeedLen,
                                                    SMEM *matchArray,
 						FMI_search* tal_fmi,
-						Info* qs, threadData & td, QBWT_HYBRID<index_t> &qbwt);
+						Info* qs, threadData & td, QBWT_HYBRID<index_t> &qbwt, int tid = 0);
 
+int64_t bwtSeedStrategyAllPosOneThread_with_info_prefetch(
+                                                   int32_t numReads,
+                                                   int32_t minSeedLen,
+                                                   SMEM *matchArray,
+						FMI_search* tal_fmi,
+						Info* qs, threadData & td, QBWT_HYBRID<index_t> &qbwt, int tid = 0);
 #endif

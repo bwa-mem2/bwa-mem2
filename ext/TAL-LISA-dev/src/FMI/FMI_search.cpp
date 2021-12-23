@@ -1666,8 +1666,8 @@ void FMI_search::sortSMEMs(SMEM *matchArray,
     }
 }
 
-
-SMEM FMI_search::backwardExt(SMEM smem, uint8_t a)
+#if 0
+SMEM FMI_search::backwardExt_back(SMEM smem, uint8_t a)
 {
     //beCalls++;
     uint8_t b;
@@ -1700,6 +1700,49 @@ SMEM FMI_search::backwardExt(SMEM smem, uint8_t a)
     l[2] = l[3] + s[3];
     l[1] = l[2] + s[2];
     l[0] = l[1] + s[1];
+
+    smem.k = k[a];
+    smem.l = l[a];
+    smem.s = s[a];
+    return smem;
+}
+#endif
+
+SMEM FMI_search::backwardExt(SMEM smem, uint8_t a)
+{
+    //beCalls++;
+    int8_t b;
+    int64_t sentinel_offset = 0;
+    if((smem.k <= sentinel_index) && ((smem.k + smem.s) > sentinel_index)) sentinel_offset = 1;
+
+    int64_t k[4], l[4], s[4];
+    l[3] = smem.l + sentinel_offset;
+    for(b = 3; b >= a; b--)
+    {
+        int64_t sp = (int64_t)(smem.k);
+        int64_t ep = (int64_t)(smem.k) + (int64_t)(smem.s);
+
+        // #if ((!__AVX2__))
+        // GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, bwt_str_bit0_sp, bwt_str_bit1_sp, bit0_cmp_sp, bit1_cmp_sp, mismatch_mask_sp);
+        // GET_OCC(ep, b, occ_id_ep, y_ep, occ_ep, bwt_str_bit0_ep, bwt_str_bit1_ep, bit0_cmp_ep, bit1_cmp_ep, mismatch_mask_ep);
+        GET_OCC(sp, b, occ_id_sp, y_sp, occ_sp, one_hot_bwt_str_c_sp, match_mask_sp);
+        GET_OCC(ep, b, occ_id_ep, y_ep, occ_ep, one_hot_bwt_str_c_ep, match_mask_ep);
+        // #else
+        // __m256i b256;
+        // b256 = _mm256_load_si256((const __m256i *)(c_bcast_array + b * 64));
+        // GET_OCC(sp, b, b256, occ_id_sp, y_sp, occ_sp, bwt_str_sp, bwt_sp_vec, mask_sp_vec, mask_sp);
+        // GET_OCC(ep, b, b256, occ_id_ep, y_ep, occ_ep, bwt_str_ep, bwt_ep_vec, mask_ep_vec, mask_ep);
+        // #endif
+
+        k[b] = count[b] + occ_sp;
+        s[b] = occ_ep - occ_sp;
+    }
+
+    for(b = 2; b >= a; b--)
+  	l[b] = l[b+1] + s[b+1];
+  //  l[2] = l[3] + s[3];
+  //  l[1] = l[2] + s[2];
+  //  l[0] = l[1] + s[1];
 
     smem.k = k[a];
     smem.l = l[a];

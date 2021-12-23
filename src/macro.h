@@ -175,6 +175,9 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define K1_TIMER 115
 #define K2_TIMER 116
 #define K3_TIMER 117
+#define PRE_SMEM_TIMER 118
+#define POST_SMEM_TIMER 119
+
 
 #define ENABLE_LISA 1
 #define ENABLE_LISA_K2 1
