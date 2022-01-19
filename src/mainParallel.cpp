@@ -60,7 +60,6 @@ int affy[256];
 #include "bwamem.h"
 #include "parallel_aux.h"
 #include <errno.h>
-#include "external.h"
 
 extern int errno;
 extern int add_memory_access(memaddr_t addr, line_type_e type,pthread_t thread);
