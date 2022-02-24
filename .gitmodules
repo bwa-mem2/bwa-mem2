@@ -1,3 +1,9 @@
 [submodule "ext/TAL"]
 	path = ext/TAL
 	url = https://github.com/IntelLabs/Trans-Omics-Acceleration-Library.git
+[submodule "ext/TAL-LISA-dev/safestringlib"]
+	path = ext/TAL-LISA-dev/safestringlib
+	url = https://github.com/intel/safestringlib.git
+[submodule "ext/TAL-LISA-dev/ext/safestringlib"]
+	path = ext/TAL-LISA-dev/ext/safestringlib
+	url = https://github.com/intel/safestringlib.git
