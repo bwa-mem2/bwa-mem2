@@ -71,7 +71,7 @@ static inline void trim_readno(kstring_t *s)
 
 static inline char *dupkstring(const kstring_t *str, int dupempty)
 {
-	char *s = (str->l > 0 || dupempty)? malloc(str->l + 1) : NULL;
+	char *s = (str->l > 0 || dupempty)? (char*)malloc(str->l + 1) : NULL;
 	if (!s) return NULL;
 
 	memcpy_bwamem(s, str->l, str->s, str->l, __FILE__, __LINE__);

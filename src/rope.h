@@ -8,6 +8,12 @@
 #define ROPE_DEF_MAX_NODES 64
 #define ROPE_DEF_BLOCK_LEN 512
 
+typedef struct { // memory pool for fast and compact memory allocation (no free)
+	int size, i, n_elems;
+	int64_t top, max;
+	uint8_t **mem;
+} mempool_t;
+
 typedef struct rpnode_s {
 	struct rpnode_s *p; // child; at the bottom level, $p points to a string with the first 2 bytes giving the number of runs (#runs)
 	uint64_t l:54, n:9, is_bottom:1; // $n and $is_bottom are only set for the first node in a bucket
@@ -18,7 +24,7 @@ typedef struct {
 	int32_t max_nodes, block_len; // both MUST BE even numbers
 	int64_t c[6]; // marginal counts
 	rpnode_t *root;
-	void *node, *leaf; // memory pool
+	mempool_t *node, *leaf; // memory pool
 } rope_t;
 
 typedef struct {
