@@ -270,7 +270,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 		return 1;
 	}
 	if (prefix == 0) {
-			prefix = malloc(strnlen_s(argv[optind], PATH_MAX) + 4);
+			prefix = (char *)malloc(strnlen_s(argv[optind], PATH_MAX) + 4);
 			assert(prefix != NULL);
 			strcpy_s(prefix, PATH_MAX, argv[optind]);
 			if (is_64) strcat_s(prefix, PATH_MAX, ".64");
