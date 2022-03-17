@@ -470,7 +470,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     
     w.ref_string = aux->ref_string;
     w.fmi = aux->fmi;
-    w.qbwt = aux->qbwt;
+    w.lisa = aux->lisa;
     w.nreads  = nreads;
     // w.memSize = nreads;
     
@@ -621,7 +621,9 @@ int main_mem(int argc, char *argv[])
     int          fixed_chunk_size          = -1;
     char        *p, *rg_line               = 0, *hdr_line = 0;
     const char  *mode                      = 0;
-    
+    // Number of leaf nodes in RMI
+    int64_t num_rmi_leaf  = 0;  
+ 
     mem_opt_t    *opt, opt0;
     gzFile        fp, fp2 = 0;
     void         *ko = 0, *ko2 = 0;
@@ -642,7 +644,7 @@ int main_mem(int argc, char *argv[])
     
     /* Parse input arguments */
     // comment: added option '5' in the list
-    while ((c = getopt(argc, argv, "51qpaMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:")) >= 0)
+    while ((c = getopt(argc, argv, "51qpaMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:l:")) >= 0)
     {
         if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
         else if (c == '1') no_mt_io = 1;
@@ -775,6 +777,10 @@ int main_mem(int argc, char *argv[])
             if (*p != 0 && ispunct(*p) && isdigit(p[1]))
                 pes[1].low  = (int)(strtod(p+1, &p) + .499);
         }
+        else if (c == 'l')
+        {
+	    num_rmi_leaf = atoi(optarg);
+        }
         else {
             free(opt);
             if (is_o)
@@ -847,24 +853,13 @@ int main_mem(int argc, char *argv[])
     /* Matrix for SWA */
     bwa_fill_scmat(opt->a, opt->b, opt->mat);
     
-    /* Load bwt2/FMI index */
-    uint64_t tim = __rdtsc();
-    
-    
-
-    aux.fmi = new FMI_search(argv[optind]);
-    // aux.fmi->load_index();
-    aux.fmi->load_index(0);
-    tprof[FMI_mem2][0] += __rdtsc() - tim;
-    
-    // reading ref string from the file
-    tim = __rdtsc();
-    fprintf(stderr, "* Reading reference genome..\n");
+    uint64_t tim; 
 
     // LISA index 
    
 #ifdef ENABLE_LISA 
-    QBWT_HYBRID<index_t> *qbwt;
+    //QBWT_HYBRID<index_t> *lisa;
+    LISA_search<index_t> *lisa;
     string ref_seq_file = (string) argv[optind];
     fprintf(stderr, "Reference file name: %s\n", ref_seq_file.c_str());
     string size_file_name = ref_seq_file + "_SIZE";
@@ -873,13 +868,30 @@ int main_mem(int argc, char *argv[])
     fi>>size_file;
     fprintf(stderr, "Reference seq size = %lld\n",  size_file);
     string seq; 
-    qbwt =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 20, 268435456);
-    //qbwt =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 20, 16777216);
+    
+    assert(num_rmi_leaf > 0);
+    //lisa =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 20, 268435456);
+    //lisa =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 20, num_rmi_leaf);//16777216);
+    lisa =  new LISA_search<index_t>(seq, size_file, ref_seq_file, 20, num_rmi_leaf);//16777216);
     
 
-    aux.qbwt = qbwt;  
- 
-#endif 
+    // LISA_search derives FMI_search, so both aux.lisa and aux.fmi objcts pointing to "lisa"
+    aux.lisa = lisa;  
+    aux.fmi = lisa;
+#else 
+    tim = __rdtsc();
+    /* Load bwt2/FMI index */
+    aux.fmi = new FMI_search(argv[optind]);
+    aux.fmi->load_index(0);
+
+    tprof[FMI_mem2][0] += __rdtsc() - tim;
+#endif    
+
+    // reading ref string from the file
+    tim = __rdtsc();
+    fprintf(stderr, "* Reading reference genome..\n");
+    
+
     char binary_seq_file[PATH_MAX];
     strcpy_s(binary_seq_file, PATH_MAX, argv[optind]);
     strcat_s(binary_seq_file, PATH_MAX, ".0123");
@@ -921,7 +933,12 @@ int main_mem(int argc, char *argv[])
         free(opt);
         if (is_o) 
             fclose(aux.fp);
-        delete aux.fmi;
+        //delete aux.fmi;
+	#ifdef ENABLE_LISA 
+	    delete(aux.lisa);    
+	#else
+	    delete(aux.fmi);    
+	#endif
         // kclose(ko);
         return 1;
     }
@@ -948,7 +965,12 @@ int main_mem(int argc, char *argv[])
                 kseq_destroy(aux.ks);
                 if (is_o) 
                     fclose(aux.fp);             
-                delete aux.fmi;
+                //delete aux.fmi;
+		#ifdef ENABLE_LISA 
+		    delete(aux.lisa);    
+		#else
+		    delete(aux.fmi);    
+		#endif
                 kclose(ko);
                 // kclose(ko2);
                 return 1;
@@ -997,9 +1019,11 @@ int main_mem(int argc, char *argv[])
     }
 
     // new bwt/FMI
+#ifdef ENABLE_LISA 
+    delete(aux.lisa);    
+#else
     delete(aux.fmi);    
-    delete(aux.qbwt);    
-
+#endif
     /* Display runtime profiling stats */
     tprof[MEM][0] = __rdtsc() - tprof[MEM][0];
     display_stats(nt);

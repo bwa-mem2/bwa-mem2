@@ -52,7 +52,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "macro.h"
 #include "profiling.h"
 #include "FMI_search.h"
-#include "qbwt-rmi-batched.h"
+#include "LISA_search.h"
 #define MEM_MAPQ_COEF 30.0
 #define MEM_MAPQ_MAX  60
 
@@ -230,7 +230,8 @@ typedef struct worker_t {
     int16_t           nthreads;
     int32_t           nreads;
     FMI_search       *fmi; 
-    QBWT_HYBRID<index_t> *qbwt; 
+    //QBWT_HYBRID<index_t> *lisa; 
+    LISA_search<index_t> *lisa; 
 } worker_t;
 
 
@@ -263,7 +264,8 @@ static inline int get_rlen(int n_cigar, const uint32_t *cigar);
 static inline int infer_bw(int l1, int l2, int score, int a, int q, int r);
 
 int mem_kernel1_core(FMI_search *fmi, 
-                     QBWT_HYBRID<index_t> *qbwt, 
+                     //QBWT_HYBRID<index_t> *lisa, 
+                     LISA_search<index_t> *lisa, 
 		     const mem_opt_t *opt,
                      bseq1_t *seq_,
                      int nseq,

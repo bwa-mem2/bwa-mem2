@@ -50,7 +50,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "bntseq.h"
 #include "kseq.h"
 #include "profiling.h"
-#include "qbwt-rmi-batched.h"
+#include "LISA_search.h"
 #include "FMI_search.h"
 
 KSEQ_DECLARE(gzFile)
@@ -68,7 +68,8 @@ typedef struct {
 	FILE *fp;
 	uint8_t *ref_string;
 	FMI_search *fmi;
-	QBWT_HYBRID<index_t> *qbwt;	
+	//QBWT_HYBRID<index_t> *lisa;	
+	LISA_search<index_t> *lisa;	
 } ktp_aux_t;
 
 typedef struct {

@@ -180,11 +180,12 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 
 #define ENABLE_LISA 1
-#define ENABLE_LISA_K2 1
-	//#define ENABLE_LISA_K2_V1 1
-#define ENABLE_LISA_K2_V2 1
+//#define ENABLE_LISA_K2 1
+//#define ENABLE_LISA_K2_V2 1
 
 
-#define ENABLE_LISA_K3 1
+//#define ENABLE_LISA_K3 1
+
+//#define lisa_fmi 1
 //#define KERNEL3_DEBUG 1
 #endif

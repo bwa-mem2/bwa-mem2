@@ -42,21 +42,27 @@ endif
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1 -std=c++17 
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS)
-LISA_SMEM_FLAGS= -DOUTPUT -DNO_DNA_ORD -DREV_COMP -DBWA_MEM_BUG -DNOCHUNK -DVECTORIZE  -DENABLE_PREFETCH -D_64BIT -DHUGE_PAGE #-DREV_CMP_SEARCH -DHUGE_PAGE
+LISA_SMEM_FLAGS= -DOUTPUT -DNO_DNA_ORD -DREV_COMP -DBWA_MEM_BUG -DNOCHUNK -DVECTORIZE  -DENABLE_PREFETCH -D_64BIT -DHUGE_PAGE -Dlisa_fmi_ #-DREV_CMP_SEARCH -DHUGE_PAGE
 CPPFLAGS+= $(LISA_SMEM_FLAGS)
-EXT=         ext/TAL-LISA-dev
-EXTEXT=      ext/TAL-LISA-dev/ext
+EXT=          /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library
+EXTEXT=       $(EXT)/ext
+#EXTEXT=       /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library/ext
 EXTBSW=      $(EXT)/src/BSW
+#EXTBSW=      /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library/src/BSW
 EXTFMI=      $(EXT)/src/FMI
-EXTLISA=     $(EXT)/LISA
-EXTLISASRC=  $(EXTLISA)/src-mix
+#EXTFMI=      /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library/src/FMI
+#EXTLISA=     $(EXT)/LISA
+EXTLISASRC=  $(EXT)/src/LISA-FMI
+#EXTLISASRC=  /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library/src/LISA
+
 INCLUDES=   -Isrc -I$(EXT)/ext/safestringlib/include -I$(EXTBSW) -I$(EXTFMI) -I$(EXTEXT) -I$(EXTLISASRC)
 LIBS=		-lpthread -lm -lz -L. -lbwa -L$(EXT)/ext/safestringlib -lsafestring $(STATIC_GCC)
 OBJS=		src/fastmap.o src/bwtindex.o $(EXTEXT)/utils.o src/memcpy_bwamem.o src/kthread.o \
 			src/kstring.o src/ksw.o $(EXTEXT)/bntseq.o src/bwamem.o src/profiling.o $(EXTBSW)/bandedSWA.o \
 			$(EXTFMI)/FMI_search.o  src/bwamem_pair.o src/kswv.o src/bwa.o $(EXTEXT)/bseq.o\
 			src/bwamem_extra.o src/kopen.o 
-LISA_OBJ=	$(EXTLISASRC)/chunkEncode.o $(EXTLISASRC)/common.o $(EXTLISASRC)/qbwt-rmi-batched.o
+#LISA_OBJ=	$(EXTLISASRC)/thread_data.o $(EXTLISASRC)/chunkEncode.o $(EXTLISASRC)/lisa_util.o $(EXTLISASRC)/qbwt-rmi-batched.o
+LISA_OBJ=	$(EXTLISASRC)/thread_data.o $(EXTLISASRC)/lisa_util.o 
 OBJS+= $(LISA_OBJ)
 
 BWA_LIB=    libbwa.a
@@ -140,6 +146,7 @@ clean:
 	rm -rf $(EXTBSW)/*.o
 	rm -rf $(EXTFMI)/*.o
 	rm -rf $(EXTEXT)/*.o
+	rm -rf $(EXTLISASRC)/*.o 
 
 depend:
 	(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CXXFLAGS) $(CPPFLAGS) -I. -- src/*.cpp)
