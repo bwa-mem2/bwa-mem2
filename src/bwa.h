@@ -33,6 +33,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 #include <stdint.h>
 #include <zlib.h>
+#include <string.h>
 #include "bntseq.h"
 #include "bwt.h"
 #include "macro.h"
@@ -98,6 +99,8 @@ extern "C" {
 							 int *n_cigar, int *NM);
 
 	int bwa_idx_build(const char *fa, const char *prefix);
+	
+	int lisa_idx_build(const char *fa, const char *prefix, int min_seed_len, uint64_t num_rmi_leaf, std::string mem2_home = "");
 
 	char *bwa_idx_infer_prefix(const char *hint);
 	bwt_t *bwa_idx_load_bwt(const char *hint);

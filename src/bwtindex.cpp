@@ -28,6 +28,8 @@
 */
 
 
+#include "sais.h"
+#include "read.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,13 +41,25 @@
 #include "bwt.h"
 #include "utils.h"
 #include "FMI_search.h"
+#include "LISA_search.h"
 
 int bwa_index(int argc, char *argv[]) // the "index" command
 {
+	string bin_file = argv[0];
+
+        string mem2_home = get_abs_location(bin_file);
+
+	argc = argc - 1;
+	argv = argv + 1;
+		
 	int c;
 	char *prefix = 0;
-	while ((c = getopt(argc, argv, "p:")) >= 0) {
+	int min_seed_len = 0;
+	uint64_t num_rmi_leaf = 0;
+	while ((c = getopt(argc, argv, "p:k:l:")) >= 0) {
 		if (c == 'p') prefix = optarg;
+		else if (c == 'k') min_seed_len = atoi(optarg);
+		else if (c == 'l') num_rmi_leaf = atoi(optarg);
 		else return 1;
 	}
 
@@ -53,8 +67,16 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 		fprintf(stderr, "Usage: bwa-mem2 index [-p prefix] <in.fasta>\n");
 		return 1;
 	}
+	
+	assert(num_rmi_leaf > 0 && num_rmi_leaf < UINT64_MAX);
+	assert(min_seed_len >= 0 && min_seed_len < INT_MAX);
+	if (min_seed_len == 0) min_seed_len = 19; // default value 
 	if (prefix == 0) prefix = argv[optind];
+#ifndef ENABLE_LISA 
 	bwa_idx_build(argv[optind], prefix);
+#else
+	lisa_idx_build(argv[optind], prefix, min_seed_len, num_rmi_leaf, mem2_home);
+#endif
 	return 0;
 }
 
@@ -79,3 +101,42 @@ int bwa_idx_build(const char *fa, const char *prefix)
 	}
 	return 0;
 }
+
+
+
+int lisa_idx_build(const char *fa, const char *prefix, int min_seed_len, uint64_t num_rmi_leaf, string mem2_home)
+{
+	extern void bwa_pac_rev_core(const char *fn, const char *fn_rev);
+
+	clock_t t;
+	int64_t l_pac;
+
+	{ // nucleotide indexing
+		gzFile fp = xzopen(fa, "r");
+		t = clock();
+		fprintf(stderr, "[lisa_index] Pack FASTA... ");
+		l_pac = bns_fasta2bntseq(fp, prefix, 1);
+		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
+		err_gzclose(fp);
+        	//FMI_search *fmi = new FMI_search(prefix);
+        	//fmi->build_index(0);
+        	//delete fmi;
+
+        	string ref_seq_file = (string) prefix;
+		
+        	string seq; 
+		{ 
+    			gzFile fp = xzopen(ref_seq_file.c_str(), "r");
+    			read_seq_lisa(ref_seq_file, seq);
+    			eprintln("Read ref file done.");
+ 		}
+    		//string path = "/nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library";
+    		string path = mem2_home + "/../Trans-Omics-Acceleration-Library";
+		LISA_search<index_t> *lisa =  new LISA_search<index_t>(seq, seq.size(), ref_seq_file, min_seed_len + 1, num_rmi_leaf, path);//16777216);
+
+		delete lisa;
+	}
+	return 0;
+}
+
+
