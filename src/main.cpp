@@ -50,7 +50,6 @@ int usage()
 
 int main(int argc, char* argv[])
 {
-        
     // ---------------------------------    
     uint64_t tim = __rdtsc();
     sleep(1);
@@ -62,7 +61,8 @@ int main(int argc, char* argv[])
     if (strcmp(argv[1], "index") == 0)
     {
          uint64_t tim = __rdtsc();
-         ret = bwa_index(argc-1, argv+1);
+         //ret = bwa_index(argc-1, argv+1);
+         ret = bwa_index(argc, argv);
          fprintf(stderr, "Total time taken: %0.4lf\n", (__rdtsc() - tim)*1.0/proc_freq);
          return ret;
     }
