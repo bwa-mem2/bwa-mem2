@@ -44,7 +44,8 @@ MEM_FLAGS=	-DSAIS=1 -std=c++17
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS)
 LISA_SMEM_FLAGS= -DOUTPUT -DNO_DNA_ORD -DREV_COMP -DBWA_MEM_BUG -DNOCHUNK -DVECTORIZE  -DENABLE_PREFETCH -D_64BIT -DHUGE_PAGE -Dlisa_fmi_ #-DREV_CMP_SEARCH -DHUGE_PAGE
 CPPFLAGS+= $(LISA_SMEM_FLAGS)
-EXT=          /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library
+#EXT=          /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library
+EXT=          ./ext/TAL
 EXTEXT=       $(EXT)/ext
 #EXTEXT=       /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library/ext
 EXTBSW=      $(EXT)/src/BSW

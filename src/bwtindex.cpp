@@ -131,7 +131,8 @@ int lisa_idx_build(const char *fa, const char *prefix, int min_seed_len, uint64_
     			eprintln("Read ref file done.");
  		}
     		//string path = "/nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library";
-    		string path = mem2_home + "/../Trans-Omics-Acceleration-Library";
+    		//string path = mem2_home + "/../Trans-Omics-Acceleration-Library";
+    		string path = mem2_home + "/ext/TAL";
 		LISA_search<index_t> *lisa =  new LISA_search<index_t>(seq, seq.size(), ref_seq_file, min_seed_len + 1, num_rmi_leaf, path);//16777216);
 
 		delete lisa;
