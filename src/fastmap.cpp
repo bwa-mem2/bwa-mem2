@@ -869,7 +869,7 @@ int main_mem(int argc, char *argv[])
     fprintf(stderr, "Reference seq size = %lld\n",  size_file);
     string seq; 
     
-    assert(num_rmi_leaf > 0);
+    assert(num_rmi_leaf >= 0);
     //lisa =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 20, 268435456);
     //lisa =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 20, num_rmi_leaf);//16777216);
     lisa =  new LISA_search<index_t>(seq, size_file, ref_seq_file, 20, num_rmi_leaf);//16777216);

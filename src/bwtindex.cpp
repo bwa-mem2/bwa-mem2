@@ -68,7 +68,7 @@ int bwa_index(int argc, char *argv[]) // the "index" command
 		return 1;
 	}
 	
-	assert(num_rmi_leaf > 0 && num_rmi_leaf < UINT64_MAX);
+	assert(num_rmi_leaf >= 0 && num_rmi_leaf < UINT64_MAX);
 	assert(min_seed_len >= 0 && min_seed_len < INT_MAX);
 	if (min_seed_len == 0) min_seed_len = 19; // default value 
 	if (prefix == 0) prefix = argv[optind];
