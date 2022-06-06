@@ -15,10 +15,10 @@
 ## Getting Started
 ```sh
 # Use precompiled binaries (recommended)
-curl -L https://github.com/bwa-mem2/bwa-mem2/releases/download/v2.0pre2/bwa-mem2-2.0pre2_x64-linux.tar.bz2 \
+curl -L https://github.com/bwa-mem2/bwa-mem2/releases/download/v2.2.1/bwa-mem2-2.2.1_x64-linux.tar.bz2 \
   | tar jxf -
-bwa-mem2-2.0pre2_x64-linux/bwa-mem2 index ref.fa
-bwa-mem2-2.0pre2_x64-linux/bwa-mem2 mem ref.fa read1.fq read2.fq > out.sam
+bwa-mem2-2.2.1_x64-linux/bwa-mem2 index ref.fa
+bwa-mem2-2.2.1_x64-linux/bwa-mem2 mem ref.fa read1.fq read2.fq > out.sam
 
 # Compile from source (not recommended for general users)
 # Get the source
@@ -36,13 +36,13 @@ make
 
 ## Introduction
 
-Bwa-mem2 is the next version of the bwa-mem algorithm in [bwa][bwa]. It
+The tool bwa-mem2 is the next version of the bwa-mem algorithm in [bwa][bwa]. It
 produces alignment identical to bwa and is ~1.3-3.1x faster depending on the use-case, dataset and the running machine.
 
 The original bwa was developed by Heng Li (@lh3). Performance enhancement in
 bwa-mem2 was primarily done by Vasimuddin Md (@yuk12) and Sanchit Misra (@sanchit-misra)
 from Parallel Computing Lab, Intel.
-Bwa-mem2 is distributed under the MIT license.
+bwa-mem2 is distributed under the MIT license.
 
 ## Installation
 
@@ -118,7 +118,7 @@ or   ```make``` (using gcc compiler)
 For example,  in our double socket (56 threads each) and double numa compute node, we used the following command line to align D2 to human_g1k_v37.fasta reference genome.  
 ```
 numactl -m 0 -C 0-27,56-83 ./bwa-mem2 index human_g1k_v37.fasta  
-numactl -m 0 -C 0-27,56-83 ./bwa-mem2 mem -t 56 human_g1k_v37.fasta SRR7733443_1.fastq SRR7733443_2.fastq > d3_align.sam
+numactl -m 0 -C 0-27,56-83 ./bwa-mem2 mem -t 56 human_g1k_v37.fasta SRR7733443_1.fastq SRR7733443_2.fastq > d2_align.sam
 ```
 
 <p align="center">
@@ -144,4 +144,4 @@ The following are the highlights of the ert based bwa-mem2 tool:
 
 Vasimuddin Md, Sanchit Misra, Heng Li, Srinivas Aluru.
 <b> Efficient Architecture-Aware Acceleration of BWA-MEM for Multicore Systems. </b>
-<i> IEEE Parallel and Distributed Processing Symposium (IPDPS), 2019. </i>
+<i> IEEE Parallel and Distributed Processing Symposium (IPDPS), 2019. [10.1109/IPDPS.2019.00041](https://doi.org/10.1109/IPDPS.2019.00041) </i>
