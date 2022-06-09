@@ -739,17 +739,7 @@ int main_mem(int argc, char *argv[])
                 FILE *fp;
                 if ((fp = fopen(optarg, "r")) != 0)
                 {
-                    char *buf;
-                    buf = (char *) calloc(1, 0x10000);
-                    assert(buf != NULL);
-                    while (fgets(buf, 0xffff, fp))
-                    {
-                        i = strlen(buf);
-                        assert(buf[i-1] == '\n');
-                        buf[i-1] = 0;
-                        hdr_line = bwa_insert_header(buf, hdr_line);
-                    }
-                    free(buf);
+                    bwa_insert_header_file(fp, hdr_line);
                     fclose(fp);
                 }
             } else hdr_line = bwa_insert_header(optarg, hdr_line);
