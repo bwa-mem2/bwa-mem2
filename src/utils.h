@@ -48,7 +48,7 @@
 
 #define xassert(cond, msg) if ((cond) == 0) _err_fatal_simple_core(__func__, msg)
 
-#if defined(__GNUC__) && !defined(__clang__)
+#if defined(__GNUC__) && __GNUC__ < 11 && !defined(__clang__)
 #if defined(__i386__)
 static inline unsigned long long __rdtsc(void)
 {
