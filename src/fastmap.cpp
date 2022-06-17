@@ -858,7 +858,6 @@ int main_mem(int argc, char *argv[])
     // LISA index 
    
 #ifdef ENABLE_LISA 
-    //QBWT_HYBRID<index_t> *lisa;
     LISA_search<index_t> *lisa;
     string ref_seq_file = (string) argv[optind];
     fprintf(stderr, "Reference file name: %s\n", ref_seq_file.c_str());
@@ -870,11 +869,8 @@ int main_mem(int argc, char *argv[])
     string seq; 
     
     assert(num_rmi_leaf >= 0);
-    //lisa =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 20, 268435456);
-    //lisa =  new QBWT_HYBRID<index_t>(seq, size_file, ref_seq_file, 20, num_rmi_leaf);//16777216);
-    lisa =  new LISA_search<index_t>(seq, size_file, ref_seq_file, 20, num_rmi_leaf);//16777216);
+    lisa =  new LISA_search<index_t>(seq, size_file, ref_seq_file, 20, num_rmi_leaf);
     
-
     // LISA_search derives FMI_search, so both aux.lisa and aux.fmi objcts pointing to "lisa"
     aux.lisa = lisa;  
     aux.fmi = lisa;
