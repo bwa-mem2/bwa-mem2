@@ -46,8 +46,7 @@
 int bwa_index(int argc, char *argv[]) // the "index" command
 {
 	string bin_file = argv[0];
-
-        string mem2_home = get_abs_location(bin_file);
+	string mem2_home = get_abs_location(bin_file);
 
 	argc = argc - 1;
 	argv = argv + 1;
@@ -86,7 +85,6 @@ int bwa_idx_build(const char *fa, const char *prefix)
 
 	clock_t t;
 	int64_t l_pac;
-
 	{ // nucleotide indexing
 		gzFile fp = xzopen(fa, "r");
 		t = clock();
@@ -102,42 +100,35 @@ int bwa_idx_build(const char *fa, const char *prefix)
 	return 0;
 }
 
-
-
 int lisa_idx_build(const char *fa, const char *prefix, int min_seed_len, uint64_t num_rmi_leaf, string mem2_home)
 {
 	extern void bwa_pac_rev_core(const char *fn, const char *fn_rev);
 
 	clock_t t;
 	int64_t l_pac;
+	 // nucleotide indexing
+	gzFile fp = xzopen(fa, "r");
+	t = clock();
+	fprintf(stderr, "[lisa_index] Pack FASTA... ");
+	l_pac = bns_fasta2bntseq(fp, prefix, 1);
+	err_gzclose(fp);
+    FMI_search *fmi = new FMI_search(prefix);
+    fmi->build_index(0);
+    delete fmi;
 
-	{ // nucleotide indexing
-		gzFile fp = xzopen(fa, "r");
-		t = clock();
-		fprintf(stderr, "[lisa_index] Pack FASTA... ");
-		l_pac = bns_fasta2bntseq(fp, prefix, 1);
-		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
-		err_gzclose(fp);
-        	//FMI_search *fmi = new FMI_search(prefix);
-        	//fmi->build_index(0);
-        	//delete fmi;
-
-        	string ref_seq_file = (string) prefix;
+    string ref_seq_file = (string) prefix;
 		
-        	string seq; 
-		{ 
-    			gzFile fp = xzopen(ref_seq_file.c_str(), "r");
-    			read_seq_lisa(ref_seq_file, seq);
-    			eprintln("Read ref file done.");
- 		}
-    		//string path = "/nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library";
-    		//string path = mem2_home + "/../Trans-Omics-Acceleration-Library";
-    		string path = mem2_home + "/ext/TAL";
-		LISA_search<index_t> *lisa =  new LISA_search<index_t>(seq, seq.size(), ref_seq_file, min_seed_len + 1, num_rmi_leaf, path);//16777216);
+    string seq; 
+	{ 
+    	gzFile fp = xzopen(ref_seq_file.c_str(), "r");
+    	read_seq_lisa(ref_seq_file, seq);
+    	fprintf(stderr, "Read ref file done.\n");
+ 	}
+    string path = mem2_home + "/ext/TAL";
+	LISA_search<index_t> *lisa =  new LISA_search<index_t>(seq, seq.size(), ref_seq_file, min_seed_len + 1, num_rmi_leaf, path);
 
-		delete lisa;
-	}
+	delete lisa;
+	fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
+	
 	return 0;
 }
-
-
