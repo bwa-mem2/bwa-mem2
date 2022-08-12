@@ -42,19 +42,13 @@ endif
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1 -std=c++17 
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS)
-LISA_SMEM_FLAGS= -DOUTPUT -DNO_DNA_ORD -DREV_COMP -DBWA_MEM_BUG -DNOCHUNK -DVECTORIZE  -DENABLE_PREFETCH -D_64BIT -DHUGE_PAGE -Dlisa_fmi_ #-DREV_CMP_SEARCH -DHUGE_PAGE
+LISA_SMEM_FLAGS= -DOUTPUT -DNO_DNA_ORD -DREV_COMP -DBWA_MEM_BUG -DNOCHUNK -DVECTORIZE  -DENABLE_PREFETCH -D_64BIT -DHUGE_PAGE_  # flag ending with '_' are disabled flags, remove '_' to enable. Example: To enable HUGE_PAGE, " -DHUGE_PAGE_ -> -DHUGE_PAGE"
 CPPFLAGS+= $(LISA_SMEM_FLAGS)
-#EXT=          /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library
 EXT=          ./ext/TAL
 EXTEXT=       $(EXT)/ext
-#EXTEXT=       /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library/ext
 EXTBSW=      $(EXT)/src/BSW
-#EXTBSW=      /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library/src/BSW
 EXTFMI=      $(EXT)/src/FMI
-#EXTFMI=      /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library/src/FMI
-#EXTLISA=     $(EXT)/LISA
 EXTLISASRC=  $(EXT)/src/LISA-FMI
-#EXTLISASRC=  /nfs_home/skalikar/mem2-lisa/git-scratchpad/Trans-Omics-Acceleration-Library/src/LISA
 
 INCLUDES=   -Isrc -I$(EXT)/ext/safestringlib/include -I$(EXTBSW) -I$(EXTFMI) -I$(EXTEXT) -I$(EXTLISASRC)
 LIBS=		-lpthread -lm -lz -L. -lbwa -L$(EXT)/ext/safestringlib -lsafestring $(STATIC_GCC)
@@ -62,7 +56,6 @@ OBJS=		src/fastmap.o src/bwtindex.o $(EXTEXT)/utils.o src/memcpy_bwamem.o src/kt
 			src/kstring.o src/ksw.o $(EXTEXT)/bntseq.o src/bwamem.o src/profiling.o $(EXTBSW)/bandedSWA.o \
 			$(EXTFMI)/FMI_search.o  src/bwamem_pair.o src/kswv.o src/bwa.o $(EXTEXT)/bseq.o\
 			src/bwamem_extra.o src/kopen.o 
-#LISA_OBJ=	$(EXTLISASRC)/thread_data.o $(EXTLISASRC)/chunkEncode.o $(EXTLISASRC)/lisa_util.o $(EXTLISASRC)/qbwt-rmi-batched.o
 LISA_OBJ=	$(EXTLISASRC)/thread_data.o $(EXTLISASRC)/lisa_util.o 
 OBJS+= $(LISA_OBJ)
 
@@ -119,17 +112,18 @@ CXXFLAGS+=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 all:$(EXE)
 
 multi:
-	rm -f src/*.o $(BWA_LIB); cd $(EXT)/ext/safestringlib/ && $(MAKE) clean;
+	$(MAKE) cleanObj; cd $(EXT)/ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=sse41    EXE=bwa-mem2.sse41    CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); cd $(EXT)/ext/safestringlib/ && $(MAKE) clean;
+	$(MAKE) cleanObj; cd $(EXT)/ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=sse42    EXE=bwa-mem2.sse42    CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); cd $(EXT)/ext/safestringlib/ && $(MAKE) clean;
+	$(MAKE) cleanObj; cd $(EXT)/ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx    EXE=bwa-mem2.avx    CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); cd $(EXT)/ext/safestringlib/ && $(MAKE) clean;
+	$(MAKE) cleanObj; cd $(EXT)/ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); cd $(EXT)/ext/safestringlib/ && $(MAKE) clean;
+	$(MAKE) cleanObj; cd $(EXT)/ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
 	$(CXX) -Wall -O3 src/runsimd.cpp -I$(EXT)/ext/safestringlib/include -L$(EXT)/ext/safestringlib/ -lsafestring $(STATIC_GCC) -o bwa-mem2
+
 
 
 $(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main.o
@@ -143,6 +137,14 @@ $(SAFE_STR_LIB):
 
 clean:
 	rm -fr src/*.o $(BWA_LIB) $(EXE) bwa-mem2.sse41 bwa-mem2.sse42 bwa-mem2.avx bwa-mem2.avx2 bwa-mem2.avx512bw
+	cd $(EXT)/ext/safestringlib/ && $(MAKE) clean
+	rm -rf $(EXTBSW)/*.o
+	rm -rf $(EXTFMI)/*.o
+	rm -rf $(EXTEXT)/*.o
+	rm -rf $(EXTLISASRC)/*.o 
+
+cleanObj:
+	rm -fr src/*.o $(BWA_LIB) 
 	cd $(EXT)/ext/safestringlib/ && $(MAKE) clean
 	rm -rf $(EXTBSW)/*.o
 	rm -rf $(EXTFMI)/*.o
