@@ -42,7 +42,12 @@ endif
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1 -std=c++17 
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS)
-LISA_SMEM_FLAGS= -DOUTPUT -DNO_DNA_ORD -DREV_COMP -DBWA_MEM_BUG -DNOCHUNK -DVECTORIZE  -DENABLE_PREFETCH -D_64BIT -DHUGE_PAGE_  # flag ending with '_' are disabled flags, remove '_' to enable. Example: To enable HUGE_PAGE, " -DHUGE_PAGE_ -> -DHUGE_PAGE"
+LISA_SMEM_FLAGS= -DOUTPUT -DNO_DNA_ORD -DREV_COMP -DBWA_MEM_BUG -DNOCHUNK -DVECTORIZE  -DENABLE_PREFETCH -D_64BIT -DHUGE_PAGE_  -DLINEAR_ONLY_ # flag ending with '_' are disabled flags, remove '_' to enable. Example: To enable HUGE_PAGE, " -DHUGE_PAGE_ -> -DHUGE_PAGE"
+
+ifeq ($(linear_only),1)
+	LISA_SMEM_FLAGS += -DLINEAR_ONLY
+endif
+
 CPPFLAGS+= $(LISA_SMEM_FLAGS)
 EXT=          ./ext/TAL
 EXTEXT=       $(EXT)/ext

@@ -985,14 +985,12 @@ SMEM *mem_collect_smem(FMI_search *fmi,
     Info k2_fmi_out[lisa_qdb_k2.size()];
     lisa->fmi_shrink_batched(lisa_qdb_k2.size(), &lisa_qdb_k2[0], td, &k2_fmi_out[0], opt->min_seed_len);
 
-	SMEM *p_k2;
     int lisa_min_intv[pos];
  
     num_smem2 = lisa_qdb_k2.size();
 
     lisa_qdb_k2.clear();
     for (int64_t i=0; i<num_smem2; i++) {
-		SMEM s = p_k2[i];
 		Info q_temp;
 		q_temp.p =  k2_fmi_out[i].p;
 		q_temp.id = k2_fmi_out[i].id;
@@ -1032,8 +1030,9 @@ SMEM *mem_collect_smem(FMI_search *fmi,
     {
         for (int l=0; l<nseq; l++)
             min_intv_ar[l] = opt->max_mem_intv;
-	#ifndef ENABLE_LISA
-        num_smem3 = fmi->bwtSeedStrategyAllPosOneThread(enc_qdb, min_intv_ar,
+	//#ifndef ENABLE_LISA
+    #ifdef LINEAR_ONLY
+	  num_smem3 = fmi->bwtSeedStrategyAllPosOneThread(enc_qdb, min_intv_ar,
                                                         nseq, seq_, query_cum_len_ar, 
                                                         opt->min_seed_len + 1,
                                                         matchArray + num_smem1 + num_smem2);       
