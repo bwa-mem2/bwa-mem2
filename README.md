@@ -1,6 +1,33 @@
 [![GitHub Downloads](https://img.shields.io/github/downloads/bwa-mem2/bwa-mem2/total?label=GitHub%20Downloads)](https://github.com/bwa-mem2/bwa-mem2/releases)
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/bwa-mem2?label=BioConda%20Installs)](https://anaconda.org/bioconda/bwa-mem2)
 
+
+## BWA-MEM2-LISA
+
+bwa-mem2-lisa is an accelerated version of bwa-mem2 where we accelerated the seeding phase of bwa-mem2 using: 1. LISA (Learned-Indexes for Sequence Analysis) and 2. binary interval tree. Our accelerated seeding kernels achieve up to 4.5x speedup compared to the seeding phace of bwa-mem2. Note that, bwa-mem2-lisa produces the exact same output as bwa-mem2.
+LISA requires an external training library that runs on Rust. Rust is trivial to install, see https://rustup.rs/ and add its path to .bashrc file. Rust installation only takes a few seconds.
+
+
+## Getting Started
+```sh
+# Compile from source
+# Get the source
+git clone --recursive https://github.com/bwa-mem2/bwa-mem2 -b bwa-mem2-lisa bwa-mem2-lisa
+cd bwa-mem2-lisa
+# Compile and run
+make
+./bwa-mem2
+```
+## Note
+bwa-mem2-lisa follows the exact same command-line parameters for indexing and read mapping. The index creating of bwa-mem2-lisa takes ~200GB of memory. By default, both LISA and binary interval trees are enabled. LISA can be disabled using a compilation flag linear_only=1
+
+```sh
+# Compile with only binary interval trees enabled
+make linear_only=1
+```
+The original README content of bwa-mem2 follows.
+
+
 ## Important Information
 
 ***We are happy to announce that the index size on disk is down by 8 times and in memory by 4 times due to moving to only one type of FM-index (2bit.64 instead of 2bit.64 and 8bit.32) and 8x compression of suffix array. For example, for human genome, index size on disk is down to ~10GB from ~80GB and memory footprint is down to ~10GB from ~40GB.***
