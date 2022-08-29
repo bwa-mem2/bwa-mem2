@@ -128,6 +128,16 @@ numactl -m 0 -C 0-27,56-83 ./bwa-mem2 mem -t 56 human_g1k_v37.fasta SRR7733443_1
 <img src="https://github.com/bwa-mem2/bwa-mem2/blob/master/images/bwa-mem2-4.png" height="400"/a></br>
 </p> 
 
+## bwa-mem2 seeding phase accelerated using LISA (Learned-Indexes for Sequence Analysis)
+
+bwa-mem2-lisa is an accelerated version of bwa-mem2 where we apply learned-indexes to the seeding phase. bwa-mem2-lisa branch contains the source code of the implementation. Following are the features of bwa-mem2-lisa:
+1. Exact same output as bwa-mem2.
+2. All command-lines for creating an index and the read mapping are exactly same as bwa-mem2.
+3. bwa-mem2-lisa accelerates seeding phase (one of the major bottlenecks in bwa-mem2) by up to 4.5x compared to bwa-mem2.
+4. The memory footprint of bwa-mem2-lisa index is ~120GB for human genome.
+5. The code is present in bwa-mem2-lisa branch: https://github.com/bwa-mem2/bwa-mem2/tree/bwa-mem2-lisa
+
+
 ## bwa-mem2 seeding speedup with Enumerated Radix Trees (Code in ert branch)
 
 The ert branch of bwa-mem2 repository contains codebase of enuerated radix tree based acceleration of bwa-mem2. The ert code is built on the top of bwa-mem2 (thanks to the hard work by @arun-sub). 
