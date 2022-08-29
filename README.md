@@ -4,7 +4,7 @@
 
 ## BWA-MEM2-LISA
 
-bwa-mem2-lisa is an accelerated version of bwa-mem2 where we accelerated the seeding phase of bwa-mem2 using: 1. LISA (Learned-Indexes for Sequence Analysis) and 2. binary interval tree. Our accelerated seeding kernels achieve up to 4.5x speedup compared to the seeding phace of bwa-mem2. Note that, bwa-mem2-lisa produces the exact same output as bwa-mem2.
+bwa-mem2-lisa is an accelerated version of bwa-mem2 where we accelerated the seeding phase of bwa-mem2 using: 1. LISA (Learned-Indexes for Sequence Analysis) and 2. binary interval tree. Our accelerated seeding kernels achieve up to 4.5x speedup compared to the seeding phase of bwa-mem2. Note that, bwa-mem2-lisa produces the exact same output as bwa-mem2.
 LISA requires an external training library that runs on Rust. Rust is trivial to install, see https://rustup.rs/ and add its path to .bashrc file. Rust installation only takes a few seconds.
 
 
