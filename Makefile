@@ -38,7 +38,8 @@ EXE=		mpibwa-mem2
 #else ifeq ($(CXX), g++)
 #	CC=gcc
 #endif	
-CXX=        mpicxx	
+#CXX=        mpicxx	
+#CXX=        mpiicpc
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1
 CPPFLAGS+=  -DNUMA_ENABLE=1 -DENABLE_PREFETCH -DV17=1 -DMATE_SORT=1 $(MEM_FLAGS) 
@@ -63,7 +64,7 @@ else ifeq ($(arch),avx)
 		ARCH_FLAGS=-mavx
 	endif
 else ifeq ($(arch),avx2)
-	ifeq ($(CXX), mpicxx)
+	ifeq ($(filter, $(CXX), mpicxx, mpiicpc),)
 		ARCH_FLAGS=-march=core-avx2 #-xCORE-AVX2
 	else	
 		ARCH_FLAGS=-mavx2

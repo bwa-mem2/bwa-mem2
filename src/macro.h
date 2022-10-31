@@ -100,7 +100,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #define MEM_COLLECT 40
 #define BWT_REVERSE 41
 #define BWA_BUILD 42
-#define PACKED 43
+//#define PACKED 43
 #define SA 44
 #define BWT_REVERSE_A 45
 #define BWT_REVERSE_B 46
