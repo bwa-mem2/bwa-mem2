@@ -293,12 +293,12 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
         }               
         tprof[MEM_PROCESS2][0] += __rdtsc() - tim;
                 
+        aux->n_processed += ret->n_seqs;
         return ret;
     }           
     /* Step 3: Write output */
     else if (step == 2)
     {
-        aux->n_processed += ret->n_seqs;
         uint64_t tim = __rdtsc();
 
         for (int i = 0; i < ret->n_seqs; ++i)
