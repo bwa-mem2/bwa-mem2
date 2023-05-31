@@ -75,7 +75,7 @@ typedef struct {
 	int depth;
 } ks_isort_stack_t;
 
-#if __cplusplus > 201703L
+#if __cplusplus >= 201703L
 #define register
 #endif
 
