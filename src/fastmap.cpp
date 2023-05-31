@@ -52,10 +52,12 @@ void __cpuid(unsigned int i, unsigned int cpuid[4]) {
 #ifdef _WIN32
     __cpuid((int *) cpuid, (int)i);
 
-#else
+#elif not defined(__aarch64__) and not defined(__arm64__)
     asm volatile
         ("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
             : "0" (i), "2" (0));
+#else
+    memset((void*)cpuid, 0, sizeof(int) * 4);
 #endif
 }
 
@@ -390,7 +392,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
         numa_bitmask_free(mask);
     }
 #endif
-#if AFF && (__linux__)
+#if AFF && (__linux__) && !defined(__aarch64__)
     { // Affinity/HT stuff
         unsigned int cpuid[4];
         asm volatile

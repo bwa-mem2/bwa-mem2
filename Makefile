@@ -32,6 +32,13 @@ ifneq ($(portable),)
 	STATIC_GCC=-static-libgcc -static-libstdc++
 endif
 
+uname_arch := $(shell uname -m)
+
+SSE2NEON_FLAGS=-D__SSE2__=1 -D__AVX__=1 -D__SSE4_1__=1
+SSE2NEON_INCLUDES=-Iext/sse2neon
+
+
+
 EXE=		bwa-mem2
 #CXX=		icpc
 ifeq ($(CXX), icpc)
@@ -42,14 +49,23 @@ endif
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS) 
+
+ifeq ($(uname_arch),arm64)	# OS/X has memset_s etc already
+INCLUDES=   -Isrc
+LIBS=		-lpthread -lm -lz -L. -lbwa $(STATIC_GCC)
+SAFE_STR_LIB=
+else
 INCLUDES=   -Isrc -Iext/safestringlib/include
 LIBS=		-lpthread -lm -lz -L. -lbwa -Lext/safestringlib -lsafestring $(STATIC_GCC)
+SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
+endif
+
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
 			src/bwamem_extra.o src/kopen.o
 BWA_LIB=    libbwa.a
-SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
+
 
 ifeq ($(arch),sse41)
 	ifeq ($(CXX), icpc)
@@ -86,9 +102,16 @@ else ifeq ($(arch),native)
 else ifneq ($(arch),)
 # To provide a different architecture flag like -march=core-avx2.
 	ARCH_FLAGS=$(arch)
+else ifeq ($(uname_arch),arm64)
+		ARCH_FLAGS=$(SSE2NEON_FLAGS)
+		INCLUDES+=$(SSE2NEON_INCLUDES)
+else ifeq ($(uname_arch),aarch64)
+		ARCH_FLAGS=$(SSE2NEON_FLAGS)
+		INCLUDES+=$(SSE2NEON_INCLUDES)
 else
 myall:multi
 endif
+
 
 CXXFLAGS+=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 
@@ -112,7 +135,6 @@ multi:
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
 	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring $(STATIC_GCC) -o bwa-mem2
-
 
 $(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@

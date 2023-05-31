@@ -39,9 +39,13 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #if (__AVX512BW__ || __AVX2__)
 #include <immintrin.h>
 #else
+#if defined(__aarch64__) or defined(__arm__)
+#include <sse2neon.h>
+#else
 #include <smmintrin.h>  // for SSE4.1
 #define __mmask8 uint8_t
 #define __mmask16 uint16_t
+#endif
 #endif
 
 #define MAX_SEQ_LEN_REF 256

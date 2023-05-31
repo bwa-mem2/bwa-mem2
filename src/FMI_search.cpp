@@ -33,12 +33,14 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include "memcpy_bwamem.h"
 #include "profiling.h"
 
+#ifndef __arm64__
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "safe_str_lib.h"
+#include "safe_str_lib.h"  
 #ifdef __cplusplus
 }
+#endif
 #endif
 
 FMI_search::FMI_search(const char *fname)
@@ -1308,12 +1310,12 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         offset[j] = 0;
         
         if (pos & SA_COMPX_MASK == 0) {
-            _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
-            _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
+            _mm_prefetch((const char *)&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
+            _mm_prefetch((const char *)&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
         }
         else {
             int64_t occ_id_pp_ = pos >> CP_SHIFT;
-            _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+            _mm_prefetch((const char *)&cp_occ[occ_id_pp_], _MM_HINT_T0);
         }
         i++;
         j++;
@@ -1345,12 +1347,12 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                     offset[k] = 0;
                     
                     if (pos & SA_COMPX_MASK == 0) {
-                        _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
-                        _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
+                        _mm_prefetch((const char *)&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
+                        _mm_prefetch((const char *)&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
                     }
                     else {
                         int64_t occ_id_pp_ = pos >> CP_SHIFT;
-                        _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+                        _mm_prefetch((const char *)&cp_occ[occ_id_pp_], _MM_HINT_T0);
                     }
                 }
                 else
@@ -1359,12 +1361,12 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
             else {
                 working_set[k] = sp;
                 if (sp & SA_COMPX_MASK == 0) {
-                    _mm_prefetch(&sa_ms_byte[sp >> SA_COMPX], _MM_HINT_T0);
-                    _mm_prefetch(&sa_ls_word[sp >> SA_COMPX], _MM_HINT_T0);
+                    _mm_prefetch((const char *)&sa_ms_byte[sp >> SA_COMPX], _MM_HINT_T0);
+                    _mm_prefetch((const char *)&sa_ls_word[sp >> SA_COMPX], _MM_HINT_T0);
                 }
                 else {
                     int64_t occ_id_pp_ = sp >> CP_SHIFT;
-                    _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+                    _mm_prefetch((const char *)&cp_occ[occ_id_pp_], _MM_HINT_T0);
                 }                
             }
         }

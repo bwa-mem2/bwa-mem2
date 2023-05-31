@@ -34,7 +34,13 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+
+#if defined (__arm64__) or defined (__aarch64__)
+#include <sse2neon.h>
+#else
 #include <immintrin.h>
+#endif
+
 #include <limits.h>
 #include <fstream>
 
