@@ -453,7 +453,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     }
 #endif
     
-    int32_t nreads = aux->actual_chunk_size/ READ_LEN + 10;
+    int32_t nreads = aux->actual_chunk_size / opt->max_read_length + 10;
     
     /* All memory allocation */
     memoryAlloc(aux, w, nreads, nthreads);
@@ -607,7 +607,7 @@ static void usage(const mem_opt_t *opt)
     fprintf(stderr, "                 specify the mean, standard deviation (10%% of the mean if absent), max\n");
     fprintf(stderr, "                 (4 sigma from the mean if absent) and min of the insert size distribution.\n");
     fprintf(stderr, "                 FR orientation only. [inferred]\n");
-    fprintf(stderr, "   -l INT         maximum expected read length in data, needed for memory allocation [%d]\n", opt->max_read_length);
+    fprintf(stderr, "   -l INT        maximum expected read length in data, needed for memory allocation [%d]\n", opt->max_read_length);
     fprintf(stderr, "Note: Please read the man page for detailed description of the command line and options.\n");
 }
 
