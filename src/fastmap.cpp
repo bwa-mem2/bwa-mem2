@@ -99,9 +99,9 @@ int HTStatus()
 /*** Memory pre-allocations ***/
 void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
 {
-    mem_opt_t *opt = aux->opt;  
+    mem_opt_t *opt = aux->opt;
     int32_t memSize = nreads;
-    int32_t readLen = READ_LEN;
+    int32_t readLen = opt->max_read_length;
 
     /* Mem allocation section for core kernels */
     w.regs = NULL; w.chain_ar = NULL; w.seedBuf = NULL;
@@ -165,7 +165,7 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
 
     for (int l=0; l<nthreads; l++)
     {
-        w.mmc.wsize_mem[l]     = BATCH_MUL * BATCH_SIZE *               readLen;
+        w.mmc.wsize_mem[l]     = BATCH_MUL * BATCH_SIZE * readLen;
         w.mmc.matchArray[l]    = (SMEM *) _mm_malloc(w.mmc.wsize_mem[l] * sizeof(SMEM), 64);
         w.mmc.min_intv_ar[l]   = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
         w.mmc.query_pos_ar[l]  = (int16_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int16_t));
@@ -453,7 +453,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     }
 #endif
     
-    int32_t nreads = aux->actual_chunk_size/ READ_LEN + 10;
+    int32_t nreads = aux->actual_chunk_size / opt->max_read_length + 10;
     
     /* All memory allocation */
     memoryAlloc(aux, w, nreads, nthreads);
@@ -607,6 +607,7 @@ static void usage(const mem_opt_t *opt)
     fprintf(stderr, "                 specify the mean, standard deviation (10%% of the mean if absent), max\n");
     fprintf(stderr, "                 (4 sigma from the mean if absent) and min of the insert size distribution.\n");
     fprintf(stderr, "                 FR orientation only. [inferred]\n");
+    fprintf(stderr, "   -l INT        maximum expected read length, needed for memory allocation [%d]\n", opt->max_read_length);
     fprintf(stderr, "Note: Please read the man page for detailed description of the command line and options.\n");
 }
 
@@ -637,7 +638,7 @@ int main_mem(int argc, char *argv[])
     
     /* Parse input arguments */
     // comment: added option '5' in the list
-    while ((c = getopt(argc, argv, "51qpaMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:")) >= 0)
+    while ((c = getopt(argc, argv, "51qpaMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:l:")) >= 0)
     {
         if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
         else if (c == '1') no_mt_io = 1;
@@ -689,6 +690,7 @@ int main_mem(int argc, char *argv[])
         else if (c == 'C') aux.copy_comment = 1;
         else if (c == 'K') fixed_chunk_size = atoi(optarg);
         else if (c == 'X') opt->mask_level = atof(optarg);
+        else if (c == 'l') opt->max_read_length = atoi(optarg);
         else if (c == 'h')
         {
             opt0.max_XA_hits = opt0.max_XA_hits_alt = 1;
