@@ -114,7 +114,8 @@ class FMI_search: public indexEle
                                  int32_t  max_readlength,
                                  int32_t minSeedLen,
                                  SMEM *matchArray,
-                                 int64_t *__numTotalSmem);
+                                 int64_t *__numTotalSmem,
+                                 int64_t max_smem);
     
     void getSMEMsAllPosOneThread(uint8_t *enc_qdb,
                                  int32_t *min_intv_array,
@@ -126,7 +127,8 @@ class FMI_search: public indexEle
                                  int32_t max_readlength,
                                  int32_t minSeedLen,
                                  SMEM *matchArray,
-                                 int64_t *__numTotalSmem);
+                                 int64_t *__numTotalSmem,
+                                 int64_t max_smem);
         
     
     int64_t bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
@@ -135,7 +137,8 @@ class FMI_search: public indexEle
                                            const bseq1_t *seq_,
                                            int32_t *query_cum_len_ar,
                                            int32_t minSeedLen,
-                                           SMEM *matchArray);
+                                           SMEM *matchArray,
+                                           int64_t max_smem);
         
     void sortSMEMs(SMEM *matchArray,
                    int64_t numTotalSmem[],
