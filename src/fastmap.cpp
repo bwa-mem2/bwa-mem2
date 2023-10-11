@@ -52,7 +52,7 @@ void __cpuid(unsigned int i, unsigned int cpuid[4]) {
 #ifdef _WIN32
     __cpuid((int *) cpuid, (int)i);
 
-#else
+#elif (!__ARM_FEATURE_SVE)
     asm volatile
         ("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
             : "0" (i), "2" (0));

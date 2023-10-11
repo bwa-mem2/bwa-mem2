@@ -30,9 +30,17 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
-#include <emmintrin.h>
 #include "ksw.h"
 #include "macro.h"
+
+#if defined(__i386__) | defined(__x86_64__)
+#include <emmintrin.h>
+#endif
+
+#if (__ARM_FEATURE_SVE)
+#include "sse2sve.h"
+#include <math.h>
+#endif
 
 extern uint64_t tprof[LIM_R][LIM_C];
 
@@ -67,13 +75,14 @@ kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t 
 	size = size > 1? 2 : 1;
 	p = 8 * (3 - size); // # values per __m128i
 	slen = (qlen + p - 1) / p; // segmented length
-	q = (kswq_t*)malloc(sizeof(kswq_t) + 256 + 16 * slen * (m + 4)); // a single block of memory
+	q = (kswq_t*)malloc(sizeof(kswq_t) + 256 + SIMD_WIDTH8 * slen * (m + 4)); // a single block of memory
     assert(q != NULL);
-	q->qp = (__m128i*)(((size_t)q + sizeof(kswq_t) + 15) >> 4 << 4); // align memory
-	q->H0 = q->qp + slen * m;
-	q->H1 = q->H0 + slen;
-	q->E  = q->H1 + slen;
-	q->Hmax = q->E + slen;
+    int shift_align = (int) LOG2_WIDTH8;
+	q->qp = (__m128i*)(((size_t)q + sizeof(kswq_t) + (SIMD_WIDTH8-1)) >> shift_align << shift_align); // align memory
+	q->H0 = (__m128i*)((uint8_t*)q->qp + slen * m * SIMD_WIDTH8);
+	q->H1 = (__m128i*)((uint8_t*)q->H0 + slen * SIMD_WIDTH8);
+	q->E  = (__m128i*)((uint8_t*)q->H1 + slen * SIMD_WIDTH8);
+	q->Hmax = (__m128i*)((uint8_t*)q->E + slen * SIMD_WIDTH8);
 	q->slen = slen; q->qlen = qlen; q->size = size;
 	// compute shift
 	tmp = m * m;
@@ -108,6 +117,230 @@ kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t 
 	return q;
 }
 
+#if (__ARM_FEATURE_SVE)
+kswr_t ksw_u8(kswq_t *q, int tlen, const uint8_t *target,
+              int _o_del, int _e_del, int _o_ins, int _e_ins,
+              int xtra) // the first gap costs -(_o+_e)
+{
+    int slen, i, m_b, n_b, te = -1, gmax = 0, minsc, endsc;
+    uint64_t *b;
+    __m128i zero, oe_del, e_del, oe_ins, e_ins, shift, *H0, *H1, *E, *Hmax;
+    kswr_t r;
+
+    // initialization
+    r = g_defr;
+    minsc = (xtra & KSW_XSUBO)? xtra & 0xffff : 0x10000;
+    endsc = (xtra & KSW_XSTOP)? xtra & 0xffff : 0x10000;
+    m_b = n_b = 0; b = 0;
+    zero = _mm_set1_epi8(0);
+    oe_del = _mm_set1_epi8(_o_del + _e_del);
+    e_del = _mm_set1_epi8(_e_del);
+    oe_ins = _mm_set1_epi8(_o_ins + _e_ins);
+    e_ins = _mm_set1_epi8(_e_ins);
+    shift = _mm_set1_epi8(q->shift);
+    H0 = q->H0; H1 = q->H1; E = q->E; Hmax = q->Hmax;
+    slen = q->slen;
+    for (i = 0; i < slen; ++i) {
+        svst1(svptrue_b8(),(uint8_t*)E + i * svcntb(),    svreinterpret_u8(zero));
+        svst1(svptrue_b8(),(uint8_t*)H0 + i * svcntb(),   svreinterpret_u8(zero));
+        svst1(svptrue_b8(),(uint8_t*)Hmax + i * svcntb(), svreinterpret_u8(zero));
+    }
+    // the core loop
+    for (i = 0; i < tlen; ++i) {
+        //int j, k, cmp, imax;
+        int j, k, imax;
+        svint64_t e, h, t, f = zero, max = zero, *S = (svint64_t*)((uint8_t*)q->qp + target[i] * slen * svcntb()); // s is the 1st score vector
+        h = svreinterpret_s64(svld1(svptrue_b8(),(uint8_t*)H0 + (slen - 1) * svcntb())); // h={2,5,8,11,14,17,-1,-1} in the above example
+        h = svinsr_n_s64(h, 0); // h=H(i-1,-1); << instead of >> because x64 is little-endian
+        for (j = 0; LIKELY(j < slen); ++j) {
+            /* SW cells are computed in the following order:
+             *   H(i,j)   = max{H(i-1,j-1)+S(i,j), E(i,j), F(i,j)}
+             *   E(i+1,j) = max{H(i,j)-q, E(i,j)-r}
+             *   F(i,j+1) = max{H(i,j)-q, F(i,j)-r}
+             */
+            // compute H'(i,j); note that at the beginning, h=H'(i-1,j-1)
+            h = _mm_adds_epu8(h, svreinterpret_s64(svld1(svptrue_b8(),(uint8_t*)S + j * svcntb())));
+            h = _mm_subs_epu8(h, shift); // h=H'(i-1,j-1)+S(i,j)
+            e = svreinterpret_s64(svld1(svptrue_b8(),(uint8_t*)E + j * svcntb())); // e=E'(i,j)
+            h = _mm_max_epu8(h, e);
+            h = _mm_max_epu8(h, f); // h=H'(i,j)
+            max = _mm_max_epu8(max, h); // set max
+            svst1(svptrue_b8(),(uint8_t*)H1 + j * svcntb(), svreinterpret_u8(h)); // save to H'(i,j)
+            // now compute E'(i+1,j)
+            e = _mm_subs_epu8(e, e_del); // e=E'(i,j) - e_del
+            t = _mm_subs_epu8(h, oe_del); // h=H'(i,j) - o_del - e_del
+            e = _mm_max_epu8(e, t); // e=E'(i+1,j)
+            svst1(svptrue_b8(),(uint8_t*)E + j * svcntb(), svreinterpret_u8(e)); // save to E'(i+1,j)
+            // now compute F'(i,j+1)
+            f = _mm_subs_epu8(f, e_ins);
+            t = _mm_subs_epu8(h, oe_ins); // h=H'(i,j) - o_ins - e_ins
+            f = _mm_max_epu8(f, t);
+            // get H'(i-1,j) and prepare for the next j
+            h = svreinterpret_s64(svld1(svptrue_b8(),(uint8_t*)H0 + j * svcntb())); // h=H'(i-1,j)
+        }
+        // NB: we do not need to set E(i,j) as we disallow adjecent insertion and then deletion
+        for (k = 0; LIKELY(k < 16); ++k) { // this block mimics SWPS3; NB: H(i,j) updated in the lazy-F loop cannot exceed max
+            //f = _mm_slli_si128(f, 1);
+            f = svinsr_n_s64(f, 0);
+            for (j = 0; LIKELY(j < slen); ++j) {
+                h = svreinterpret_s64(svld1(svptrue_b8(),(uint8_t*)H1 + j * svcntb()));
+                h = _mm_max_epu8(h, f); // h=H'(i,j)
+                svst1(svptrue_b8(),(uint8_t*)H1 + j * svcntb(), svreinterpret_u8(h));
+                h = _mm_subs_epu8(h, oe_ins);
+                f = _mm_subs_epu8(f, e_ins);
+                //cmp = _mm_movemask_epi8(_mm_cmpeq_epi8(_mm_subs_epu8(f, h), zero));
+                //if (UNLIKELY(cmp == 0xffff)) goto end_loop16;
+                if(!svptest_any(svptrue_b8(),svcmpne(svptrue_b8(),f,h))) goto end_loop16;
+            }
+        }
+end_loop16:
+        //__max_16(imax, max); // imax is the maximum number in max
+        imax = svmaxv(svptrue_b8(),max);
+
+        if (imax >= minsc) { // write the b array; this condition adds branching unfornately
+            if (n_b == 0 || (int32_t)b[n_b-1] + 1 != i) { // then append
+                if (n_b == m_b) {
+                    m_b = m_b? m_b<<1 : 8;
+                    b = (uint64_t*) realloc (b, 8 * m_b);
+                }
+                b[n_b++] = (uint64_t)imax<<32 | i;
+            } else if ((int)(b[n_b-1]>>32) < imax) b[n_b-1] = (uint64_t)imax<<32 | i; // modify the last
+        }
+        if (imax > gmax) {
+            gmax = imax; te = i; // te is the end position on the target
+            for (j = 0; LIKELY(j < slen); ++j) // keep the H1 vector
+                svst1(svptrue_b16(),(int16_t*)Hmax + j * svcnth(), svld1(svptrue_b16(),(int16_t*)H1 + j * svcnth()));
+            if (gmax + q->shift >= 255 || gmax >= endsc) break;
+        }
+        S = H1; H1 = H0; H0 = S; // swap H0 and H1
+    }
+    r.score = gmax + q->shift < 255? gmax : 255;
+    r.te = te;
+    if (r.score != 255) { // get a->qe, the end of query match; find the 2nd best score
+        int max = -1, tmp, low, high, qlen = slen * 16;
+        uint8_t *t = (uint8_t*) Hmax;
+        for (i = 0; i < qlen; ++i, ++t)
+            if ((int)*t > max) max = *t, r.qe = i / 16 + i % 16 * slen;
+            else if ((int)*t == max && (tmp = i / 16 + i % 16 * slen) < r.qe) r.qe = tmp; 
+        //printf("%d,%d\n", max, gmax);
+        if (b) {
+            i = (r.score + q->max - 1) / q->max;
+            low = te - i; high = te + i;
+            for (i = 0; i < n_b; ++i) {
+                int e = (int32_t)b[i];
+                if ((e < low || e > high) && (int)(b[i]>>32) > r.score2)
+                    r.score2 = b[i]>>32, r.te2 = e;
+            }           
+        }
+    }
+    free(b);
+    return r;
+}
+
+kswr_t ksw_i16(kswq_t *q, int tlen, const uint8_t *target, int _o_del, int _e_del, int _o_ins, int _e_ins, int xtra) // the first gap costs -(_o+_e)
+{
+    int slen, i, m_b, n_b, te = -1, gmax = 0, minsc, endsc;
+    uint64_t *b;
+    __m128i zero, oe_del, e_del, oe_ins, e_ins, *H0, *H1, *E, *Hmax;
+    kswr_t r;
+
+    // initialization
+    r = g_defr;
+    minsc = (xtra&KSW_XSUBO)? xtra&0xffff : 0x10000;
+    endsc = (xtra&KSW_XSTOP)? xtra&0xffff : 0x10000;
+    m_b = n_b = 0; b = 0;
+    zero = _mm_set1_epi8(0);
+    oe_del = _mm_set1_epi16(_o_del + _e_del);
+    e_del = _mm_set1_epi16(_e_del);
+    oe_ins = _mm_set1_epi16(_o_ins + _e_ins);
+    e_ins = _mm_set1_epi16(_e_ins);
+    H0 = q->H0; H1 = q->H1; E = q->E; Hmax = q->Hmax;
+    slen = q->slen;
+    for (i = 0; i < slen; ++i) {
+        svst1(svptrue_b16(),(int16_t*)E + i * svcnth(),    svreinterpret_s16(zero));
+        svst1(svptrue_b16(),(int16_t*)H0 + i * svcnth(),   svreinterpret_s16(zero));
+        svst1(svptrue_b16(),(int16_t*)Hmax + i * svcnth(), svreinterpret_s16(zero));
+    }
+    // the core loop
+    for (i = 0; i < tlen; ++i) {
+        int j, k, imax;
+        svint64_t e, t, h, f = zero, max = zero, *S = (svint64_t*)((int16_t*)q->qp + target[i] * slen * svcnth()); // s is the 1st score vector
+        h = svreinterpret_s64(svld1(svptrue_b16(),(int16_t*)H0 + (slen - 1) * svcnth())); // h={2,5,8,11,14,17,-1,-1} in the above example
+        //h = _mm_slli_si128(h, 2);
+        h = svinsr_n_s64(h, 0);
+        for (j = 0; LIKELY(j < slen); ++j) {
+            //h = _mm_adds_epi16(h, *S++);
+            h = _mm_adds_epi16(h, *S); S = (svint64_t*)((int16_t*)S + svcnth());
+            e = svreinterpret_s64(svld1(svptrue_b16(),(int16_t*)E + j * svcnth()));
+            h = _mm_max_epi16(h, e);
+            h = _mm_max_epi16(h, f);
+            max = _mm_max_epi16(max, h);
+            svst1(svptrue_b16(),(int16_t*)H1 + j * svcnth(),svreinterpret_s16(h));
+            e = _mm_subs_epu16(e, e_del);
+            t = _mm_subs_epu16(h, oe_del);
+            e = _mm_max_epi16(e, t);
+            svst1(svptrue_b16(),(int16_t*)E + j * svcnth(), svreinterpret_s16(e));
+            f = _mm_subs_epu16(f, e_ins);
+            t = _mm_subs_epu16(h, oe_ins);
+            f = _mm_max_epi16(f, t);
+            h = svreinterpret_s64(svld1(svptrue_b16(),(int16_t*)H0 + j * svcnth()));
+        }
+        for (k = 0; LIKELY(k < 16); ++k) {
+            //f = _mm_slli_si128(f, 2);
+            f = svinsr_n_s64(f, 0);
+            for (j = 0; LIKELY(j < slen); ++j) {
+                h = svreinterpret_s64(svld1(svptrue_b16(),(int16_t*)H1 + j * svcnth()));
+                h = _mm_max_epi16(h, f);
+                svst1(svptrue_b16(),(int16_t*)H1 + j * svcnth(), svreinterpret_s16(h));
+                h = _mm_subs_epu16(h, oe_ins);
+                f = _mm_subs_epu16(f, e_ins);
+                //if(UNLIKELY(!_mm_movemask_epi8(_mm_cmpgt_epi16(f, h)))) goto end_loop8;
+                if(!svptest_any(svptrue_b16(),svcmpgt(svptrue_b16(),f,h))) goto end_loop8;
+            }
+        }
+end_loop8:
+        //__max_8(imax, max);
+        imax = svmaxv(svptrue_b16(),max);
+
+        if (imax >= minsc) {
+            if (n_b == 0 || (int32_t)b[n_b-1] + 1 != i) {
+                if (n_b == m_b) {
+                    m_b = m_b? m_b<<1 : 8;
+                    b = (uint64_t*)realloc(b, 8 * m_b);
+                }
+                b[n_b++] = (uint64_t)imax<<32 | i;
+            } else if ((int)(b[n_b-1]>>32) < imax) b[n_b-1] = (uint64_t)imax<<32 | i; // modify the last
+        }
+        if (imax > gmax) {
+            gmax = imax; te = i;
+            for (j = 0; LIKELY(j < slen); ++j)
+                svst1(svptrue_b16(),(int16_t*)Hmax + j * svcnth(), svld1(svptrue_b16(),(int16_t*)H1 + j * svcnth()));
+            if (gmax >= endsc) break;
+        }
+        S = H1; H1 = H0; H0 = S;
+    }
+    r.score = gmax; r.te = te;
+    {
+        int max = -1, tmp, low, high, qlen = slen * 8;
+        uint16_t *t = (uint16_t*)Hmax;
+        for (i = 0, r.qe = -1; i < qlen; ++i, ++t)
+            if ((int)*t > max) max = *t, r.qe = i / 8 + i % 8 * slen;
+            else if ((int)*t == max && (tmp = i / 8 + i % 8 * slen) < r.qe) r.qe = tmp; 
+        if (b) {
+            i = (r.score + q->max - 1) / q->max;
+            low = te - i; high = te + i;
+            for (i = 0; i < n_b; ++i) {
+                int e = (int32_t)b[i];
+                if ((e < low || e > high) && (int)(b[i]>>32) > r.score2)
+                    r.score2 = b[i]>>32, r.te2 = e;
+            }
+        }
+    }
+
+    free(b);
+    return r;
+}
+#else
 kswr_t ksw_u8(kswq_t *q, int tlen, const uint8_t *target,
 			  int _o_del, int _e_del, int _o_ins, int _e_ins,
 			  int xtra) // the first gap costs -(_o+_e)
@@ -336,6 +569,7 @@ end_loop8:
 	free(b);
 	return r;
 }
+#endif
 
 static inline void revseq(int l, uint8_t *s)
 {
@@ -424,10 +658,6 @@ kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, con
 /********************
  *** SW extension ***
  ********************/
-
-typedef struct {
-	int32_t h, e;
-} eh_t;
 
 int ksw_extend2(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int o_del, int e_del, int o_ins, int e_ins, int w, int end_bonus, int zdrop, int h0, int *_qle, int *_tle, int *_gtle, int *_gscore, int *_max_off)
 {

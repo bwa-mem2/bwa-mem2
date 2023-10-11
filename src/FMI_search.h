@@ -34,12 +34,21 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <immintrin.h>
 #include <limits.h>
 #include <fstream>
 
 #include "read_index_ele.h"
 #include "bwa.h"
+
+#if (__ARM_FEATURE_SVE)
+#include <arm_sve.h>
+#else
+#include <immintrin.h>
+#endif
+
+#ifndef NSEQS
+#define NSEQS 4
+#endif
 
 #define DUMMY_CHAR 6
 
@@ -59,7 +68,14 @@ typedef struct checkpoint_occ_scalar
 
 #if defined(__clang__) || defined(__GNUC__)
 static inline int _mm_countbits_64(unsigned long x) {
+#if (__ARM_FEATURE_SVE)
+    svuint64_t dup = svdup_n_u64(x);
+    svuint64_t cnt = svcnt_u64_x(svptrue_b64(),dup);
+    int total = svlastb_u64(svptrue_b64(),cnt);
+    return total;
+#else
     return __builtin_popcountl(x);
+#endif
 }
 #endif
 
@@ -89,7 +105,7 @@ class FMI_search: public indexEle
     public:
     FMI_search(const char *fname);
     ~FMI_search();
-    //int64_t beCalls;
+    //uint64_t beCalls;
     
     int build_index();
     void load_index();
@@ -184,7 +200,8 @@ private:
                                int64_t ref_seq_len,
                                int64_t *sa_bwt,
                                int64_t *count);
-        SMEM backwardExt(SMEM smem, uint8_t a);
+
+        inline SMEM backwardExt(SMEM smem, uint8_t a);
 };
 
 #endif

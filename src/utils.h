@@ -31,6 +31,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <zlib.h>
+#if (__ARM_FEATURE_SVE)
+#include "sse2sve.h"
+#endif
 
 #ifdef __GNUC__
 // Tell GCC to validate printf format string and args

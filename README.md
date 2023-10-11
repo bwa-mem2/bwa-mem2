@@ -34,6 +34,17 @@ make
 ./bwa-mem2
 ```
 
+## SVE Version
+
+The SVE version is already available. The code was used originally in the article:
+
+Langarita, R., Armejach, A., Ibánez, P., Alastruey-Benedé, J., & Moretó, M. (2023). Porting and Optimizing BWA-MEM2 Using the Fujitsu A64FX Processor. IEEE/ACM Transactions on Computational Biology and Bioinformatics.
+
+It is needed GCC version 10 or greater. To compile for aarch64+SVE architecture, use the following command line:
+```sh
+make ARCH_FLAGS=-march=armv8-a+sve all
+```
+
 ## Introduction
 
 The tool bwa-mem2 is the next version of the bwa-mem algorithm in [bwa][bwa]. It

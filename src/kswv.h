@@ -34,6 +34,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdint.h>
 #include <assert.h>
 #include "macro.h"
+#include "bandedSWA.h"
 
 #if !MAINY
 #include "ksw.h"
@@ -66,11 +67,6 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 
 #define MAX_SEQ_LEN_EXT 256
-
-#if __AVX512BW__
-#define SIMD_WIDTH8 64
-#define SIMD_WIDTH16 32
-#endif
 
 #define max(x, y) ((x)>(y)?(x):(y))
 #define min(x, y) ((x)>(y)?(y):(x))
