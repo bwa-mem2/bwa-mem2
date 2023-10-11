@@ -58,13 +58,13 @@ FMI_search::FMI_search(const char *fname)
 FMI_search::~FMI_search()
 {
     if(sa_ms_byte)
-        _mm_free(sa_ms_byte);
+        free(sa_ms_byte);
     if(sa_ls_word)
-        _mm_free(sa_ls_word);
+        free(sa_ls_word);
     if(cp_occ)
-        _mm_free(cp_occ);
+        free(cp_occ);
     if(one_hot_mask_array)
-        _mm_free(one_hot_mask_array);
+        free(one_hot_mask_array);
 }
 
 int64_t FMI_search::pac_seq_len(const char *fn_pac)
@@ -166,7 +166,7 @@ int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int6
     int64_t i;
     int64_t ref_seq_len_aligned = ((ref_seq_len + CP_BLOCK_SIZE - 1) / CP_BLOCK_SIZE) * CP_BLOCK_SIZE;
     int64_t size = ref_seq_len_aligned * sizeof(uint8_t);
-    bwt = (uint8_t *)_mm_malloc(size, 64);
+    bwt = (uint8_t *)aligned_alloc(256, size);
     assert_not_null(bwt, size, index_alloc);
 
     int64_t sentinel_index = -1;
@@ -209,7 +209,7 @@ int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int6
     CP_OCC *cp_occ = NULL;
 
     size = cp_occ_size * sizeof(CP_OCC);
-    cp_occ = (CP_OCC *)_mm_malloc(size, 64);
+    cp_occ = (CP_OCC *)aligned_alloc(256, size);
     assert_not_null(cp_occ, size, index_alloc);
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC));
     int64_t cp_count[16];
@@ -250,16 +250,16 @@ int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int6
         cp_count[bwt[i]]++;
     }
     outstream.write((char*)cp_occ, cp_occ_size * sizeof(CP_OCC));
-    _mm_free(cp_occ);
-    _mm_free(bwt);
+    free(cp_occ);
+    free(bwt);
 
     #if SA_COMPRESSION  
 
     size = ((ref_seq_len >> SA_COMPX)+ 1)  * sizeof(uint32_t);
-    uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
+    uint32_t *sa_ls_word = (uint32_t *)aligned_alloc(256, size);
     assert_not_null(sa_ls_word, size, index_alloc);
     size = ((ref_seq_len >> SA_COMPX) + 1) * sizeof(int8_t);
-    int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
+    int8_t *sa_ms_byte = (int8_t *)aligned_alloc(256, size);
     assert_not_null(sa_ms_byte, size, index_alloc);
     int64_t pos = 0;
     for(i = 0; i < ref_seq_len; i++)
@@ -278,10 +278,10 @@ int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int6
     #else
     
     size = ref_seq_len * sizeof(uint32_t);
-    uint32_t *sa_ls_word = (uint32_t *)_mm_malloc(size, 64);
+    uint32_t *sa_ls_word = (uint32_t *)aligned_alloc(256, size);
     assert_not_null(sa_ls_word, size, index_alloc);
     size = ref_seq_len * sizeof(int8_t);
-    int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
+    int8_t *sa_ms_byte = (int8_t *)aligned_alloc(256, size);
     assert_not_null(sa_ms_byte, size, index_alloc);
     for(i = 0; i < ref_seq_len; i++)
     {
@@ -298,8 +298,8 @@ int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int6
     printf("max_occ_ind = %ld\n", i >> CP_SHIFT);    
     fflush(stdout);
 
-    _mm_free(sa_ms_byte);
-    _mm_free(sa_ls_word);
+    free(sa_ms_byte);
+    free(sa_ls_word);
     return 0;
 }
 
@@ -319,7 +319,7 @@ int FMI_search::build_index() {
 	int64_t pac_len = reference_seq.length();
     int status;
     int64_t size = pac_len * sizeof(char);
-    char *binary_ref_seq = (char *)_mm_malloc(size, 64);
+    char *binary_ref_seq = (char *)aligned_alloc(256, size);
     index_alloc += size;
     assert_not_null(binary_ref_seq, size, index_alloc);
     char binary_ref_name[PATH_MAX];
@@ -364,7 +364,7 @@ int FMI_search::build_index() {
     startTick = __rdtsc();
 
     size = (pac_len + 2) * sizeof(int64_t);
-    int64_t *suffix_array=(int64_t *)_mm_malloc(size, 64);
+    int64_t *suffix_array=(int64_t *)aligned_alloc(256, size);
     index_alloc += size;
     assert_not_null(suffix_array, size, index_alloc);
     startTick = __rdtsc();
@@ -376,14 +376,14 @@ int FMI_search::build_index() {
 
 	build_fm_index(prefix, binary_ref_seq, pac_len, suffix_array, count);
     fprintf(stderr, "build fm-index ticks = %llu\n", __rdtsc() - startTick);
-    _mm_free(binary_ref_seq);
-    _mm_free(suffix_array);
+    free(binary_ref_seq);
+    free(suffix_array);
     return 0;
 }
 
 void FMI_search::load_index()
 {
-    one_hot_mask_array = (uint64_t *)_mm_malloc(64 * sizeof(uint64_t), 64);
+    one_hot_mask_array = (uint64_t *)aligned_alloc(256, 64 * sizeof(uint64_t));
     one_hot_mask_array[0] = 0;
     uint64_t base = 0x8000000000000000L;
     one_hot_mask_array[1] = base;
@@ -423,7 +423,7 @@ void FMI_search::load_index()
     cp_occ = NULL;
 
     err_fread_noeof(&count[0], sizeof(int64_t), 5, cpstream);
-    if ((cp_occ = (CP_OCC *)_mm_malloc(cp_occ_size * sizeof(CP_OCC), 64)) == NULL) {
+    if ((cp_occ = (CP_OCC *)aligned_alloc(256, cp_occ_size * sizeof(CP_OCC))) == NULL) {
         fprintf(stderr, "ERROR! unable to allocated cp_occ memory\n");
         exit(EXIT_FAILURE);
     }
@@ -438,15 +438,15 @@ void FMI_search::load_index()
     #if SA_COMPRESSION
 
     int64_t reference_seq_len_ = (reference_seq_len >> SA_COMPX) + 1;
-    sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len_ * sizeof(int8_t), 64);
-    sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len_ * sizeof(uint32_t), 64);
+    sa_ms_byte = (int8_t *)aligned_alloc(256, reference_seq_len_ * sizeof(int8_t));
+    sa_ls_word = (uint32_t *)aligned_alloc(256, reference_seq_len_ * sizeof(uint32_t));
     err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len_, cpstream);
     err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len_, cpstream);
     
     #else
     
-    sa_ms_byte = (int8_t *)_mm_malloc(reference_seq_len * sizeof(int8_t), 64);
-    sa_ls_word = (uint32_t *)_mm_malloc(reference_seq_len * sizeof(uint32_t), 64);
+    sa_ms_byte = (int8_t *)aligned_alloc(256, reference_seq_len * sizeof(int8_t));
+    sa_ls_word = (uint32_t *)aligned_alloc(256, reference_seq_len * sizeof(uint32_t));
     err_fread_noeof(sa_ms_byte, sizeof(int8_t), reference_seq_len, cpstream);
     err_fread_noeof(sa_ls_word, sizeof(uint32_t), reference_seq_len, cpstream);
 
@@ -507,11 +507,252 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
                                          int64_t *__numTotalSmem)
 {
     int64_t numTotalSmem = *__numTotalSmem;
-    SMEM prevArray[max_readlength];
+    SMEM prevArray[NSEQS][max_readlength];
+    SMEM matchArray_aux[NSEQS][MAX_SEEDS_PER_READ];
 
-    uint32_t i;
+    uint32_t i = 0;
+
     // Perform SMEM for original reads
-    for(i = 0; i < numReads; i++)
+    for(; i < numReads - (numReads % NSEQS); i+=NSEQS)
+    {
+        int x[NSEQS];
+        int32_t rid[NSEQS];
+        int next_x[NSEQS];
+
+        int readlength[NSEQS];
+        int offset[NSEQS];
+        uint8_t a[NSEQS];
+        SMEM *prev[NSEQS];
+
+        int keep_iter = 0;
+        int keep_iter_table[NSEQS];
+
+        int64_t numTotalSmem_aux = numTotalSmem;
+        int64_t numTotalSmem_k[NSEQS];
+
+        #pragma unroll(NSEQS)
+        for(int k = 0; k < NSEQS; k++) {
+            x[k] = query_pos_array[i+k];
+            rid[k] = rid_array[i+k];
+            next_x[k] = x[k] + 1;
+
+            readlength[k] = seq_[rid[k]].l_seq;
+            offset[k] = query_cum_len_ar[rid[k]];
+            a[k] = enc_qdb[offset[k] + x[k]];
+
+            keep_iter_table[k] = 0;
+            numTotalSmem_k[k] = 0;
+        }
+
+        //if(a < 4)
+        //{
+            SMEM smem[NSEQS];
+            int numPrev[NSEQS];
+            #pragma unroll(NSEQS)
+            for(int k = 0; k < NSEQS; k++) {
+                if(a[k] >= 4) {
+                    keep_iter_table[k] = -1;
+                    keep_iter++;
+                    continue;
+                }
+                smem[k].rid = rid[k];
+                smem[k].m = x[k];
+                smem[k].n = x[k];
+                smem[k].k = count[a[k]];
+                smem[k].l = count[3 - a[k]];
+                smem[k].s = count[a[k]+1] - count[a[k]];
+                numPrev[k] = 0;
+            }
+
+            int j_aux = 0;
+            while(keep_iter < NSEQS) {
+            //for(j = x + 1; j < readlength; j++)
+            //{
+                j_aux++;
+                #pragma unroll(NSEQS)
+                for(int k = 0; k < NSEQS; k++) {
+                    if(keep_iter_table[k]) continue;
+                    int j = x[k] + j_aux;
+                    if(j >= readlength[k]) {
+                        keep_iter_table[k] = 1;
+                        keep_iter++;
+                        continue;
+                    }
+                    a[k] = enc_qdb[offset[k] + j];
+                    next_x[k] = j + 1;
+                    if(a[k] < 4)
+                    {
+                        SMEM smem_ = smem[k];
+
+                        // Forward extension is backward extension with the BWT of reverse complement
+                        smem_.k = smem[k].l;
+                        smem_.l = smem[k].k;
+                        #pragma statement loop_fission_point
+                        SMEM newSmem_ = backwardExt(smem_, 3 - a[k]);
+                        //SMEM newSmem_ = forwardExt(smem_, 3 - a);
+                        SMEM newSmem = newSmem_;
+                        newSmem.k = newSmem_.l;
+                        newSmem.l = newSmem_.k;
+                        newSmem.n = j;
+
+                        int32_t s_neq_mask = newSmem.s != smem[k].s;
+
+                        prevArray[k][numPrev[k]] = smem[k];
+                        numPrev[k] += s_neq_mask;
+                        if(newSmem.s < min_intv_array[i+k])
+                        {
+                            next_x[k] = j;
+                            keep_iter_table[k] = 1;
+                            keep_iter++;
+                            continue;
+                        }
+                        smem[k] = newSmem;
+#ifdef ENABLE_PREFETCH
+                    __builtin_prefetch((void*)(&cp_occ[(smem[k].k) >> CP_SHIFT]));
+                    __builtin_prefetch((void*)(&cp_occ[(smem[k].l) >> CP_SHIFT]));
+#endif
+                    }
+                    else
+                    {
+                        keep_iter_table[k] = 1;
+                        keep_iter++;
+                        continue;
+                    }
+                }
+            }
+
+            #pragma unroll(NSEQS)
+            for(int k = 0; k < NSEQS; k++) {
+                if(keep_iter_table[k] == -1) continue;
+                if(smem[k].s >= min_intv_array[i+k])
+                {
+
+                    prevArray[k][numPrev[k]] = smem[k];
+                    numPrev[k]++;
+                }
+
+                prev[k] = prevArray[k];
+
+                int p;
+                for(p = 0; p < (numPrev[k]/2); p++)
+                {
+                    SMEM temp = prev[k][p];
+                    prev[k][p] = prev[k][numPrev[k] - p - 1];
+                    prev[k][numPrev[k] - p - 1] = temp;
+                }
+            }
+
+            keep_iter = 0;
+            for(int k = 0; k < NSEQS; k++)
+                if(keep_iter_table[k] == -1) keep_iter++;
+
+            // Backward search
+            j_aux = 0;
+            while(keep_iter < NSEQS) {
+            //for(j = x - 1; j >= 0; j--) {
+                j_aux++;
+                #pragma unroll(NSEQS)
+                for(int k = 0; k < NSEQS; k++) {
+                    if(keep_iter_table[k] < 0) continue;
+                    int j = x[k] - j_aux;
+                    if(j < 0) {
+                        keep_iter_table[k] = -2;
+                        keep_iter++;
+                        continue;
+                    }
+                    int numCurr = 0;
+                    int curr_s = -1;
+                    a[k] = enc_qdb[offset[k] + j];
+
+                    if(a[k] > 3)
+                    {
+                        keep_iter_table[k] = -2;
+                        keep_iter++;
+                        continue;
+                    }
+                    int p;
+                    for(p = 0; p < numPrev[k]; p++)
+                    {
+                        smem[k] = prev[k][p];
+                        SMEM newSmem = backwardExt(smem[k], a[k]);
+                        newSmem.m = j;
+
+                        if((newSmem.s < min_intv_array[i+k]) && ((smem[k].n - smem[k].m + 1) >= minSeedLen))
+                        {
+                            //matchArray[numTotalSmem++] = smem;
+                            matchArray_aux[k][numTotalSmem_k[k]] = smem[k];
+                            numTotalSmem_k[k]++;
+                            numTotalSmem++;
+                            break;
+                        }
+                        if((newSmem.s >= min_intv_array[i+k]) && (newSmem.s != curr_s))
+                        {
+                            curr_s = newSmem.s;
+                            prev[k][numCurr++] = newSmem;
+#ifdef ENABLE_PREFETCH
+                        __builtin_prefetch((void*)(&cp_occ[(newSmem.k) >> CP_SHIFT]));
+                        __builtin_prefetch((void*)(&cp_occ[(newSmem.k + newSmem.s) >> CP_SHIFT]));
+#endif
+                            break;
+                        }
+                    }
+                    p++;
+                    for(; p < numPrev[k]; p++)
+                    {
+                        smem[k] = prev[k][p];
+
+                        SMEM newSmem = backwardExt(smem[k], a[k]);
+                        newSmem.m = j;
+
+
+                        if((newSmem.s >= min_intv_array[i+k]) && (newSmem.s != curr_s))
+                        {
+                            curr_s = newSmem.s;
+                            prev[k][numCurr++] = newSmem;
+#ifdef ENABLE_PREFETCH
+                        __builtin_prefetch((void*)(&cp_occ[(newSmem.k) >> CP_SHIFT]));
+                        __builtin_prefetch((void*)(&cp_occ[(newSmem.k + newSmem.s) >> CP_SHIFT]));
+#endif
+                        }
+                    }
+                    numPrev[k] = numCurr;
+                    if(numCurr == 0)
+                    {
+                        keep_iter_table[k] = -2;
+                        keep_iter++;
+                        continue;
+                    }
+                }
+            }
+            #pragma unroll(NSEQS)
+            for(int k = 0; k < NSEQS; k++) {
+                if(keep_iter_table[k] == -1) continue;
+                if(numPrev[k] != 0)
+                {
+                    smem[k] = prev[k][0];
+                    if(((smem[k].n - smem[k].m + 1) >= minSeedLen))
+                    {
+                        //matchArray[numTotalSmem++] = smem;
+                        matchArray_aux[k][numTotalSmem_k[k]] = smem[k];
+                        numTotalSmem_k[k]++;
+                        numTotalSmem++;
+                    }
+                    numPrev[k] = 0;
+                }
+            }
+        //}
+        int64_t pos = numTotalSmem_aux;
+        for(int k = 0; k < NSEQS; k++) {
+            #pragma unroll(8)
+            for(int l = 0; l < numTotalSmem_k[k]; l++) {
+                matchArray[pos++] = matchArray_aux[k][l];
+            }
+            query_pos_array[i+k] = next_x[k];
+        }
+    }
+
+    // ---- Process tail ----
+    for(; i < numReads; i++)
     {
         int x = query_pos_array[i];
         int32_t rid = rid_array[i];
@@ -555,7 +796,7 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
 
                     int32_t s_neq_mask = newSmem.s != smem.s;
 
-                    prevArray[numPrev] = smem;
+                    prevArray[0][numPrev] = smem;
                     numPrev += s_neq_mask;
                     if(newSmem.s < min_intv_array[i])
                     {
@@ -564,8 +805,8 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
                     }
                     smem = newSmem;
 #ifdef ENABLE_PREFETCH
-                    _mm_prefetch((const char *)(&cp_occ[(smem.k) >> CP_SHIFT]), _MM_HINT_T0);
-                    _mm_prefetch((const char *)(&cp_occ[(smem.l) >> CP_SHIFT]), _MM_HINT_T0);
+                    __builtin_prefetch((void*)(&cp_occ[(smem.k) >> CP_SHIFT]));
+                    __builtin_prefetch((void*)(&cp_occ[(smem.l) >> CP_SHIFT]));
 #endif
                 }
                 else
@@ -576,12 +817,12 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
             if(smem.s >= min_intv_array[i])
             {
 
-                prevArray[numPrev] = smem;
+                prevArray[0][numPrev] = smem;
                 numPrev++;
             }
 
             SMEM *prev;
-            prev = prevArray;
+            prev = prevArray[0];
 
             int p;
             for(p = 0; p < (numPrev/2); p++)
@@ -597,7 +838,6 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
             {
                 int numCurr = 0;
                 int curr_s = -1;
-                // a = enc_qdb[rid * readlength + j];
                 a = enc_qdb[offset + j];
 
                 if(a > 3)
@@ -622,8 +862,8 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
                         curr_s = newSmem.s;
                         prev[numCurr++] = newSmem;
 #ifdef ENABLE_PREFETCH
-                        _mm_prefetch((const char *)(&cp_occ[(newSmem.k) >> CP_SHIFT]), _MM_HINT_T0);
-                        _mm_prefetch((const char *)(&cp_occ[(newSmem.k + newSmem.s) >> CP_SHIFT]), _MM_HINT_T0);
+                        __builtin_prefetch((void*)(&cp_occ[(newSmem.k) >> CP_SHIFT]));
+                        __builtin_prefetch((void*)(&cp_occ[(newSmem.k + newSmem.s) >> CP_SHIFT]));
 #endif
                         break;
                     }
@@ -642,8 +882,8 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
                         curr_s = newSmem.s;
                         prev[numCurr++] = newSmem;
 #ifdef ENABLE_PREFETCH
-                        _mm_prefetch((const char *)(&cp_occ[(newSmem.k) >> CP_SHIFT]), _MM_HINT_T0);
-                        _mm_prefetch((const char *)(&cp_occ[(newSmem.k + newSmem.s) >> CP_SHIFT]), _MM_HINT_T0);
+                        __builtin_prefetch((void*)(&cp_occ[(newSmem.k) >> CP_SHIFT]));
+                        __builtin_prefetch((void*)(&cp_occ[(newSmem.k + newSmem.s) >> CP_SHIFT]));
 #endif
                     }
                 }
@@ -666,6 +906,7 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
         }
         query_pos_array[i] = next_x;
     }
+
     (*__numTotalSmem) = numTotalSmem;
 }
 
@@ -681,7 +922,7 @@ void FMI_search::getSMEMsAllPosOneThread(uint8_t *enc_qdb,
                                          SMEM *matchArray,
                                          int64_t *__numTotalSmem)
 {
-    int16_t *query_pos_array = (int16_t *)_mm_malloc(numReads * sizeof(int16_t), 64);
+    int16_t *query_pos_array = (int16_t *)aligned_alloc(256, numReads * sizeof(int16_t));
     
     int32_t i;
     for(i = 0; i < numReads; i++)
@@ -720,7 +961,7 @@ void FMI_search::getSMEMsAllPosOneThread(uint8_t *enc_qdb,
         numActive = tail;
     } while(numActive > 0);
 
-    _mm_free(query_pos_array);
+    free(query_pos_array);
 }
 
 int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
@@ -782,8 +1023,8 @@ int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
                         newSmem.n = j;
                         smem = newSmem;
 #ifdef ENABLE_PREFETCH
-                        _mm_prefetch((const char *)(&cp_occ[(smem.k) >> CP_SHIFT]), _MM_HINT_T0);
-                        _mm_prefetch((const char *)(&cp_occ[(smem.l) >> CP_SHIFT]), _MM_HINT_T0);
+                        __builtin_prefetch((void*)(&cp_occ[(smem.k) >> CP_SHIFT]));
+                        __builtin_prefetch((void*)(&cp_occ[(smem.l) >> CP_SHIFT]));
 #endif
 
 
@@ -821,8 +1062,8 @@ void FMI_search::getSMEMs(uint8_t *enc_qdb,
         SMEM *matchArray,
         int64_t *numTotalSmem)
 {
-    SMEM *prevArray = (SMEM *)_mm_malloc(nthreads * readlength * sizeof(SMEM), 64);
-    SMEM *currArray = (SMEM *)_mm_malloc(nthreads * readlength * sizeof(SMEM), 64);
+    SMEM *prevArray = (SMEM *)aligned_alloc(256, nthreads * readlength * sizeof(SMEM));
+    SMEM *currArray = (SMEM *)aligned_alloc(256, nthreads * readlength * sizeof(SMEM));
 
 
 // #pragma omp parallel num_threads(nthreads)
@@ -979,8 +1220,8 @@ void FMI_search::getSMEMs(uint8_t *enc_qdb,
         }
     }
 
-    _mm_free(prevArray);
-    _mm_free(currArray);
+    free(prevArray);
+    free(currArray);
 }
 
 
@@ -1028,6 +1269,7 @@ SMEM FMI_search::backwardExt(SMEM smem, uint8_t a)
     uint8_t b;
 
     int64_t k[4], l[4], s[4];
+    #pragma unroll(4)
     for(b = 0; b < 4; b++)
     {
         int64_t sp = (int64_t)(smem.k);
@@ -1069,7 +1311,7 @@ void FMI_search::get_sa_entries(int64_t *posArray, int64_t *coordArray, uint32_t
         int64_t sa_entry = sa_ms_byte[pos];
         sa_entry = sa_entry << 32;
         sa_entry = sa_entry + sa_ls_word[pos];
-        //_mm_prefetch((const char *)(sa_ms_byte + pos + SAL_PFD), _MM_HINT_T0);
+        //__builtin_prefetch((void*)(sa_ms_byte + pos + SAL_PFD));
         coordArray[i] = sa_entry;
     }
 }
@@ -1091,7 +1333,7 @@ void FMI_search::get_sa_entries(SMEM *smemArray, int64_t *coordArray, int32_t *c
             int64_t sa_entry = sa_ms_byte[pos];
             sa_entry = sa_entry << 32;
             sa_entry = sa_entry + sa_ls_word[pos];
-            //_mm_prefetch((const char *)(sa_ms_byte + pos + SAL_PFD * step), _MM_HINT_T0);
+            //__builtin_prefetch((void*)(sa_ms_byte + pos + SAL_PFD * step));
             coordArray[totalCoordCount + c] = sa_entry;
         }
         coordCountArray[i] = c;
@@ -1270,8 +1512,8 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         mem_lim += smem.s;
     }
 
-    int64_t *pos_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
-    int64_t *map_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
+    int64_t *pos_ar = (int64_t *) aligned_alloc(256,  mem_lim * sizeof(int64_t));
+    int64_t *map_ar = (int64_t *) aligned_alloc(256,  mem_lim * sizeof(int64_t));
 
     for(int i = 0; i < count; i++)
     {
@@ -1308,12 +1550,12 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         offset[j] = 0;
         
         if (pos & SA_COMPX_MASK == 0) {
-            _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
-            _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
+            __builtin_prefetch((void*)&sa_ms_byte[pos >> SA_COMPX]);
+            __builtin_prefetch((void*)&sa_ls_word[pos >> SA_COMPX]);
         }
         else {
             int64_t occ_id_pp_ = pos >> CP_SHIFT;
-            _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+            __builtin_prefetch((void*)&cp_occ[occ_id_pp_]);
         }
         i++;
         j++;
@@ -1345,12 +1587,12 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                     offset[k] = 0;
                     
                     if (pos & SA_COMPX_MASK == 0) {
-                        _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
-                        _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
+                        __builtin_prefetch((void*)&sa_ms_byte[pos >> SA_COMPX]);
+                        __builtin_prefetch((void*)&sa_ls_word[pos >> SA_COMPX]);
                     }
                     else {
                         int64_t occ_id_pp_ = pos >> CP_SHIFT;
-                        _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+                        __builtin_prefetch((void*)&cp_occ[occ_id_pp_]);
                     }
                 }
                 else
@@ -1359,17 +1601,17 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
             else {
                 working_set[k] = sp;
                 if (sp & SA_COMPX_MASK == 0) {
-                    _mm_prefetch(&sa_ms_byte[sp >> SA_COMPX], _MM_HINT_T0);
-                    _mm_prefetch(&sa_ls_word[sp >> SA_COMPX], _MM_HINT_T0);
+                    __builtin_prefetch((void*)&sa_ms_byte[sp >> SA_COMPX]);
+                    __builtin_prefetch((void*)&sa_ls_word[sp >> SA_COMPX]);
                 }
                 else {
                     int64_t occ_id_pp_ = sp >> CP_SHIFT;
-                    _mm_prefetch(&cp_occ[occ_id_pp_], _MM_HINT_T0);
+                    __builtin_prefetch((void*)&cp_occ[occ_id_pp_]);
                 }                
             }
         }
     }
     
-    _mm_free(pos_ar);
-    _mm_free(map_ar);
+    free(pos_ar);
+    free(map_ar);
 }

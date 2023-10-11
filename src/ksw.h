@@ -26,7 +26,14 @@
 #define __AC_KSW_H
 
 #include <stdint.h>
+#include "bandedSWA.h"
+
+#if (__ARM_FEATURE_SVE)
+#include "sse2sve.h"
+#include <arm_sve.h>
+#else
 #include <emmintrin.h>
+#endif
 
 #define KSW_XBYTE  0x10000
 #define KSW_XSTOP  0x20000

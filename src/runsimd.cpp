@@ -53,6 +53,9 @@ extern "C" {
 #define SIMD_AVX512F 0x100
 #define SIMD_AVX512BW 0x200
 
+#if (__ARM_FEATURE_SVE)
+void __cpuidex(int cpuid[4], int func_id, int subfunc_id){}
+#else
 #ifndef _MSC_VER
 // adapted from https://github.com/01org/linux-sgx/blob/master/common/inc/internal/linux/cpuid_gnu.h
 void __cpuidex(int cpuid[4], int func_id, int subfunc_id)
@@ -67,6 +70,7 @@ void __cpuidex(int cpuid[4], int func_id, int subfunc_id)
 			: "0" (func_id), "2" (subfunc_id));
 #endif
 }
+#endif
 #endif
 
 static int x86_simd(void)

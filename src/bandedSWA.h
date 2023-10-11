@@ -38,10 +38,17 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 
 #if (__AVX512BW__ || __AVX2__)
 #include <immintrin.h>
-#else
+#endif
+
+#if ((!__AVX512BW__) & (!__AVX2__) & (__SSE2__))
 #include <smmintrin.h>  // for SSE4.1
 #define __mmask8 uint8_t
 #define __mmask16 uint16_t
+#endif
+
+#if (__ARM_FEATURE_SVE)
+#include "sse2sve.h"
+#include <arm_sve.h>
 #endif
 
 #define MAX_SEQ_LEN_REF 256
@@ -57,25 +64,33 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 // SIMD_WIDTH in bits
 // AVX2
 #if ((!__AVX512BW__) & (__AVX2__))
+#define LOG2_WIDTH8 4
 #define SIMD_WIDTH8 32
 #define SIMD_WIDTH16 16
-#endif
 
 // AVX512
-#if __AVX512BW__
+#elif __AVX512BW__
+#define LOG2_WIDTH8 4
 #define SIMD_WIDTH8 64
 #define SIMD_WIDTH16 32
-#endif
 
-#if ((!__AVX512BW__) & (!__AVX2__) & (__SSE2__))
+// SSE
+#elif ((!__AVX512BW__) & (!__AVX2__) & (__SSE2__))
+#define LOG2_WIDTH8 4
 #define SIMD_WIDTH8 16
 #define SIMD_WIDTH16 8
-#endif
 
 // Scalar
-#if ((!__AVX512BW__) & (!__AVX2__) & (!__SSE2__))
+#elif ((!__AVX512BW__) & (!__AVX2__) & (!__SSE2__))
+#define LOG2_WIDTH8 4
 #define SIMD_WIDTH8 1
 #define SIMD_WIDTH16 1
+
+// SVE 
+#elif (__ARM_FEATURE_SVE)
+#define LOG2_WIDTH8 log2(svcntb())
+#define SIMD_WIDTH8 svcntb()
+#define SIMD_WIDTH16 svcnth()
 #endif
 
 #define MAX_LINE_LEN 256
