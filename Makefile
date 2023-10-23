@@ -51,7 +51,7 @@ endif
 CPPFLAGS+= $(LISA_SMEM_FLAGS)
 EXT=          ./ext/TAL
 EXTEXT=       $(EXT)/ext
-EXTBSW=      $(EXT)/src/BSW
+EXTBSW=      $(EXT)/src/alignment/BSW
 EXTFMI=      $(EXT)/src/FMI
 EXTLISASRC=  $(EXT)/src/LISA-FMI
 
