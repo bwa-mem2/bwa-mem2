@@ -206,6 +206,8 @@ typedef struct
     uint8_t *enc_qdb[MAX_THREADS];
     
     int64_t wsize_mem[MAX_THREADS];
+    int64_t wsize_mem_s[MAX_THREADS];
+    int64_t wsize_mem_r[MAX_THREADS];
 } mem_cache;
 
 // chain moved to .h

@@ -99,7 +99,7 @@ int HTStatus()
 /*** Memory pre-allocations ***/
 void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
 {
-    mem_opt_t *opt = aux->opt;  
+    mem_opt_t *opt = aux->opt;
     int32_t memSize = nreads;
     int32_t readLen = READ_LEN;
 
@@ -123,7 +123,7 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
     fprintf(stderr, "------------------------------------------\n");
     fprintf(stderr, "1. Memory pre-allocation for Chaining: %0.4lf MB\n", allocMem/1e6);
 
-    
+
     /* SWA mem allocation */
     int64_t wsize = BATCH_SIZE * SEEDS_PER_READ;
     for(int l=0; l<nthreads; l++)
@@ -136,16 +136,16 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
             _mm_malloc(wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN, 64);
         w.mmc.seqBufRightQer[l*CACHE_LINE] = (uint8_t *)
             _mm_malloc(wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN, 64);
-        
+
         w.mmc.wsize_buf_ref[l*CACHE_LINE] = wsize * MAX_SEQ_LEN_REF;
         w.mmc.wsize_buf_qer[l*CACHE_LINE] = wsize * MAX_SEQ_LEN_QER;
-        
+
         assert(w.mmc.seqBufLeftRef[l*CACHE_LINE]  != NULL);
         assert(w.mmc.seqBufLeftQer[l*CACHE_LINE]  != NULL);
         assert(w.mmc.seqBufRightRef[l*CACHE_LINE] != NULL);
         assert(w.mmc.seqBufRightQer[l*CACHE_LINE] != NULL);
     }
-    
+
     for(int l=0; l<nthreads; l++) {
         w.mmc.seqPairArrayAux[l]      = (SeqPair *) malloc((wsize + MAX_LINE_LEN)* sizeof(SeqPair));
         w.mmc.seqPairArrayLeft128[l]  = (SeqPair *) malloc((wsize + MAX_LINE_LEN)* sizeof(SeqPair));
@@ -155,17 +155,20 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
         assert(w.mmc.seqPairArrayAux[l] != NULL);
         assert(w.mmc.seqPairArrayLeft128[l] != NULL);
         assert(w.mmc.seqPairArrayRight128[l] != NULL);
-    }   
+    }
 
 
     allocMem = (wsize * MAX_SEQ_LEN_REF * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads * 2+
-        (wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads  * 2 +       
-        wsize * sizeof(SeqPair) * opt->n_threads * 3;   
+        (wsize * MAX_SEQ_LEN_QER * sizeof(int8_t) + MAX_LINE_LEN) * opt->n_threads  * 2 +
+        wsize * sizeof(SeqPair) * opt->n_threads * 3;
     fprintf(stderr, "2. Memory pre-allocation for BSW: %0.4lf MB\n", allocMem/1e6);
 
     for (int l=0; l<nthreads; l++)
     {
+        // BATCH_MUL accounts for smems per reads in smem kernel
         w.mmc.wsize_mem[l]     = BATCH_MUL * BATCH_SIZE *               readLen;
+        w.mmc.wsize_mem_s[l]     = BATCH_MUL * BATCH_SIZE *               readLen;
+        w.mmc.wsize_mem_r[l]     = BATCH_MUL * BATCH_SIZE *               readLen;
         w.mmc.matchArray[l]    = (SMEM *) _mm_malloc(w.mmc.wsize_mem[l] * sizeof(SMEM), 64);
         w.mmc.min_intv_ar[l]   = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
         w.mmc.query_pos_ar[l]  = (int16_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int16_t));
@@ -202,9 +205,9 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
                                    &sz);
 
         tprof[READ_IO][0] += __rdtsc() - tim;
-        
+
         fprintf(stderr, "[0000] read_chunk: %ld, work_chunk_size: %ld, nseq: %d\n",
-                aux->task_size, sz, ret->n_seqs);   
+                aux->task_size, sz, ret->n_seqs);
 
         if (ret->seqs == 0) {
             free(ret);
@@ -223,9 +226,9 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
             fprintf(stderr, "\t[0000][ M::%s] read %d sequences (%ld bp)...\n",
                     __func__, ret->n_seqs, (long)size);
         }
-                
+
         return ret;
-    } // Step 0         
+    } // Step 0
     else if (step == 1)  /* Step 2: Main processing-engine */
     {
         static int task = 0;
@@ -238,8 +241,8 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
             w.chain_ar = (mem_chain_v*) malloc (w.nreads * sizeof(mem_chain_v));
             w.seedBuf = (mem_seed_t *) calloc(sizeof(mem_seed_t), w.nreads * AVG_SEEDS_PER_READ);
             assert(w.regs != NULL); assert(w.chain_ar != NULL); assert(w.seedBuf != NULL);
-        }       
-                                
+        }
+
         fprintf(stderr, "[0000] Calling mem_process_seqs.., task: %d\n", task++);
 
         uint64_t tim = __rdtsc();
@@ -253,7 +256,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 
             fprintf(stderr, "[M::%s] %d single-end sequences; %d paired-end sequences.....\n",
                     __func__, n_sep[0], n_sep[1]);
-            
+
             if (n_sep[0]) {
                 tmp_opt.flag &= ~MEM_F_PE;
                 /* single-end sequences, in the mixture */
@@ -263,7 +266,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
                                  sep[0],
                                  0,
                                  w);
-                
+
                 for (int i = 0; i < n_sep[0]; ++i)
                     ret->seqs[sep[0][i].id].sam = sep[0][i].sam;
             }
@@ -276,7 +279,7 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
                                  sep[1],
                                  aux->pes0,
                                  w);
-                                
+
                 for (int i = 0; i < n_sep[1]; ++i)
                     ret->seqs[sep[1][i].id].sam = sep[1][i].sam;
             }
@@ -290,11 +293,11 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
                              ret->seqs,
                              aux->pes0,
                              w);
-        }               
+        }
         tprof[MEM_PROCESS2][0] += __rdtsc() - tim;
-                
+
         return ret;
-    }           
+    }
     /* Step 3: Write output */
     else if (step == 2)
     {
@@ -317,15 +320,15 @@ ktp_data_t *kt_pipeline(void *shared, int step, void *data, mem_opt_t *opt, work
 
         return 0;
     } // step 2
-    
+
     return 0;
 }
 
 static void *ktp_worker(void *data)
-{   
+{
     ktp_worker_t *w = (ktp_worker_t*) data;
     ktp_t *p = w->pl;
-    
+
     while (w->step < p->n_steps) {
         // test whether we can kick off the job with this worker
         int pthread_ret = pthread_mutex_lock(&p->mutex);
@@ -369,7 +372,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     mem_opt_t   *opt = aux->opt;
     int32_t nthreads = opt->n_threads; // global variable for profiling!
     w.nthreads = opt->n_threads;
-    
+
 #if NUMA_ENABLED
     int  deno = 1;
     int tc = numa_num_task_cpus();
@@ -378,7 +381,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     fprintf(stderr, "num_cpus: %d, num_numas: %d, configured cpus: %d\n", tc, tn, tcc);
     int ht = HTStatus();
     if (ht) deno = 2;
-    
+
     if (nthreads < tcc/tn/deno) {
         fprintf(stderr, "Enabling single numa domain...\n\n");
         // numa_set_preferred(0);
@@ -406,7 +409,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
         int num_sockets = num_total_logical_cpus / num_logical_cpus;
         fprintf(stderr, "#sockets: %d, #cores/socket: %d, #logical_cpus: %d, #ht/core: %d\n",
                 num_sockets, num_logical_cpus/num_ht, num_total_logical_cpus, num_ht);
-        
+
         for (int i=0; i<num_total_logical_cpus; i++) affy[i] = i;
         int slookup[256] = {-1};
 
@@ -452,23 +455,23 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
         }
     }
 #endif
-    
+
     int32_t nreads = aux->actual_chunk_size/ READ_LEN + 10;
-    
+
     /* All memory allocation */
     memoryAlloc(aux, w, nreads, nthreads);
     fprintf(stderr, "* Threads used (compute): %d\n", nthreads);
-    
+
     /* pipeline using pthreads */
     ktp_t aux_;
     int p_nt = pipe_threads; // 2;
     int n_steps = 3;
-    
+
     w.ref_string = aux->ref_string;
     w.fmi = aux->fmi;
     w.nreads  = nreads;
     // w.memSize = nreads;
-    
+
     aux_.n_workers = p_nt;
     aux_.n_steps = n_steps;
     aux_.shared = aux;
@@ -481,7 +484,7 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     fprintf(stderr, "* No. of pipeline threads: %d\n\n", p_nt);
     aux_.workers = (ktp_worker_t*) malloc(p_nt * sizeof(ktp_worker_t));
     assert(aux_.workers != NULL);
-    
+
     for (int i = 0; i < p_nt; ++i) {
         ktp_worker_t *wr = &aux_.workers[i];
         wr->step = 0; wr->pl = &aux_; wr->data = 0;
@@ -490,13 +493,13 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
         wr->opt = opt;
         wr->w = &w;
     }
-    
+
     pthread_t *ptid = (pthread_t *) calloc(p_nt, sizeof(pthread_t));
     assert(ptid != NULL);
-    
+
     for (int i = 0; i < p_nt; ++i)
         pthread_create(&ptid[i], 0, ktp_worker, (void*) &aux_.workers[i]);
-    
+
     for (int i = 0; i < p_nt; ++i)
         pthread_join(ptid[i], 0);
 
@@ -508,14 +511,14 @@ static int process(void *shared, gzFile gfp, gzFile gfp2, int pipe_threads)
     free(ptid);
     free(aux_.workers);
     /***** pipeline ends ******/
-    
+
     fprintf(stderr, "[0000] Computation ends..\n");
-    
-    /* Dealloc memory allcoated in the header section */    
+
+    /* Dealloc memory allcoated in the header section */
     free(w.chain_ar);
     free(w.regs);
     free(w.seedBuf);
-    
+
     for(int l=0; l<nthreads; l++) {
         _mm_free(w.mmc.seqBufLeftRef[l*CACHE_LINE]);
         _mm_free(w.mmc.seqBufRightRef[l*CACHE_LINE]);
@@ -594,7 +597,7 @@ static void usage(const mem_opt_t *opt)
     fprintf(stderr, "   -j            treat ALT contigs as part of the primary assembly (i.e. ignore <idxbase>.alt file)\n");
     fprintf(stderr, "   -5            for split alignment, take the alignment with the smallest coordinate as primary\n");
     fprintf(stderr, "   -q            don't modify mapQ of supplementary alignments\n");
-    fprintf(stderr, "   -K INT        process INT input bases in each batch regardless of nThreads (for reproducibility) []\n");    
+    fprintf(stderr, "   -K INT        process INT input bases in each batch regardless of nThreads (for reproducibility) []\n");
     fprintf(stderr, "   -v INT        verbose level: 1=error, 2=warning, 3=message, 4+=debugging [%d]\n", bwa_verbose);
     fprintf(stderr, "   -T INT        minimum score to output [%d]\n", opt->T);
     fprintf(stderr, "   -h INT[,INT]  if there are <INT hits with score >80%% of the max score, output all in XA [%d,%d]\n", opt->max_XA_hits, opt->max_XA_hits_alt);
@@ -616,7 +619,7 @@ int main_mem(int argc, char *argv[])
     int          fixed_chunk_size          = -1;
     char        *p, *rg_line               = 0, *hdr_line = 0;
     const char  *mode                      = 0;
-    
+
     mem_opt_t    *opt, opt0;
     gzFile        fp, fp2 = 0;
     void         *ko = 0, *ko2 = 0;
@@ -625,16 +628,16 @@ int main_mem(int argc, char *argv[])
     ktp_aux_t     aux;
     bool          is_o    = 0;
     uint8_t      *ref_string;
-    
+
     memset(&aux, 0, sizeof(ktp_aux_t));
     memset(pes, 0, 4 * sizeof(mem_pestat_t));
     for (i = 0; i < 4; ++i) pes[i].failed = 1;
-    
+
     // opterr = 0;
     aux.fp = stdout;
     aux.opt = opt = mem_opt_init();
     memset(&opt0, 0, sizeof(mem_opt_t));
-    
+
     /* Parse input arguments */
     // comment: added option '5' in the list
     while ((c = getopt(argc, argv, "51qpaMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:")) >= 0)
@@ -777,7 +780,7 @@ int main_mem(int argc, char *argv[])
             return 1;
         }
     }
-    
+
     /* Check output file name */
     if (rg_line)
     {
@@ -789,7 +792,7 @@ int main_mem(int argc, char *argv[])
     if (optind + 2 != argc && optind + 3 != argc) {
         usage(opt);
         free(opt);
-        if (is_o) 
+        if (is_o)
             fclose(aux.fp);
         return 1;
     }
@@ -838,52 +841,52 @@ int main_mem(int argc, char *argv[])
             return 1;
         }
     } else update_a(opt, &opt0);
-    
+
     /* Matrix for SWA */
     bwa_fill_scmat(opt->a, opt->b, opt->mat);
-    
+
     /* Load bwt2/FMI index */
     uint64_t tim = __rdtsc();
-    
-    fprintf(stderr, "* Ref file: %s\n", argv[optind]);          
+
+    fprintf(stderr, "* Ref file: %s\n", argv[optind]);
     aux.fmi = new FMI_search(argv[optind]);
     aux.fmi->load_index();
     tprof[FMI][0] += __rdtsc() - tim;
-    
+
     // reading ref string from the file
     tim = __rdtsc();
     fprintf(stderr, "* Reading reference genome..\n");
-    
+
     char binary_seq_file[PATH_MAX];
     strcpy_s(binary_seq_file, PATH_MAX, argv[optind]);
     strcat_s(binary_seq_file, PATH_MAX, ".0123");
     //sprintf(binary_seq_file, "%s.0123", argv[optind]);
-    
+
     fprintf(stderr, "* Binary seq file = %s\n", binary_seq_file);
     FILE *fr = fopen(binary_seq_file, "r");
-    
+
     if (fr == NULL) {
         fprintf(stderr, "Error: can't open %s input file\n", binary_seq_file);
         exit(EXIT_FAILURE);
     }
-    
+
     int64_t rlen = 0;
-    fseek(fr, 0, SEEK_END); 
+    fseek(fr, 0, SEEK_END);
     rlen = ftell(fr);
     ref_string = (uint8_t*) _mm_malloc(rlen, 64);
     aux.ref_string = ref_string;
     rewind(fr);
-    
+
     /* Reading ref. sequence */
     err_fread_noeof(ref_string, 1, rlen, fr);
-    
+
     uint64_t timer  = __rdtsc();
     tprof[REF_IO][0] += timer - tim;
-    
+
     fclose(fr);
     fprintf(stderr, "* Reference genome size: %ld bp\n", rlen);
     fprintf(stderr, "* Done reading reference genome !!\n\n");
-    
+
     if (ignore_alt)
         for (i = 0; i < aux.fmi->idx->bns->n_seqs; ++i)
             aux.fmi->idx->bns->anns[i].is_alt = 0;
@@ -893,7 +896,7 @@ int main_mem(int argc, char *argv[])
 	if (ko == 0) {
 		fprintf(stderr, "[E::%s] fail to open file `%s'.\n", __func__, argv[optind + 1]);
         free(opt);
-        if (is_o) 
+        if (is_o)
             fclose(aux.fp);
         delete aux.fmi;
         // kclose(ko);
@@ -902,7 +905,7 @@ int main_mem(int argc, char *argv[])
     // fp = gzopen(argv[optind + 1], "r");
     fp = gzdopen(fd, "r");
     aux.ks = kseq_init(fp);
-    
+
     // PAIRED_END
     /* Handling Paired-end reads */
     aux.ks2 = 0;
@@ -920,13 +923,13 @@ int main_mem(int argc, char *argv[])
                 free(ko);
                 err_gzclose(fp);
                 kseq_destroy(aux.ks);
-                if (is_o) 
-                    fclose(aux.fp);             
+                if (is_o)
+                    fclose(aux.fp);
                 delete aux.fmi;
                 kclose(ko);
                 // kclose(ko2);
                 return 1;
-            }            
+            }
             // fp2 = gzopen(argv[optind + 2], "r");
             fp2 = gzdopen(fd2, "r");
             aux.ks2 = kseq_init(fp2);
@@ -949,7 +952,7 @@ int main_mem(int argc, char *argv[])
 
     /* Relay process function */
     process(&aux, fp, fp2, no_mt_io? 1:2);
-    
+
     tprof[PROCESS][0] += __rdtsc() - tim;
 
     // free memory
@@ -957,7 +960,7 @@ int main_mem(int argc, char *argv[])
     _mm_free(ref_string);
     free(hdr_line);
     free(opt);
-    kseq_destroy(aux.ks);   
+    kseq_destroy(aux.ks);
     err_gzclose(fp); kclose(ko);
 
     // PAIRED_END
@@ -965,18 +968,17 @@ int main_mem(int argc, char *argv[])
         kseq_destroy(aux.ks2);
         err_gzclose(fp2); kclose(ko2);
     }
-    
+
     if (is_o) {
         fclose(aux.fp);
     }
 
     // new bwt/FMI
-    delete(aux.fmi);    
+    delete(aux.fmi);
 
     /* Display runtime profiling stats */
     tprof[MEM][0] = __rdtsc() - tprof[MEM][0];
     display_stats(nt);
-    
+
     return 0;
 }
-
