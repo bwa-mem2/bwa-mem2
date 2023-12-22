@@ -85,6 +85,10 @@ int main(int argc, char* argv[])
         fprintf(stderr, "Executing in SSE4.2 mode!!\n");
 #elif __SSE4_1__
         fprintf(stderr, "Executing in SSE4.1 mode!!\n");        
+#elif __SSE2__
+        fprintf(stderr, "Executing in SSE2 mode!!\n");
+#else
+        fprintf(stderr, "Executing in Scalar mode!!\n");
 #endif
         fprintf(stderr, "-----------------------------\n");
 

@@ -30,7 +30,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
-#include <emmintrin.h>
 #include "ksw.h"
 #include "macro.h"
 
