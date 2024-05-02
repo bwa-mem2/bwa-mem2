@@ -643,17 +643,17 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
     int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(nseq * sizeof(int32_t), 64);
 
     // New addition: checks
-    int64_t tot_seq_len = 0;
-    for (int l=0; l<nseq; l++)
-        tot_seq_len += seq_[l].l_seq;
-
-    if (tot_seq_len > mmc->wsize_mem_s[tid]) {
-        fprintf(stderr, "[%0.4d] REA Re-allocating enc_qdb only\n", tid);
-        mmc->wsize_mem_s[tid] = tot_seq_len + 1024;
-        mmc->enc_qdb[tid]     = (uint8_t *) realloc(mmc->enc_qdb[tid],
-                                                    mmc->wsize_mem_s[tid] * sizeof(uint8_t));
-        enc_qdb = mmc->enc_qdb[tid];
-    }
+    // int64_t tot_seq_len = 0;
+    // for (int l=0; l<nseq; l++)
+    //     tot_seq_len += seq_[l].l_seq;
+    // 
+    // if (tot_seq_len > mmc->wsize_mem_s[tid]) {
+    //     fprintf(stderr, "[%0.4d] REA Re-allocating enc_qdb only\n", tid);
+    //     mmc->wsize_mem_s[tid] = tot_seq_len + 1024;
+    //     mmc->enc_qdb[tid]     = (uint8_t *) realloc(mmc->enc_qdb[tid],
+    //                                                 mmc->wsize_mem_s[tid] * sizeof(uint8_t));
+    //     enc_qdb = mmc->enc_qdb[tid];
+    // }
 
     int offset = 0, max_read_len = 0;
     for (int l=0; l<nseq; l++)
@@ -679,16 +679,16 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
                                  seq_, query_cum_len_ar, max_readlength, opt->min_seed_len,
                                  matchArray, &num_smem1);
     // New addition: checks
-    if (num_smem1 > mmc->wsize_mem_r[tid]) {
-        fprintf(stderr, "[%0.4d] REA Re-allocating min_intv, query_pos, & rid\n", tid);
-        mmc->wsize_mem_r[tid] = num_smem1 + 1024;
-        mmc->min_intv_ar[tid]  = (int32_t *) realloc(mmc->min_intv_ar[tid],
-                                                     mmc->wsize_mem_r[tid] *  sizeof(int32_t));
-        mmc->query_pos_ar[tid] = (int16_t *) realloc(mmc->query_pos_ar[tid],
-                                                     mmc->wsize_mem_r[tid] *  sizeof(int16_t));
-        mmc->rid[tid]          = (int32_t *) realloc(mmc->rid[tid],
-                                                      mmc->wsize_mem_r[tid] * sizeof(int32_t));
-    }
+    // if (num_smem1 > mmc->wsize_mem_r[tid]) {
+    //     fprintf(stderr, "[%0.4d] REA Re-allocating min_intv, query_pos, & rid\n", tid);
+    //     mmc->wsize_mem_r[tid] = num_smem1 + 1024;
+    //     mmc->min_intv_ar[tid]  = (int32_t *) realloc(mmc->min_intv_ar[tid],
+    //                                                  mmc->wsize_mem_r[tid] *  sizeof(int32_t));
+    //     mmc->query_pos_ar[tid] = (int16_t *) realloc(mmc->query_pos_ar[tid],
+    //                                                  mmc->wsize_mem_r[tid] *  sizeof(int16_t));
+    //     mmc->rid[tid]          = (int32_t *) realloc(mmc->rid[tid],
+    //                                                   mmc->wsize_mem_r[tid] * sizeof(int32_t));
+    // }
 
     // fprintf(stderr, "num_smem1: %d\n", num_smem1);
     int64_t mem_lim = 0;
@@ -709,37 +709,36 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
 
         min_intv_ar[pos] = p->s + 1;
         pos ++;
-        mem_lim += seq_[p->rid].l_seq;
+        // mem_lim += seq_[p->rid].l_seq;
+        mem_lim += end - start;
     }
+
     #if 1
     // fprintf(stderr, "num_smem2: %d, lim: %d\n", num_smem2, mem_lim + num_smem1 + offset);
-    { // experimental, pcl
-        // int64_t avg_read_len = static_cast<int64_t>(offset*1.0/nseq);
-        // if (mmc->wsize_mem[tid] < mem_lim + num_smem1 + offset) {
-        if (mmc->wsize_mem[tid] < mem_lim + num_smem1) {
-            fprintf(stderr, "[%0.4d] REA Re-allocating2 SMEM data structures due to enc_qdb\n", tid);
-            int64_t tmp = mmc->wsize_mem[tid];
-            mmc->wsize_mem[tid] = mem_lim + num_smem1 + offset;
-
-            SMEM* ptr1 = mmc->matchArray[tid];
-            // ptr2 = w.mmc.min_intv_ar;
-            // ptr3 =
-            fprintf(stderr, "Realloc size from: %d to :%d\n", tmp, mmc->wsize_mem[tid]);
-            mmc->matchArray[tid]    = (SMEM *) _mm_malloc(mmc->wsize_mem[tid] * sizeof(SMEM), 64);
-            assert(mmc->matchArray[tid] != NULL);
-            matchArray = mmc->matchArray[tid];
-            // w.mmc.min_intv_ar[l]   = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
-            // w.mmc.query_pos_ar[tid]  = (int16_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int16_t));
-            // w.mmc.enc_qdb[l]       = (uint8_t *) malloc(w.mmc.wsize_mem[l] * sizeof(uint8_t));
-            // w.mmc.rid[l]           = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
-            //w.mmc.lim[l]         = (int32_t *) _mm_malloc((BATCH_SIZE + 32) * sizeof(int32_t), 64);
-            for (int i=0; i<num_smem1; i++) {
-                mmc->matchArray[tid][i] = ptr1[i];
-            }
-            _mm_free(ptr1);
+    if (mmc->wsize_mem[tid] < mem_lim + num_smem1) {
+        fprintf(stderr, "[%0.4d] REA Re-allocating SMEM data structures after num_smem1\n", tid);
+        int64_t tmp = mmc->wsize_mem[tid];
+        mmc->wsize_mem[tid] = mem_lim + num_smem1;
+        
+        SMEM* ptr1 = mmc->matchArray[tid];
+        // ptr2 = w.mmc.min_intv_ar;
+        // ptr3 =
+        fprintf(stderr, "Realloc size from: %d to :%d\n", tmp, mmc->wsize_mem[tid]);
+        mmc->matchArray[tid]    = (SMEM *) _mm_malloc(mmc->wsize_mem[tid] * sizeof(SMEM), 64);
+        assert(mmc->matchArray[tid] != NULL);
+        matchArray = mmc->matchArray[tid];
+        // w.mmc.min_intv_ar[l]   = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
+        // w.mmc.query_pos_ar[tid]  = (int16_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int16_t));
+        // w.mmc.enc_qdb[l]       = (uint8_t *) malloc(w.mmc.wsize_mem[l] * sizeof(uint8_t));
+        // w.mmc.rid[l]           = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
+        //w.mmc.lim[l]         = (int32_t *) _mm_malloc((BATCH_SIZE + 32) * sizeof(int32_t), 64);
+        for (int i=0; i<num_smem1; i++) {
+            mmc->matchArray[tid][i] = ptr1[i];
         }
+        _mm_free(ptr1);
     }
     #endif
+    
     fmi->getSMEMsOnePosOneThread(enc_qdb,
                                  query_pos_ar,
                                  min_intv_ar,
@@ -752,14 +751,17 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
                                  opt->min_seed_len,
                                  matchArray + num_smem1,
                                  &num_smem2);
+    // assert(mmc->wsize_mem[tid] > (num_smem1 + num_smem2));
     // fprintwsize_mem_rf(stderr, "num_smem2: %d\n", num_smem2);
     if (opt->max_mem_intv > 0)
     {
+        #if 1
 		if (mmc->wsize_mem[tid] < num_smem2 + offset*1.0/(opt->min_seed_len + 1) + num_smem1) {
             int64_t tmp = mmc->wsize_mem[tid];
 		    mmc->wsize_mem[tid] = num_smem2 + offset*1.0/(opt->min_seed_len + 1) + num_smem1;
 		    SMEM* ptr1 = mmc->matchArray[tid];
-		    fprintf(stderr, "Realloc2 size from: %d to :%d\n", tmp, mmc->wsize_mem[tid]);
+            fprintf(stderr, "[%0.4d] REA Re-allocating SMEM data structures after num_smem2\n", tid);
+            fprintf(stderr, "Realloc2 size from: %d to :%d\n", tmp, mmc->wsize_mem[tid]);
 		    mmc->matchArray[tid]    = (SMEM *) _mm_malloc(mmc->wsize_mem[tid] * sizeof(SMEM), 64);
 		    assert(mmc->matchArray[tid] != NULL);
 		    matchArray = mmc->matchArray[tid];
@@ -768,7 +770,7 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
 		    }
 		    _mm_free(ptr1);
 		}
-
+        #endif
         for (int l=0; l<nseq; l++)
             min_intv_ar[l] = opt->max_mem_intv;
 
@@ -778,6 +780,7 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
                                                         matchArray + num_smem1 + num_smem2);
     }
     tot_smem = num_smem1 + num_smem2 + num_smem3;
+    // assert(mmc->wsize_mem[tid] > (tot_smem));
     // fprintf(stderr, "num_smems: %d %d %d, %d\n", num_smem1, num_smem2, num_smem3, tot_smem);
     fmi->sortSMEMs(matchArray, &tot_smem, nseq, seq_[0].l_seq, 1); // seq_[0].l_seq - only used for blocking when using nthreads
 
@@ -995,7 +998,7 @@ int mem_kernel1_core(FMI_search *fmi,
         for (i = 0; i < len; ++i)
             seq[i] = seq[i] < 4? seq[i] : nst_nt4_table[(int)seq[i]]; //nst_nt4??
     }
-    tot_len *= N_SMEM_KERNEL;
+    // tot_len *= N_SMEM_KERNEL;
     // fprintf(stderr, "wsize: %d, tot_len: %d\n", mmc->wsize_mem[tid], tot_len);
     // This covers enc_qdb/SMEM reallocs
     if (tot_len >= mmc->wsize_mem[tid])
@@ -2232,7 +2235,9 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
                     if (numPairsLeft >= *wsize_pair) {
                         fprintf(stderr, "[0000][%0.4d] Re-allocating seqPairArrays, in Left\n", tid);
-                        *wsize_pair += 1024;
+                        *wsize_pair +=  1024;
+                        // assert(*wsize_pair > numPairsLeft);
+                        *wsize_pair += numPairsLeft + 1024;
                         seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
                                                               (*wsize_pair + MAX_LINE_LEN)
                                                               * sizeof(SeqPair));
@@ -2258,6 +2263,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                                 tid, __func__);
                         int64_t tmp = *wsize_buf_qer;
                         *wsize_buf_qer *= 2;
+                        assert(*wsize_buf_qer > leftQerOffset);
+                        
                         uint8_t *seqBufQer_ = (uint8_t*)
                             _mm_realloc(seqBufLeftQer, tmp, *wsize_buf_qer, sizeof(uint8_t));
                         mmc->seqBufLeftQer[tid*CACHE_LINE] = seqBufLeftQer = seqBufQer_;
@@ -2329,6 +2336,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     {
                         fprintf(stderr, "[0000] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
                         *wsize_pair += 1024;
+                        // assert(*wsize_pair > numPairsRight);
+                        *wsize_pair += numPairsLeft + 1024;
                         seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
                                                               (*wsize_pair + MAX_LINE_LEN)
                                                               * sizeof(SeqPair));
@@ -2356,6 +2365,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                                 tid, __func__);
                         int64_t tmp = *wsize_buf_qer;
                         *wsize_buf_qer *= 2;
+                        assert(*wsize_buf_qer > rightQerOffset);
+                        
                         uint8_t *seqBufQer_ = (uint8_t*)
                             _mm_realloc(seqBufLeftQer, tmp, *wsize_buf_qer, sizeof(uint8_t));
                         mmc->seqBufLeftQer[tid*CACHE_LINE] = seqBufLeftQer = seqBufQer_;
@@ -2875,8 +2886,8 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     {   // refine it!
         fprintf(stderr, "Error: Unexpected behaviour!!!\n");
         fprintf(stderr, "Error: assert failed for seqPair size, "
-                "numPairsLeft: %d, numPairsRight %d\nExiting.\n",
-                numPairsLeft, numPairsRight);
+                "numPairsLeft: %d, numPairsRight %d, lim: %d\nExiting.\n",
+                numPairsLeft, numPairsRight, *wsize_pair);
         exit(EXIT_FAILURE);
     }
     /* Discard seeds and hence their alignemnts */
