@@ -48,6 +48,7 @@
 
 #define xassert(cond, msg) if ((cond) == 0) _err_fatal_simple_core(__func__, msg)
 
+// clang and gcc 11+ define __rdtsc intrinsics on x86/64
 #if defined(__GNUC__) && __GNUC__ < 11 && !defined(__clang__)
 #if defined(__i386__)
 static inline unsigned long long __rdtsc(void)
@@ -63,6 +64,46 @@ static inline unsigned long long __rdtsc(void)
     __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
     return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
 }
+#endif
+#endif
+// From https://github.com/google/benchmark/blob/37177a84b7e8d33696ea1e1854513cb0de3b4dc3/src/cycleclock.h
+// Apache 2.0 license
+#if defined(__aarch64__)
+  // System timer of ARMv8 runs at a different frequency than the CPU's.
+  // The frequency is fixed, typically in the range 1-50MHz.  It can be
+  // read at CNTFRQ special register.  We assume the OS has set up
+  // the virtual timer properly.
+static inline unsigned long long __rdtsc(void)
+{
+  int64_t virtual_timer_value;
+  asm volatile("mrs %0, cntvct_el0" : "=r"(virtual_timer_value));
+  return virtual_timer_value;
+}
+#elif defined(__ARM_ARCH)
+  // V6 is the earliest arch that has a standard cyclecount
+  // Native Client validator doesn't allow MRC instructions.
+#if (__ARM_ARCH >= 6)
+static inline unsigned long long __rdtsc(void)
+{
+  uint32_t pmccntr;
+  uint32_t pmuseren;
+  uint32_t pmcntenset;
+  // Read the user mode perf monitor counter access permissions.
+  asm volatile("mrc p15, 0, %0, c9, c14, 0" : "=r"(pmuseren));
+  if (pmuseren & 1) {  // Allows reading perfmon counters for user mode code.
+    asm volatile("mrc p15, 0, %0, c9, c12, 1" : "=r"(pmcntenset));
+    if (pmcntenset & 0x80000000ul) {  // Is it counting?
+      asm volatile("mrc p15, 0, %0, c9, c13, 0" : "=r"(pmccntr));
+      // The counter is set up to count every 64th cycle
+      return static_cast<int64_t>(pmccntr) * 64;  // Should optimize to << 6
+    }
+  }
+  struct timeval tv;
+  gettimeofday(&tv, nullptr);
+  return static_cast<int64_t>(tv.tv_sec) * 1000000 + tv.tv_usec;
+}
+#else
+#error __ARM_ARCH < 6 does not have a standard cyclecount
 #endif
 #endif
 
