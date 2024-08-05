@@ -101,15 +101,15 @@ CXXFLAGS+=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
 all:$(EXE)
 
 multi:
-	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	#rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=sse41    EXE=bwa-mem2.sse41    CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	#rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=sse42    EXE=bwa-mem2.sse42    CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	#rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx    EXE=bwa-mem2.avx    CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	#rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
-	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
+	#rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
 	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring $(STATIC_GCC) -o bwa-mem2
 

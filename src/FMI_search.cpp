@@ -543,6 +543,12 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
                 {
                     SMEM smem_ = smem;
 
+#if 1
+                    if (x == 0)
+                    {
+                        fprintf(stderr, "Before extension SAI (k, l, s): %lu, %lu, %lu\n", smem.k, smem.l, smem.s);
+                    }
+#endif
                     // Forward extension is backward extension with the BWT of reverse complement
                     smem_.k = smem.l;
                     smem_.l = smem.k;
@@ -552,6 +558,12 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
                     newSmem.k = newSmem_.l;
                     newSmem.l = newSmem_.k;
                     newSmem.n = j;
+#if 1
+                    if (x == 0)
+                    {
+                        fprintf(stderr, "After extension (base=%d) SAI (k, l, s): %lu, %lu, %lu\n", a, newSmem.k, newSmem.l, newSmem.s);
+                    }
+#endif
 
                     int32_t s_neq_mask = newSmem.s != smem.s;
 
