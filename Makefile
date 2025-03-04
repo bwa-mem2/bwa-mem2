@@ -32,32 +32,38 @@ ifneq ($(portable),)
 	STATIC_GCC=-static-libgcc -static-libstdc++
 endif
 
+
 uname_arch := $(shell uname -m)
 
-SSE2NEON_FLAGS=-D__SSE2__=1 -D__AVX__=1 -D__SSE4_1__=1
-SSE2NEON_INCLUDES=-Iext/sse2neon
 
 
 
 EXE=		bwa-mem2
+
 #CXX=		icpc
 ifeq ($(CXX), icpc)
 	CC= icc
 else ifeq ($(CXX), g++)
 	CC=gcc
 endif		
-ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
+
+SSE2NEON_FLAGS=-D__SSE2__=1 -D__AVX__=1 -D__SSE4_1__=1
+SSE2NEON_INCLUDES=-Iext/sse2neon
+
 MEM_FLAGS=	-DSAIS=1
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS) 
 
 ifeq ($(uname_arch),arm64)	# OS/X has memset_s etc already
-INCLUDES=   -Isrc
+INCLUDES=   -Isrc $(SSE2NEON_FLAGS) $(SSE2NEON_INCLUDES)
 LIBS=		-lpthread -lm -lz -L. -lbwa $(STATIC_GCC)
 SAFE_STR_LIB=
 else
 INCLUDES=   -Isrc -Iext/safestringlib/include
 LIBS=		-lpthread -lm -lz -L. -lbwa -Lext/safestringlib -lsafestring $(STATIC_GCC)
 SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
+ifeq ($(uname_arch),aarch64)
+INCLUDES+= $(SSE2NEON_FLAGS) $(SSE2NEON_INCLUDES)
+endif
 endif
 
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
@@ -65,6 +71,12 @@ OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/memcpy_bwamem.o src/kthread.
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
 			src/bwamem_extra.o src/kopen.o
 BWA_LIB=    libbwa.a
+
+
+ifeq ($(uname_arch),x86_64)
+	ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
+
+endif
 
 
 ifeq ($(arch),sse41)
@@ -102,18 +114,17 @@ else ifeq ($(arch),native)
 else ifneq ($(arch),)
 # To provide a different architecture flag like -march=core-avx2.
 	ARCH_FLAGS=$(arch)
-else ifeq ($(uname_arch),arm64)
-		ARCH_FLAGS=$(SSE2NEON_FLAGS)
-		INCLUDES+=$(SSE2NEON_INCLUDES)
-else ifeq ($(uname_arch),aarch64)
-		ARCH_FLAGS=$(SSE2NEON_FLAGS)
-		INCLUDES+=$(SSE2NEON_INCLUDES)
+
 else
+ifeq ($(uname_arch),x86_64)
 myall:multi
+endif
 endif
 
 
-CXXFLAGS+=	-g -O3 -fpermissive #-Wall ##-xSSE2
+
+
+CXXFLAGS+= -std=c++14 -g -O3 -fpermissive #-Wall ##-xSSE2
 
 .PHONY:all clean depend multi
 .SUFFIXES:.cpp .o
@@ -122,6 +133,8 @@ CXXFLAGS+=	-g -O3 -fpermissive #-Wall ##-xSSE2
 	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES)  $(ARCH_FLAGS) $< -o $@
 
 all:$(EXE)
+
+
 
 multi:
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
