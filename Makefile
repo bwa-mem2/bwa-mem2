@@ -54,7 +54,7 @@ MEM_FLAGS=	-DSAIS=1
 CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS) 
 
 ifeq ($(uname_arch),arm64)	# OS/X has memset_s etc already
-INCLUDES=   -Isrc $(SSE2NEON_FLAGS) $(SSE2NEON_INCLUDES)
+INCLUDES=   -Isrc $(SSE2NEON_FLAGS) $(SSE2NEON_INCLUDES) -D__STDC_WANT_LIB_EXT1__
 LIBS=		-lpthread -lm -lz -L. -lbwa $(STATIC_GCC)
 SAFE_STR_LIB=
 else

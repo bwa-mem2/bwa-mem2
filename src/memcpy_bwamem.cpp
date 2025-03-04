@@ -55,18 +55,19 @@ errno_t memcpy_bwamem(void *dest, rsize_t dmax, const void *src, rsize_t smax, c
 {
     errno_t ret;
 
+    if (smax == 0) return 0;
     // tests in memcpy_s - sizing
     if (dest == NULL || src == NULL ||
 	smax == 0 || dmax == 0 ||
 	smax > dmax) {
-      fprintf(stderr, "[%s: %d] memcpy_bwamem constraints failure\n", file_name, line_num);
+      fprintf(stderr, "[%s: %d] memcpy_bwamem constraints failure %x %x %d %d\n", file_name, line_num, src, dest, smax, dmax);
       exit(EXIT_FAILURE);
     }
     // tests in memcpy_s - overlap
     
-    if ((dest < src && !(((const char*) dest) + smax > (const char*)src))
-	|| src < dest && !(((const char*) src) + smax > (const char*)dest)) {
-      fprintf(stderr, "[%s: %d] memcpy_bwamem regions overlap failure\n", file_name, line_num);
+    if ((dest < src && ((const char*) dest) + smax >= (const char*)src)
+	|| (src < dest && ((const char*) src) + smax >= (const char*)dest)) {
+      fprintf(stderr, "[%s: %d] memcpy_bwamem regions overlap failure %x %x %d %d \n", file_name, line_num, src, dest, smax, dmax);
       exit(EXIT_FAILURE);
     }
 
