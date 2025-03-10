@@ -29,7 +29,9 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 
 #include "memcpy_bwamem.h"
 
-errno_t memcpy_bwamem(void *dest, rsize_t dmax, const void *src, rsize_t smax, char *file_name, int line_num)
+
+#ifndef __arm64__
+errno_t memcpy_bwamem(void *dest, rsize_t dmax, const void *src, rsize_t smax, const char *file_name, int line_num)
 {
     errno_t ret;
     int64_t bytes_copied;
@@ -47,3 +49,31 @@ errno_t memcpy_bwamem(void *dest, rsize_t dmax, const void *src, rsize_t smax, c
     }
     return 0;
 }
+#else
+#include <stdio.h>
+errno_t memcpy_bwamem(void *dest, rsize_t dmax, const void *src, rsize_t smax, const char *file_name, int line_num)
+{
+    errno_t ret;
+
+    if (smax == 0) return 0;
+    // tests in memcpy_s - sizing
+    if (dest == NULL || src == NULL ||
+	smax == 0 || dmax == 0 ||
+	smax > dmax) {
+      fprintf(stderr, "[%s: %d] memcpy_bwamem constraints failure %x %x %d %d\n", file_name, line_num, src, dest, smax, dmax);
+      exit(EXIT_FAILURE);
+    }
+    // tests in memcpy_s - overlap
+    
+    if ((dest < src && ((const char*) dest) + smax >= (const char*)src)
+	|| (src < dest && ((const char*) src) + smax >= (const char*)dest)) {
+      fprintf(stderr, "[%s: %d] memcpy_bwamem regions overlap failure %x %x %d %d \n", file_name, line_num, src, dest, smax, dmax);
+      exit(EXIT_FAILURE);
+    }
+
+    memcpy(dest, src, smax);
+
+    return 0;
+}
+
+#endif

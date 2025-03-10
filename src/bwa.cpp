@@ -40,12 +40,15 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "kvec.h"
 #include <string>
 
+
+#ifndef __arm64__
 #ifdef __cplusplus
 extern "C" {
 #endif
 #include "safe_str_lib.h"
 #ifdef __cplusplus
 }
+#endif
 #endif
 
 int bwa_verbose = 3;
