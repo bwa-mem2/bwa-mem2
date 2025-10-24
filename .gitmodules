@@ -1,6 +1,7 @@
 [submodule "ext/safestringlib"]
 	path = ext/safestringlib
 	url = https://github.com/intel/safestringlib.git
+	ignore = all
 [submodule "ext/sse2neon"]
 	path = ext/sse2neon
 	url = https://github.com/DLTcollab/sse2neon.git
