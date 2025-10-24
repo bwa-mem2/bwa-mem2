@@ -35,14 +35,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <stdint.h>
 #include <assert.h>
 #include "macro.h"
-
-#if (__AVX512BW__ || __AVX2__)
-#include <immintrin.h>
-#else
-#include <smmintrin.h>  // for SSE4.1
-#define __mmask8 uint8_t
-#define __mmask16 uint16_t
-#endif
+#include "simd_compat.h"
 
 #define MAX_SEQ_LEN_REF 256
 #define MAX_SEQ_LEN_QER 128

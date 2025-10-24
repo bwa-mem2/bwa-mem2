@@ -37,6 +37,8 @@ Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@
 #ifdef __cplusplus
 extern "C" {
 #endif
+// Avoid macOS memset_s prototype conflict inside safestringlib headers
+#include "safe_mem_compat.h"
 #include "safe_str_lib.h"
 #ifdef __cplusplus
 }
@@ -57,7 +59,10 @@ extern "C" {
 // adapted from https://github.com/01org/linux-sgx/blob/master/common/inc/internal/linux/cpuid_gnu.h
 void __cpuidex(int cpuid[4], int func_id, int subfunc_id)
 {
-#if defined(__x86_64__)
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+	// ARM doesn't have cpuid, just zero out
+	cpuid[0] = cpuid[1] = cpuid[2] = cpuid[3] = 0;
+#elif defined(__x86_64__)
 	__asm__ volatile ("cpuid"
 			: "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
 			: "0" (func_id), "2" (subfunc_id));
@@ -191,12 +196,20 @@ int main(int argc, char *argv[])
 	strcpy_s(prefix, PATH_MAX, buf);
 	strcat_s(prefix, PATH_MAX, &argv0[base_st]);
 	//prefix_len = strlen(prefix);
+	
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+	// On ARM, use the .arm64 binary
+	test_and_launch(argv, prefix, ".arm64");
+#else
+	// On x86, detect SIMD capabilities
 	simd = x86_simd();
 	if (simd & SIMD_AVX512BW) test_and_launch(argv, prefix, ".avx512bw");
 	if (simd & SIMD_AVX2) test_and_launch(argv, prefix, ".avx2");
 	if (simd & SIMD_AVX) test_and_launch(argv, prefix, ".avx");
 	if (simd & SIMD_SSE4_2) test_and_launch(argv, prefix, ".sse42");
 	if (simd & SIMD_SSE4_1) test_and_launch(argv, prefix, ".sse41");
+#endif
+	
 	free(prefix);
 	fprintf(stderr, "ERROR: fail to find the right executable\n");
 	return 2;

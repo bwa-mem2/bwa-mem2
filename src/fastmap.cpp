@@ -49,9 +49,11 @@ extern uint64_t tprof[LIM_R][LIM_C];
 // ---------------
 
 void __cpuid(unsigned int i, unsigned int cpuid[4]) {
-#ifdef _WIN32
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+    // On ARM, cpuid doesn't exist - just zero out the array
+    cpuid[0] = cpuid[1] = cpuid[2] = cpuid[3] = 0;
+#elif defined(_WIN32)
     __cpuid((int *) cpuid, (int)i);
-
 #else
     asm volatile
         ("cpuid" : "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
@@ -62,6 +64,11 @@ void __cpuid(unsigned int i, unsigned int cpuid[4]) {
 
 int HTStatus()
 {
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+    // ARM doesn't have HyperThreading - just return 0
+    fprintf(stderr, "Platform: ARM64/AArch64\n");
+    return 0;
+#else
     unsigned int cpuid[4];
     char platform_vendor[12];
     __cpuid(0, cpuid);
@@ -93,6 +100,7 @@ int HTStatus()
         fprintf(stderr, "CPUs support hyperThreading !!\n");
 
     return ht;
+#endif
 }
 
 

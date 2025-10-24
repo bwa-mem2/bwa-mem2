@@ -26,7 +26,7 @@
 #define __AC_KSW_H
 
 #include <stdint.h>
-#include <emmintrin.h>
+#include "simd_compat.h"
 
 #define KSW_XBYTE  0x10000
 #define KSW_XSTOP  0x20000

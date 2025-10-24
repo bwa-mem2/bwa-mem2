@@ -3,3 +3,8 @@
 *.dSYM
 .*.swp
 a.out
+.DS_Store
+
+# local binaries
+bwa-mem2
+bwa-mem2.*
