@@ -34,7 +34,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <immintrin.h>
+#include "simd_compat.h"
 #include <limits.h>
 #include <fstream>
 

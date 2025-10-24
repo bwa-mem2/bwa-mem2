@@ -3,3 +3,4 @@
 *.dSYM
 .*.swp
 a.out
+.DS_Store

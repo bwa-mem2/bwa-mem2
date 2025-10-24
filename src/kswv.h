@@ -39,7 +39,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include "ksw.h"
 #include "bandedSWA.h"
 #else
-#include <immintrin.h>
+#include "simd_compat.h"
 #endif
 
 #ifdef __GNUC__
