@@ -28,6 +28,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 *****************************************************************************************/
 
 #include "read_index_ele.h"
+#ifndef __arm64__
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,6 +36,7 @@ extern "C" {
 #include "safe_str_lib.h"
 #ifdef __cplusplus
 }
+#endif
 #endif
 
 indexEle::indexEle()

@@ -47,14 +47,16 @@
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
 #endif
-
+#include "utils.h"
 #include "memcpy_bwamem.h"
+#ifndef __arm64__
 #ifdef __cplusplus
 extern "C" {
 #endif
 #include "safe_str_lib.h"
 #ifdef __cplusplus
 }
+#endif
 #endif
 
 #ifdef _WIN32

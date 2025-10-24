@@ -63,9 +63,13 @@ static inline unsigned long long __rdtsc(void)
     __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
     return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
 }
+
 #endif
 #endif
 
+#if defined (__arm64__) or defined (__aarch64__)		/* sse2neon defines this for us */
+#define __rdtsc _rdtsc
+#endif
 typedef struct {
 	uint64_t x, y;
 } pair64_t;
@@ -127,4 +131,11 @@ static inline uint64_t hash_64(uint64_t key)
 	return key;
 }
 
+#endif
+
+
+#ifdef __arm64__
+#define strcpy_s(a,b,c) strlcpy((a),(c),(b))
+#define strncpy_s(a,b,c,d) strlcpy((a),(c),((d)<(b)?(d):(b)))
+#define strcat_s(a,b,c) strlcat((a),(c),(b))
 #endif
