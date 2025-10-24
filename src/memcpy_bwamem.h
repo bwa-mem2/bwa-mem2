@@ -35,7 +35,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "safe_mem_lib.h"
+#include "safe_mem_compat.h"
 #ifdef __cplusplus
 }
 #endif

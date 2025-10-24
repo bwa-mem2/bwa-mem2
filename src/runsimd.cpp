@@ -37,6 +37,8 @@ Contacts: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@
 #ifdef __cplusplus
 extern "C" {
 #endif
+// Avoid macOS memset_s prototype conflict inside safestringlib headers
+#include "safe_mem_compat.h"
 #include "safe_str_lib.h"
 #ifdef __cplusplus
 }
