@@ -104,6 +104,7 @@ extern "C" {
 	void bwa_print_sam_hdr(const bntseq_t *bns, const char *hdr_line, FILE *fp);
 	char *bwa_set_rg(const char *s);
 	char *bwa_insert_header(const char *s, char *hdr);
+	char *bwa_insert_header_file(const FILE *fp, char *hdr);
 #ifdef __cplusplus
 }
 #endif

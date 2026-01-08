@@ -623,3 +623,36 @@ char *bwa_insert_header(const char *s, char *hdr)
     bwa_escape(hdr + len);
     return hdr;
 }
+
+char *bwa_insert_header_file(const FILE *fp, char *hdr)
+{
+    // Copy all lines beginning with @ from file to hdr at the same time
+    //
+    // This is more efficient than calling bwa_insert_header for every
+    // single line since bwa_insert_header computes strlen of existing hdr
+    // and reallocs it every time the function is called resulting in quadratic
+    // complexity.
+    char *buf, *p;
+    int file_size = 0, i;
+
+    fseek(fp, 0L, SEEK_END);
+    file_size = ftell(fp);
+    rewind(fp);
+
+    buf = p = (char *) calloc(1, file_size);
+    assert(buf != NULL);
+    while (fgets(p, 0xffff, fp))
+    {
+        if (p[0] == '@') {
+            i = strlen(p);
+            assert(p[i-1] == '\n');
+            p += i;
+        }
+    }
+    if (p != buf)
+        // bwa_insert_header expects a string without a trailing \n
+        p[-1] = 0;
+    hdr = bwa_insert_header(buf, hdr);
+    free(buf);
+    return hdr;
+}
