@@ -549,9 +549,11 @@ int kswv::kswv512_u8(uint8_t seq1SoA[],
     pimax512 = _mm512_mask_blend_epi8(mask512, pimax512, zero512);
     pimax512 = _mm512_mask_blend_epi8(minsc_msk, zero512, pimax512);
     pimax512 = _mm512_mask_blend_epi8(exit0, zero512, pimax512);
-    _mm512_store_si512((__m512i *) (rowMax + (i-1) * SIMD_WIDTH8), pimax512);
+    if (i > 0) {
+        _mm512_store_si512((__m512i *) (rowMax + (i-1) * SIMD_WIDTH8), pimax512);
+    }
 
-    /******************* DP loop over *****************************/   
+    /******************* DP loop over *****************************/
     /**************** Partial output setting **********************/
     uint8_t score[SIMD_WIDTH8] __attribute((aligned(64)));
     int16_t te1[SIMD_WIDTH8] __attribute((aligned(64)));    
@@ -1109,7 +1111,9 @@ int kswv::kswv512_16(int16_t seq1SoA[],
     pimax512 = _mm512_mask_blend_epi16(mask512, pimax512, minus1);
     pimax512 = _mm512_mask_blend_epi16(minsc_msk, minus1, pimax512);
     pimax512 = _mm512_mask_blend_epi16(exit0, minus1, pimax512);
-    _mm512_store_si512((__m512i *) (rowMax + (i-1) * SIMD_WIDTH16), pimax512);
+    if (i > 0) {
+        _mm512_store_si512((__m512i *) (rowMax + (i-1) * SIMD_WIDTH16), pimax512);
+    }
     // __m512i max512_ = max512;
 
     /******************* DP loop over *****************************/
