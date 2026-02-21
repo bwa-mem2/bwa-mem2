@@ -111,11 +111,11 @@ multi:
 	$(MAKE) arch=avx2   EXE=bwa-mem2.avx2     CXX=$(CXX) all
 	rm -f src/*.o $(BWA_LIB); cd ext/safestringlib/ && $(MAKE) clean;
 	$(MAKE) arch=avx512 EXE=bwa-mem2.avx512bw CXX=$(CXX) all
-	$(CXX) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring $(STATIC_GCC) -o bwa-mem2
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) -Wall -O3 src/runsimd.cpp -Iext/safestringlib/include -Lext/safestringlib/ -lsafestring $(STATIC_GCC) -o bwa-mem2
 
 
 $(EXE):$(BWA_LIB) $(SAFE_STR_LIB) src/main.o
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) src/main.o $(BWA_LIB) $(LIBS) -o $@
 
 $(BWA_LIB):$(OBJS)
 	ar rcs $(BWA_LIB) $(OBJS)
