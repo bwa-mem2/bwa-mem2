@@ -36,10 +36,17 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <assert.h>
 #include "macro.h"
 
+#if !defined(__SSE__)
+#define _mm_malloc(size, align) aligned_alloc(align, size)
+#define _mm_free free
+#define _MM_HINT_NTA 0
+#endif
+
+#define SIMDE_ENABLE_NATIVE_ALIASES
 #if (__AVX512BW__ || __AVX2__)
 #include <immintrin.h>
 #else
-#include <smmintrin.h>  // for SSE4.1
+#include <simde/x86/sse4.1.h>  // for SSE4.1
 #define __mmask8 uint8_t
 #define __mmask16 uint16_t
 #endif

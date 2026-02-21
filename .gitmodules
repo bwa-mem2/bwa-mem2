@@ -1,3 +1,6 @@
 [submodule "ext/safestringlib"]
 	path = ext/safestringlib
 	url = https://github.com/intel/safestringlib.git
+[submodule "ext/simde"]
+	path = ext/simde
+	url = https://github.com/simd-everywhere/simde-no-tests.git
