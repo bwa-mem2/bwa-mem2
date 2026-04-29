@@ -235,7 +235,7 @@ jobs:
 
       - name: Compare bwa and bwa-mem3 output (phiX parity)
         run: |
-          BWA_MEM2="$GITHUB_WORKSPACE/bwa-mem3" \
+          BWA_MEM3="$GITHUB_WORKSPACE/bwa-mem3" \
           CI_TEST_DIR=/tmp/ci-test \
           bash test/regression/phix_parity.sh
 
@@ -247,14 +247,14 @@ jobs:
       - name: --bam=6 roundtrip smoke (phiX)
         if: matrix.canonical == true
         run: |
-          BWA_MEM2="$GITHUB_WORKSPACE/bwa-mem3" \
+          BWA_MEM3="$GITHUB_WORKSPACE/bwa-mem3" \
           CI_TEST_DIR=/tmp/ci-test \
           bash test/regression/bam_roundtrip.sh
 
       - name: Thread-determinism smoke (phiX, -t 1 vs -t 4)
         if: matrix.canonical == true
         run: |
-          BWA_MEM2="$GITHUB_WORKSPACE/bwa-mem3" \
+          BWA_MEM3="$GITHUB_WORKSPACE/bwa-mem3" \
           CI_TEST_DIR=/tmp/ci-test \
           bash test/regression/thread_determinism.sh
 
@@ -295,7 +295,7 @@ jobs:
       - name: Compare chr22 bwa vs bwa-mem3 (parity)
         if: matrix.canonical == true
         run: |
-          BWA_MEM2="$GITHUB_WORKSPACE/bwa-mem3" \
+          BWA_MEM3="$GITHUB_WORKSPACE/bwa-mem3" \
           CHR22_FA=/tmp/chr22/chr22.fa \
           CHR22_SIM_DIR=/tmp/chr22-sim \
           bash test/regression/chr22_parity.sh

@@ -6,13 +6,13 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-BWAMEM2="$ROOT/bwa-mem3"
+BWAMEM3="$ROOT/bwa-mem3"
 FIXTURES="$HERE/fixtures"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok()   { echo "OK:   $*"; }
 
-[[ -x "$BWAMEM2" ]] || fail "bwa-mem3 not built at $BWAMEM2 (run 'make' or 'make arm64' first)"
+[[ -x "$BWAMEM3" ]] || fail "bwa-mem3 not built at $BWAMEM3 (run 'make' or 'make arm64' first)"
 
 # Build the five unit binaries.
 (cd "$HERE" && make) || fail "test/ make failed"
@@ -35,7 +35,7 @@ if [[ ! -s "$FIXTURES/phix.fa.bwt.2bit.64" || \
       ! -s "$FIXTURES/phix.fa.amb"         || \
       ! -s "$FIXTURES/phix.fa.ann"         || \
       ! -s "$FIXTURES/phix.fa.pac" ]]; then
-    "$BWAMEM2" index "$FIXTURES/phix.fa" >/dev/null 2>&1 || fail "bwa-mem3 index on phix.fa failed"
+    "$BWAMEM3" index "$FIXTURES/phix.fa" >/dev/null 2>&1 || fail "bwa-mem3 index on phix.fa failed"
 fi
 
 # --- fmi_test --------------------------------------------------------------
@@ -85,13 +85,13 @@ ok "xeonbsw ($LINES pair scores emitted)"
 # Regression for issue #45 / upstream #293: tabs inside `-R` must not
 # bleed into the @PG CL: value. Uses the same phiX fixture as the rest
 # of the harness (indexed above if needed).
-"$HERE/pg_cl_escape_test.sh" "$BWAMEM2" "$FIXTURES" || fail "pg_cl_escape_test failed"
+"$HERE/pg_cl_escape_test.sh" "$BWAMEM3" "$FIXTURES" || fail "pg_cl_escape_test failed"
 ok "pg_cl_escape_test"
 
 # --- help_prescan_test ----------------------------------------------------
 # `mem --help` pre-scan must not match `--help` when it is the value of
 # an option that takes an argument (-R, -o, --set-as-failed, ...).
-"$HERE/help_prescan_test.sh" "$BWAMEM2" "$FIXTURES" || fail "help_prescan_test failed"
+"$HERE/help_prescan_test.sh" "$BWAMEM3" "$FIXTURES" || fail "help_prescan_test failed"
 ok "help_prescan_test"
 
 # --- smem_lockstep_parity_test --------------------------------------------
@@ -108,7 +108,7 @@ ok "smem_lockstep_parity_test ($CASES_PASSED / $CASES_TOTAL)"
 # SMEM and lockstep-slot buffers are sized per-batch, so these must align
 # cleanly and produce SAM lines.
 for LEN_FQ in long_read_300bp long_read_1kbp long_read_3kbp; do
-    RAW="$("$BWAMEM2" mem "$FIXTURES/phix.fa" "$FIXTURES/${LEN_FQ}.fq" 2>/dev/null)" \
+    RAW="$("$BWAMEM3" mem "$FIXTURES/phix.fa" "$FIXTURES/${LEN_FQ}.fq" 2>/dev/null)" \
         || fail "bwa-mem3 mem ${LEN_FQ}.fq: non-zero exit (crash regression)"
     OUT="$(printf '%s\n' "$RAW" | grep -v '^@' || true)"
     [[ -n "$OUT" ]] || fail "bwa-mem3 mem ${LEN_FQ}.fq: no SAM records emitted"
@@ -159,7 +159,7 @@ with open(out_path, 'w') as out:
         out.write(f'@pe{i}/2\n{r2}\n+\n{q}\n')
 PY
 
-OUT="$("$BWAMEM2" mem -p "$FIXTURES/phix.fa" "$PE_TMP/interleaved.fq" 2>/dev/null)" \
+OUT="$("$BWAMEM3" mem -p "$FIXTURES/phix.fa" "$PE_TMP/interleaved.fq" 2>/dev/null)" \
     || fail "bwa-mem3 mem -p interleaved.fq: non-zero exit (crash regression)"
 RECORDS="$(printf '%s\n' "$OUT" | grep -cv '^@' || true)"
 [[ "$RECORDS" -ge 100 ]] || fail "bwa-mem3 mem -p: expected >=100 records (50 pairs × 2), got $RECORDS"
@@ -168,12 +168,12 @@ ok "bwa-mem3 mem -p interleaved.fq ($RECORDS records)"
 # Empty FASTQ + zero-length-read FASTQ regressions for the empty-batch
 # defensive path in mem_collect_smem / mem_kernel1_core.
 : > "$PE_TMP/empty.fq"
-"$BWAMEM2" mem "$FIXTURES/phix.fa" "$PE_TMP/empty.fq" >/dev/null 2>&1 \
+"$BWAMEM3" mem "$FIXTURES/phix.fa" "$PE_TMP/empty.fq" >/dev/null 2>&1 \
     || fail "bwa-mem3 mem on empty FASTQ: non-zero exit"
 ok "bwa-mem3 mem on empty FASTQ (no crash)"
 
 printf '@zero\n\n+\n\n' > "$PE_TMP/zero.fq"
-"$BWAMEM2" mem "$FIXTURES/phix.fa" "$PE_TMP/zero.fq" >/dev/null 2>&1 \
+"$BWAMEM3" mem "$FIXTURES/phix.fa" "$PE_TMP/zero.fq" >/dev/null 2>&1 \
     || fail "bwa-mem3 mem on zero-length read: non-zero exit"
 ok "bwa-mem3 mem on zero-length read (no crash)"
 

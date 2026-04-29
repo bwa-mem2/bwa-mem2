@@ -5,7 +5,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-BWAMEM2="$ROOT/bwa-mem3"
+BWAMEM3="$ROOT/bwa-mem3"
 FA_SRC="$HERE/fixtures/synthetic_1mb.fa"
 [[ -s "$FA_SRC" ]] || { echo "FAIL: $FA_SRC missing"; exit 1; }
 
@@ -16,7 +16,7 @@ for t in 1 4 8; do
     d="$RUN_DIR/t$t"
     mkdir -p "$d"
     cp "$FA_SRC" "$d/t.fa"
-    "$BWAMEM2" index -t "$t" "$d/t.fa" >/dev/null
+    "$BWAMEM3" index -t "$t" "$d/t.fa" >/dev/null
 done
 
 for ext in bwt.2bit.64 0123; do

@@ -8,7 +8,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-BWAMEM2="$ROOT/bwa-mem3"
+BWAMEM3="$ROOT/bwa-mem3"
 FA_SRC="$HERE/fixtures/synthetic_1mb.fa"
 [[ -s "$FA_SRC" ]] || { echo "FAIL: $FA_SRC missing"; exit 1; }
 
@@ -48,7 +48,7 @@ for budget_mib in 128 512 2048; do
     trap 'rm -rf "$TD"' EXIT
     cp "$FA_SRC" "$TD/t.fa"
     TIMING="$TD/time.out"
-    "${TIME_CMD[@]}" "$BWAMEM2" index --max-memory "${budget_mib}M" "$TD/t.fa" >"$TD/stdout" 2>"$TIMING" || {
+    "${TIME_CMD[@]}" "$BWAMEM3" index --max-memory "${budget_mib}M" "$TD/t.fa" >"$TD/stdout" 2>"$TIMING" || {
         echo "FAIL: build failed at --max-memory ${budget_mib}M"
         cat "$TIMING" | tail -20
         exit 1

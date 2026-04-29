@@ -8,12 +8,12 @@
 # + "Compare chr22 bwa vs bwa-mem3 (parity)" steps inline in ci.yml.
 #
 # Inputs:
-#   BWA_MEM2      — path to the bwa-mem3 binary under test
+#   BWA_MEM3      — path to the bwa-mem3 binary under test
 #   CHR22_FA      — path to chr22.fa (pre-indexed with bwa-mem3 by caller)
 #   CHR22_SIM_DIR — directory containing dwgsim-simulated reads.bwa.read[12].fastq.gz
 set -euo pipefail
 
-: "${BWA_MEM2:?BWA_MEM2 must be set}"
+: "${BWA_MEM3:?BWA_MEM3 must be set}"
 : "${CHR22_FA:?CHR22_FA must be set}"
 : "${CHR22_SIM_DIR:?CHR22_SIM_DIR must be set}"
 
@@ -24,7 +24,7 @@ bwa mem -t 4 "$CHR22_SIM_DIR/bwa_chr22.fa" \
     "$CHR22_SIM_DIR/reads.bwa.read2.fastq.gz" \
     > "$CHR22_SIM_DIR/bwa.sam" 2>"$CHR22_SIM_DIR/bwa.log"
 
-"$BWA_MEM2" mem -t 4 "$CHR22_FA" \
+"$BWA_MEM3" mem -t 4 "$CHR22_FA" \
     "$CHR22_SIM_DIR/reads.bwa.read1.fastq.gz" \
     "$CHR22_SIM_DIR/reads.bwa.read2.fastq.gz" \
     > "$CHR22_SIM_DIR/bwamem2.sam" 2>"$CHR22_SIM_DIR/bwamem2.log"

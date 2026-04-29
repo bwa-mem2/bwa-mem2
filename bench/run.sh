@@ -32,8 +32,8 @@ fi
 # fast (rather than silently picking the candidate path) so a typo like
 # "baseliine" can't quietly run with the wrong binary.
 case "$TAG" in
-  baseline)                  BIN="$BWA_MEM2_BASELINE" ;;
-  candidate|pr-*|perf-*|main-*) BIN="$BWA_MEM2_CANDIDATE" ;;
+  baseline)                  BIN="$BWA_MEM3_BASELINE" ;;
+  candidate|pr-*|perf-*|main-*) BIN="$BWA_MEM3_CANDIDATE" ;;
   *) echo "error: unknown TAG '$TAG' — expected 'baseline', 'candidate', 'pr-*', 'perf-*', or 'main-*'." >&2
      exit 2 ;;
 esac

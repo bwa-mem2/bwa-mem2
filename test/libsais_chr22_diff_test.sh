@@ -15,7 +15,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-BWAMEM2="$ROOT/bwa-mem3"
+BWAMEM3="$ROOT/bwa-mem3"
 
 FIXTURE="${BWA_TEST_CHR22_FASTA:-}"
 BASELINE_DIR="${BWA_TEST_CHR22_BASELINE:-}"
@@ -30,7 +30,7 @@ if [[ -z "$BASELINE_DIR" ]]; then
 fi
 
 # Baseline must be a known-good snapshot from a trusted commit (e.g.
-# legacy/sais-lite). Auto-bootstrapping with the CURRENT $BWAMEM2 would
+# legacy/sais-lite). Auto-bootstrapping with the CURRENT $BWAMEM3 would
 # defeat the test: the freshly captured baseline and the just-built
 # index are then both produced by the same backend at the same SHA, so
 # cmp trivially passes regardless of correctness. Operators must seed
@@ -58,14 +58,14 @@ if [[ $baseline_complete -eq 0 ]]; then
     echo "INFO: BWA_TEST_CHR22_BASELINE_BOOTSTRAP=1 -- bootstrapping baseline at $BASELINE_DIR"
     mkdir -p "$BASELINE_DIR"
     cp "$FIXTURE" "$BASELINE_DIR/chr22.fa"
-    "$BWAMEM2" index "$BASELINE_DIR/chr22.fa" >/dev/null
+    "$BWAMEM3" index "$BASELINE_DIR/chr22.fa" >/dev/null
 fi
 
 TD="$(mktemp -d)"
 trap 'rm -rf "$TD"' EXIT
 
 cp "$FIXTURE" "$TD/chr22.fa"
-"$BWAMEM2" index "$TD/chr22.fa" >/dev/null
+"$BWAMEM3" index "$TD/chr22.fa" >/dev/null
 
 FAIL=0
 for ext in "${EXTS[@]}"; do

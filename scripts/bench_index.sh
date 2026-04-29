@@ -17,7 +17,7 @@
 #
 # Environment overrides:
 #   BENCH_DIR        - where to stage work and write results
-#   BWAMEM2          - path to bwa-mem3 binary (default: $ROOT/bwa-mem3)
+#   BWAMEM3          - path to bwa-mem3 binary (default: $ROOT/bwa-mem3)
 #   BWA_TEST_HG38_FASTA / BWA_TEST_HG38_MET_C2T - source FASTA paths
 #   BWA_INDEX_THREADS    - passed to `bwa-mem3 index -t`. Unset = auto-detect.
 #   BWA_INDEX_MAX_MEMORY - passed to `bwa-mem3 index --max-memory`. Unset =
@@ -27,7 +27,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-BWAMEM2="${BWAMEM2:-$ROOT/bwa-mem3}"
+BWAMEM3="${BWAMEM3:-$ROOT/bwa-mem3}"
 
 # Build the index-builder argv once. Empty defaults mean "let bwa-mem3 pick",
 # which is the documented auto-detect path. Setting an explicit budget makes
@@ -87,11 +87,11 @@ run_one() {
     # set, else nothing" under set -u. Plain "${INDEX_ARGS[@]}" trips
     # `unbound variable` on an empty array under macOS's system bash.
     if [[ "$UNAME_S" == "Darwin" ]]; then
-        /usr/bin/time -l "$BWAMEM2" index ${INDEX_ARGS[@]+"${INDEX_ARGS[@]}"} "$wd/ref.fa" >"$logfile" 2>"$timing" || {
+        /usr/bin/time -l "$BWAMEM3" index ${INDEX_ARGS[@]+"${INDEX_ARGS[@]}"} "$wd/ref.fa" >"$logfile" 2>"$timing" || {
             echo "FAIL: $label build failed"; cat "$timing"; return 1;
         }
     else
-        /usr/bin/time -v "$BWAMEM2" index ${INDEX_ARGS[@]+"${INDEX_ARGS[@]}"} "$wd/ref.fa" >"$logfile" 2>"$timing" || {
+        /usr/bin/time -v "$BWAMEM3" index ${INDEX_ARGS[@]+"${INDEX_ARGS[@]}"} "$wd/ref.fa" >"$logfile" 2>"$timing" || {
             echo "FAIL: $label build failed"; cat "$timing"; return 1;
         }
     fi

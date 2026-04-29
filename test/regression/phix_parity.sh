@@ -7,14 +7,14 @@
 # Was: the "Compare bwa and bwa-mem3 output" step inline in ci.yml.
 #
 # Inputs (read from environment):
-#   BWA_MEM2    — path to the bwa-mem3 binary under test
+#   BWA_MEM3    — path to the bwa-mem3 binary under test
 #   CI_TEST_DIR — working directory containing phix174.fa and dwgsim-simulated
 #                 reads.bwa.read[12].fastq.gz (produced by upstream CI steps)
 #
 # Exits 0 on parity, 1 on diff.
 set -euo pipefail
 
-: "${BWA_MEM2:?BWA_MEM2 must be set}"
+: "${BWA_MEM3:?BWA_MEM3 must be set}"
 : "${CI_TEST_DIR:?CI_TEST_DIR must be set}"
 
 cd "$CI_TEST_DIR"
@@ -25,8 +25,8 @@ bwa mem bwa_phix174.fa reads.bwa.read1.fastq.gz reads.bwa.read2.fastq.gz \
     > bwa.sam 2>bwa.log
 
 cp phix174.fa bwamem2_phix174.fa
-"$BWA_MEM2" index bwamem2_phix174.fa
-"$BWA_MEM2" mem bwamem2_phix174.fa \
+"$BWA_MEM3" index bwamem2_phix174.fa
+"$BWA_MEM3" mem bwamem2_phix174.fa \
     reads.bwa.read1.fastq.gz reads.bwa.read2.fastq.gz \
     > bwamem2.sam 2>bwamem2.log
 

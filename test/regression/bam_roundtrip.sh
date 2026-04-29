@@ -7,16 +7,16 @@
 # Was: the "--bam=6 roundtrip smoke (phiX)" step inline in ci.yml.
 #
 # Inputs:
-#   BWA_MEM2    — path to bwa-mem3 binary
+#   BWA_MEM3    — path to bwa-mem3 binary
 #   CI_TEST_DIR — directory containing bwamem2_phix174.fa (pre-indexed),
 #                 bwamem2.sam (from the phix_parity step), and FASTQs
 set -euo pipefail
 
-: "${BWA_MEM2:?BWA_MEM2 must be set}"
+: "${BWA_MEM3:?BWA_MEM3 must be set}"
 : "${CI_TEST_DIR:?CI_TEST_DIR must be set}"
 
 cd "$CI_TEST_DIR"
-"$BWA_MEM2" mem --bam=6 bwamem2_phix174.fa \
+"$BWA_MEM3" mem --bam=6 bwamem2_phix174.fa \
     reads.bwa.read1.fastq.gz reads.bwa.read2.fastq.gz > bwamem2.bam
 samtools quickcheck bwamem2.bam
 # grep -c exits 1 on zero matches, which would abort the script under

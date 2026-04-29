@@ -16,7 +16,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-BWAMEM2="$ROOT/bwa-mem3"
+BWAMEM3="$ROOT/bwa-mem3"
 
 HG38="${BWA_TEST_HG38_FASTA:-}"
 SLICE_DIR="${BWA_TEST_HG38_SLICE_DIR:-${TMPDIR:-/tmp}/hg38-slice}"
@@ -43,7 +43,7 @@ if [[ ! -s "$SLICE_DIR/slice.fa" ]]; then
 fi
 
 # Baseline must be a known-good snapshot from a trusted commit (e.g.
-# legacy/sais-lite). Auto-bootstrapping with the CURRENT $BWAMEM2 would
+# legacy/sais-lite). Auto-bootstrapping with the CURRENT $BWAMEM3 would
 # defeat the test: the freshly captured baseline and the just-built
 # index are then both produced by the same backend at the same SHA, so
 # cmp trivially passes regardless of correctness. The one-time bootstrap
@@ -61,14 +61,14 @@ if [[ ! -s "$SLICE_DIR/baseline/slice.fa.bwt.2bit.64" ]]; then
     echo "INFO: BWA_TEST_HG38_SLICE_BASELINE_BOOTSTRAP=1 -- bootstrapping baseline at $SLICE_DIR/baseline"
     mkdir -p "$SLICE_DIR/baseline"
     cp "$SLICE_DIR/slice.fa" "$SLICE_DIR/baseline/slice.fa"
-    "$BWAMEM2" index "$SLICE_DIR/baseline/slice.fa" >/dev/null
+    "$BWAMEM3" index "$SLICE_DIR/baseline/slice.fa" >/dev/null
 fi
 
 TD="$(mktemp -d)"
 trap 'rm -rf "$TD"' EXIT
 
 cp "$SLICE_DIR/slice.fa" "$TD/slice.fa"
-"$BWAMEM2" index "$TD/slice.fa" >/dev/null
+"$BWAMEM3" index "$TD/slice.fa" >/dev/null
 
 FAIL=0
 for ext in pac ann amb 0123 bwt.2bit.64; do

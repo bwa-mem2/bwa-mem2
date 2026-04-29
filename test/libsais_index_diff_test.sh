@@ -5,7 +5,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-BWAMEM2="$ROOT/bwa-mem3"
+BWAMEM3="$ROOT/bwa-mem3"
 BASELINES="$HERE/fixtures/baselines"
 
 FAIL=0
@@ -21,7 +21,7 @@ trap 'rm -rf "$TD"' EXIT
 for fa in phix.fa synthetic_1mb.fa; do
     [[ -s "$HERE/fixtures/$fa" ]] || { echo "FAIL: source fixture $HERE/fixtures/$fa missing"; exit 1; }
     cp "$HERE/fixtures/$fa" "$TD/$fa"
-    "$BWAMEM2" index "$TD/$fa" >/dev/null 2>&1
+    "$BWAMEM3" index "$TD/$fa" >/dev/null 2>&1
     for ext in 0123 bwt.2bit.64; do
         if ! cmp -s "$BASELINES/$fa.$ext" "$TD/$fa.$ext"; then
             echo "FAIL: $fa.$ext diverges from baseline"

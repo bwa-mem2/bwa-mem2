@@ -6,19 +6,19 @@
 # Was: the "Thread-determinism smoke (phiX, -t 1 vs -t 4)" step inline in ci.yml.
 #
 # Inputs:
-#   BWA_MEM2    — path to bwa-mem3 binary
+#   BWA_MEM3    — path to bwa-mem3 binary
 #   CI_TEST_DIR — directory containing bwamem2_phix174.fa (pre-indexed)
 #                 and reads.bwa.read[12].fastq.gz
 set -euo pipefail
 
-: "${BWA_MEM2:?BWA_MEM2 must be set}"
+: "${BWA_MEM3:?BWA_MEM3 must be set}"
 : "${CI_TEST_DIR:?CI_TEST_DIR must be set}"
 
 cd "$CI_TEST_DIR"
-"$BWA_MEM2" mem -t 1 bwamem2_phix174.fa \
+"$BWA_MEM3" mem -t 1 bwamem2_phix174.fa \
     reads.bwa.read1.fastq.gz reads.bwa.read2.fastq.gz 2>/dev/null \
     | grep -v '^@PG' | sort > t1.sam
-"$BWA_MEM2" mem -t 4 bwamem2_phix174.fa \
+"$BWA_MEM3" mem -t 4 bwamem2_phix174.fa \
     reads.bwa.read1.fastq.gz reads.bwa.read2.fastq.gz 2>/dev/null \
     | grep -v '^@PG' | sort > t4.sam
 if ! diff t1.sam t4.sam > /dev/null 2>&1; then

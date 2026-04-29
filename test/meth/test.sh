@@ -18,13 +18,13 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-BWAMEM2="$HERE/../../bwa-mem3"
+BWAMEM3="$HERE/../../bwa-mem3"
 SAMTOOLS="${SAMTOOLS:-samtools}"
 BWAMETH_DIR="${BWAMETH_DIR:-$HOME/work/git/bwa-meth}"
 BWAMETH_PY="$BWAMETH_DIR/bwameth.py"
 
-if [[ ! -x "$BWAMEM2" ]]; then
-    echo "ERROR: bwa-mem3 binary not found at $BWAMEM2. Run 'make arm64' first."
+if [[ ! -x "$BWAMEM3" ]]; then
+    echo "ERROR: bwa-mem3 binary not found at $BWAMEM3. Run 'make arm64' first."
     exit 2
 fi
 if ! command -v "$SAMTOOLS" >/dev/null 2>&1; then
@@ -39,10 +39,10 @@ cd "$HERE"
 # ---------------------------------------------------------------------------
 
 if [[ ! -f ref.fa.bwameth.c2t.bwt.2bit.64 ]]; then
-    "$BWAMEM2" index --meth ref.fa >/dev/null 2>&1
+    "$BWAMEM3" index --meth ref.fa >/dev/null 2>&1
 fi
 
-"$BWAMEM2" mem --meth -t 2 ref.fa t_R1.fastq.gz 2>/dev/null > /tmp/meth_test.bam
+"$BWAMEM3" mem --meth -t 2 ref.fa t_R1.fastq.gz 2>/dev/null > /tmp/meth_test.bam
 
 EXPECT_EOF="1f8b08040000000000ff0600424302001b0003000000000000000000"
 ACTUAL_EOF="$(tail -c 28 /tmp/meth_test.bam | od -An -v -t x1 | tr -d ' \n')"
@@ -61,7 +61,7 @@ fi
 TOTAL="$("$SAMTOOLS" view -c /tmp/meth_test.bam 2>/dev/null)"
 if [[ "$TOTAL" -lt 1 ]]; then echo "FAIL: zero records in output BAM"; exit 1; fi
 
-"$BWAMEM2" mem --meth --set-as-failed f --do-not-penalize-chimeras \
+"$BWAMEM3" mem --meth --set-as-failed f --do-not-penalize-chimeras \
     ref.fa t_R1.fastq.gz 2>/dev/null > /tmp/meth_test2.bam
 if [[ ! -s /tmp/meth_test2.bam ]]; then
     echo "FAIL: --set-as-failed + --do-not-penalize-chimeras produced empty output"
@@ -98,7 +98,7 @@ pixi run python3 "$BWAMETH_PY" --reference ref.fa t_R1.fastq.gz t_R2.fastq.gz \
 
 pixi run python3 "$BWAMETH_PY" c2t t_R1.fastq.gz t_R2.fastq.gz 2>/dev/null \
     > /tmp/meth_c2t.fq
-"$BWAMEM2" mem --meth -CM -p -T 40 -B 2 -L 10 -U 100 -t 4 \
+"$BWAMEM3" mem --meth -CM -p -T 40 -B 2 -L 10 -U 100 -t 4 \
     ref.fa.bwameth.c2t /tmp/meth_c2t.fq 2>/dev/null > /tmp/meth_mine.bam
 "$SAMTOOLS" view /tmp/meth_mine.bam 2>/dev/null > /tmp/meth_mine.sam
 
@@ -176,10 +176,10 @@ fi
 
 # Fresh index via our own --meth builder.
 rm -f "$HERE/ref.fa.bwameth.c2t"*
-"$BWAMEM2" index --meth ref.fa >/dev/null 2>&1
+"$BWAMEM3" index --meth ref.fa >/dev/null 2>&1
 
 # Single-command end-to-end alignment.
-"$BWAMEM2" mem --meth -t 4 ref.fa t_R1.fastq.gz t_R2.fastq.gz 2>/dev/null > /tmp/meth_e2e.bam
+"$BWAMEM3" mem --meth -t 4 ref.fa t_R1.fastq.gz t_R2.fastq.gz 2>/dev/null > /tmp/meth_e2e.bam
 "$SAMTOOLS" view /tmp/meth_e2e.bam 2>/dev/null > /tmp/meth_e2e.sam
 
 # Oracle: bwameth.py end-to-end on the same raw FASTQs (reuses Layer 2's
