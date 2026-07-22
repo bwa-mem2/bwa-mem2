@@ -41,13 +41,14 @@ else ifeq ($(CXX), g++)
 endif		
 ARCH_FLAGS=	-msse -msse2 -msse3 -mssse3 -msse4.1
 MEM_FLAGS=	-DSAIS=1
-CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 $(MEM_FLAGS) 
-INCLUDES=   -Isrc -Iext/safestringlib/include
+CPPFLAGS+=	-DENABLE_PREFETCH -DV17=1 -DMATE_SORT=0 -DLIBSAIS_OPENMP $(MEM_FLAGS) 
+INCLUDES=   -Isrc -Iext/safestringlib/include -Iext/libsais/include
 LIBS=		-lpthread -lm -lz -L. -lbwa -Lext/safestringlib -lsafestring $(STATIC_GCC)
+LIBSAIS_OBJS=	ext/libsais/src/libsais.o ext/libsais/src/libsais64.o
 OBJS=		src/fastmap.o src/bwtindex.o src/utils.o src/memcpy_bwamem.o src/kthread.o \
 			src/kstring.o src/ksw.o src/bntseq.o src/bwamem.o src/profiling.o src/bandedSWA.o \
 			src/FMI_search.o src/read_index_ele.o src/bwamem_pair.o src/kswv.o src/bwa.o \
-			src/bwamem_extra.o src/kopen.o
+			src/bwamem_extra.o src/kopen.o $(LIBSAIS_OBJS)
 BWA_LIB=    libbwa.a
 SAFE_STR_LIB=    ext/safestringlib/libsafestring.a
 
@@ -90,13 +91,19 @@ else
 myall:multi
 endif
 
-CXXFLAGS+=	-g -O3 -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
+CXXFLAGS+=	-g -O3 -fopenmp -fpermissive $(ARCH_FLAGS) #-Wall ##-xSSE2
+LDFLAGS+=	-fopenmp
 
 .PHONY:all clean depend multi
 .SUFFIXES:.cpp .o
 
 .cpp.o:
 	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) $< -o $@
+
+# libsais (parallel suffix-array construction) is C; compile with the C compiler.
+# -DLIBSAIS_OPENMP enables the *_omp entry points (both here and in the caller).
+ext/libsais/src/%.o: ext/libsais/src/%.c
+	$(CC) -c -O3 -fopenmp -DLIBSAIS_OPENMP -Iext/libsais/include $< -o $@
 
 all:$(EXE)
 

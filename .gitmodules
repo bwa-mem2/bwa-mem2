@@ -1,3 +1,6 @@
 [submodule "ext/safestringlib"]
 	path = ext/safestringlib
 	url = https://github.com/intel/safestringlib.git
+[submodule "ext/libsais"]
+	path = ext/libsais
+	url = https://github.com/IlyaGrebnov/libsais.git
