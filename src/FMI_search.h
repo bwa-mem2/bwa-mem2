@@ -177,8 +177,10 @@ private:
         uint64_t *one_hot_mask_array;
 
         int64_t pac_seq_len(const char *fn_pac);
-        void pac2nt(const char *fn_pac,
-                    std::string &reference_seq);
+        // Decode the 2-bit .pac directly into the 0..3 both-strand reference
+        // (parallel) and count bases. Replaces pac2nt's serial ASCII-string build.
+        void pac2binary(const char *fn_pac, uint8_t *binary_ref_seq,
+                        int64_t seq_len, int64_t *count);
         int build_fm_index(const char *ref_file_name,
                                char *binary_seq,
                                int64_t ref_seq_len,

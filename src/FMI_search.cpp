@@ -29,6 +29,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 
 #include <stdio.h>
 #include "sais.h"
+#include "libsais64.h"   // parallel suffix-array construction (OpenMP)
 #include "FMI_search.h"
 #include "memcpy_bwamem.h"
 #include "profiling.h"
@@ -80,65 +81,44 @@ int64_t FMI_search::pac_seq_len(const char *fn_pac)
 	return (pac_len - 1) * 4 + (int)c;
 }
 
-void FMI_search::pac2nt(const char *fn_pac, std::string &reference_seq)
+void FMI_search::pac2binary(const char *fn_pac, uint8_t *binary_ref_seq,
+                            int64_t seq_len, int64_t *count)
 {
-	uint8_t *buf2;
-	int64_t i, pac_size, seq_len;
-	FILE *fp;
-
-	// initialization
-	seq_len = pac_seq_len(fn_pac);
-    assert(seq_len > 0);
-    assert(seq_len <= 0x7fffffffffL);
-	fp = xopen(fn_pac, "rb");
-
-	// prepare sequence
-	pac_size = (seq_len>>2) + ((seq_len&3) == 0? 0 : 1);
-	buf2 = (uint8_t*)calloc(pac_size, 1);
+    // Read the packed 2-bit reference (forward strand, seq_len bases).
+    int64_t pac_size = (seq_len>>2) + ((seq_len&3) == 0? 0 : 1);
+    FILE *fp = xopen(fn_pac, "rb");
+    uint8_t *buf2 = (uint8_t*)calloc(pac_size, 1);
     assert(buf2 != NULL);
-	err_fread_noeof(buf2, 1, pac_size, fp);
-	err_fclose(fp);
-	for (i = 0; i < seq_len; ++i) {
-		int nt = buf2[i>>2] >> ((3 - (i&3)) << 1) & 3;
-        switch(nt)
-        {
-            case 0:
-                reference_seq += "A";
-            break;
-            case 1:
-                reference_seq += "C";
-            break;
-            case 2:
-                reference_seq += "G";
-            break;
-            case 3:
-                reference_seq += "T";
-            break;
-            default:
-                fprintf(stderr, "ERROR! Value of nt is not in 0,1,2,3!");
-                exit(EXIT_FAILURE);
-        }
-	}
-    for(i = seq_len - 1; i >= 0; i--)
+    err_fread_noeof(buf2, 1, pac_size, fp);
+    err_fclose(fp);
+
+    // Forward strand: unpack 2 bits/base -> 0..3, each position independent.
+    #pragma omp parallel for
+    for (int64_t i = 0; i < seq_len; ++i)
+        binary_ref_seq[i] = (buf2[i>>2] >> ((3 - (i&3)) << 1)) & 3;
+
+    // Reverse-complement strand appended after the forward strand: position
+    // seq_len+k is the complement (3-x for the A/C/G/T <-> 0/1/2/3 encoding) of
+    // forward position seq_len-1-k. This matches the original reverse-append order.
+    #pragma omp parallel for
+    for (int64_t k = 0; k < seq_len; ++k)
+        binary_ref_seq[seq_len + k] = (uint8_t)(3 - binary_ref_seq[seq_len - 1 - k]);
+
+    free(buf2);
+
+    // Base counts over both strands (parallel reduction).
+    int64_t c0=0, c1=0, c2=0, c3=0;
+    int64_t pac_len = seq_len * 2;
+    #pragma omp parallel for reduction(+:c0,c1,c2,c3)
+    for (int64_t i = 0; i < pac_len; ++i)
     {
-        char c = reference_seq[i];
-        switch(c)
-        {
-            case 'A':
-                reference_seq += "T";
-            break;
-            case 'C':
-                reference_seq += "G";
-            break;
-            case 'G':
-                reference_seq += "C";
-            break;
-            case 'T':
-                reference_seq += "A";
-            break;
-        }
+        uint8_t c = binary_ref_seq[i];
+        if      (c==0) c0++;
+        else if (c==1) c1++;
+        else if (c==2) c2++;
+        else if (c==3) c3++;
     }
-	free(buf2);
+    count[0]=c0; count[1]=c1; count[2]=c2; count[3]=c3;
 }
 
 int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int64_t ref_seq_len, int64_t *sa_bwt, int64_t *count) {
@@ -169,37 +149,35 @@ int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int6
     bwt = (uint8_t *)_mm_malloc(size, 64);
     assert_not_null(bwt, size, index_alloc);
 
+    // Derive the BWT from the suffix array. Each position is independent, so this
+    // is parallelized directly. Exactly one suffix (the sentinel rotation) has
+    // sa_bwt[i]==0, so sentinel_index is written by a single iteration -> no race.
+    // binary_seq holds values 0..3 only (built from the 2-bit .pac), so the
+    // original switch is an identity map; assigning it directly is equivalent.
     int64_t sentinel_index = -1;
+    #pragma omp parallel for
     for(i=0; i< ref_seq_len; i++)
     {
         if(sa_bwt[i] == 0)
         {
             bwt[i] = 4;
-            printf("BWT[%ld] = 4\n", i);
             sentinel_index = i;
         }
         else
         {
-            char c = binary_seq[sa_bwt[i]-1];
-            switch(c)
-            {
-                case 0: bwt[i] = 0;
-                          break;
-                case 1: bwt[i] = 1;
-                          break;
-                case 2: bwt[i] = 2;
-                          break;
-                case 3: bwt[i] = 3;
-                          break;
-                default:
-                        fprintf(stderr, "ERROR! i = %ld, c = %c\n", i, c);
-                        exit(EXIT_FAILURE);
-            }
+            bwt[i] = (uint8_t) binary_seq[sa_bwt[i]-1];
         }
     }
+    #pragma omp parallel for
     for(i = ref_seq_len; i < ref_seq_len_aligned; i++)
         bwt[i] = DUMMY_CHAR;
 
+    // binary_seq was only needed to derive the BWT above; it is unused for the
+    // rest of this function. Free it now (several GB at genome scale) so it does
+    // not coexist with the cp_occ array we are about to allocate. Ownership note:
+    // build_index() no longer frees this pointer (see comment at its call site).
+    _mm_free(binary_seq);
+    binary_seq = NULL;
 
     printf("CP_SHIFT = %d, CP_MASK = %d\n", CP_SHIFT, CP_MASK);
     printf("sizeof CP_OCC = %ld\n", sizeof(CP_OCC));
@@ -212,42 +190,54 @@ int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int6
     cp_occ = (CP_OCC *)_mm_malloc(size, 64);
     assert_not_null(cp_occ, size, index_alloc);
     memset(cp_occ, 0, cp_occ_size * sizeof(CP_OCC));
-    int64_t cp_count[16];
 
-    memset(cp_count, 0, 16 * sizeof(int64_t));
-    for(i = 0; i < ref_seq_len; i++)
+    // Parallel checkpointed-occurrence construction. The original single scan
+    // carries a running prefix count (cp_count), which serializes it. We split it:
+    //  (A) an embarrassingly-parallel pass over the ref_seq_len/64 checkpoint
+    //      blocks that builds each block's one-hot bitmap and local base counts
+    //      (local counts stashed temporarily in that checkpoint's cp_count), then
+    //  (B) a cheap serial exclusive prefix-sum over blocks (ref_seq_len/64 iters,
+    //      64x fewer than the original scan) to turn local counts into cumulative
+    //      counts. Result is byte-identical to the original.
+    // num_real = number of checkpoints actually written by the original loop
+    // (those with block start < ref_seq_len); any trailing cp_occ entry stays
+    // zeroed by the memset above, exactly as the original leaves it.
+    int64_t num_real = ((ref_seq_len - 1) >> CP_SHIFT) + 1;
+    #pragma omp parallel for
+    for(int64_t b = 0; b < num_real; b++)
     {
-        if((i & CP_MASK) == 0)
+        int64_t start = b << CP_SHIFT;
+        uint64_t oh0=0, oh1=0, oh2=0, oh3=0;
+        int64_t l0=0, l1=0, l2=0, l3=0;
+        for(int32_t j = 0; j < CP_BLOCK_SIZE; j++)
         {
-            CP_OCC cpo;
-            cpo.cp_count[0] = cp_count[0];
-            cpo.cp_count[1] = cp_count[1];
-            cpo.cp_count[2] = cp_count[2];
-            cpo.cp_count[3] = cp_count[3];
-
-			int32_t j;
-            cpo.one_hot_bwt_str[0] = 0;
-            cpo.one_hot_bwt_str[1] = 0;
-            cpo.one_hot_bwt_str[2] = 0;
-            cpo.one_hot_bwt_str[3] = 0;
-
-			for(j = 0; j < CP_BLOCK_SIZE; j++)
-			{
-                cpo.one_hot_bwt_str[0] = cpo.one_hot_bwt_str[0] << 1;
-                cpo.one_hot_bwt_str[1] = cpo.one_hot_bwt_str[1] << 1;
-                cpo.one_hot_bwt_str[2] = cpo.one_hot_bwt_str[2] << 1;
-                cpo.one_hot_bwt_str[3] = cpo.one_hot_bwt_str[3] << 1;
-				uint8_t c = bwt[i + j];
-                //printf("c = %d\n", c);
-                if(c < 4)
-                {
-                    cpo.one_hot_bwt_str[c] += 1;
-                }
-			}
-
-            cp_occ[i >> CP_SHIFT] = cpo;
+            oh0 <<= 1; oh1 <<= 1; oh2 <<= 1; oh3 <<= 1;
+            uint8_t c = bwt[start + j];
+            if(c < 4)
+            {
+                if(c==0){ oh0 += 1; l0++; }
+                else if(c==1){ oh1 += 1; l1++; }
+                else if(c==2){ oh2 += 1; l2++; }
+                else { oh3 += 1; l3++; }
+            }
         }
-        cp_count[bwt[i]]++;
+        cp_occ[b].one_hot_bwt_str[0] = oh0;
+        cp_occ[b].one_hot_bwt_str[1] = oh1;
+        cp_occ[b].one_hot_bwt_str[2] = oh2;
+        cp_occ[b].one_hot_bwt_str[3] = oh3;
+        cp_occ[b].cp_count[0] = l0;   // local block counts (prefix-summed below)
+        cp_occ[b].cp_count[1] = l1;
+        cp_occ[b].cp_count[2] = l2;
+        cp_occ[b].cp_count[3] = l3;
+    }
+    int64_t run0=0, run1=0, run2=0, run3=0;   // (B) exclusive prefix-sum over blocks
+    for(int64_t b = 0; b < num_real; b++)
+    {
+        int64_t l0=cp_occ[b].cp_count[0], l1=cp_occ[b].cp_count[1];
+        int64_t l2=cp_occ[b].cp_count[2], l3=cp_occ[b].cp_count[3];
+        cp_occ[b].cp_count[0]=run0; cp_occ[b].cp_count[1]=run1;
+        cp_occ[b].cp_count[2]=run2; cp_occ[b].cp_count[3]=run3;
+        run0+=l0; run1+=l1; run2+=l2; run3+=l3;
     }
     outstream.write((char*)cp_occ, cp_occ_size * sizeof(CP_OCC));
     _mm_free(cp_occ);
@@ -261,17 +251,18 @@ int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int6
     size = ((ref_seq_len >> SA_COMPX) + 1) * sizeof(int8_t);
     int8_t *sa_ms_byte = (int8_t *)_mm_malloc(size, 64);
     assert_not_null(sa_ms_byte, size, index_alloc);
-    int64_t pos = 0;
-    for(i = 0; i < ref_seq_len; i++)
+    // Compressed SA: entry p stores suffix-array position p<<SA_COMPX. Since the
+    // destination index is a pure function of the source index, this parallelizes
+    // directly (no running counter).
+    int64_t pos = ((ref_seq_len - 1) >> SA_COMPX) + 1;
+    #pragma omp parallel for
+    for(int64_t p = 0; p < pos; p++)
     {
-        if ((i & SA_COMPX_MASK) == 0)
-        {
-            sa_ls_word[pos] = sa_bwt[i] & 0xffffffff;
-            sa_ms_byte[pos] = (sa_bwt[i] >> 32) & 0xff;
-            pos++;
-        }
+        int64_t ii = p << SA_COMPX;
+        sa_ls_word[p] = sa_bwt[ii] & 0xffffffff;
+        sa_ms_byte[p] = (sa_bwt[ii] >> 32) & 0xff;
     }
-    fprintf(stderr, "pos: %d, ref_seq_len__: %ld\n", pos, ref_seq_len >> SA_COMPX);
+    fprintf(stderr, "pos: %ld, ref_seq_len__: %ld\n", pos, ref_seq_len >> SA_COMPX);
     outstream.write((char*)sa_ms_byte, ((ref_seq_len >> SA_COMPX) + 1) * sizeof(int8_t));
     outstream.write((char*)sa_ls_word, ((ref_seq_len >> SA_COMPX) + 1) * sizeof(uint32_t));
     
@@ -310,13 +301,15 @@ int FMI_search::build_index() {
     startTick = __rdtsc();
     index_alloc = 0;
 
-    std::string reference_seq;
     char pac_file_name[PATH_MAX];
     strcpy_s(pac_file_name, PATH_MAX, prefix);
     strcat_s(pac_file_name, PATH_MAX, ".pac");
-    //sprintf(pac_file_name, "%s.pac", prefix);
-    pac2nt(pac_file_name, reference_seq);
-	int64_t pac_len = reference_seq.length();
+
+    int64_t seq_len = pac_seq_len(pac_file_name);
+    assert(seq_len > 0);
+    assert(seq_len <= 0x7fffffffffL);
+    int64_t pac_len = seq_len * 2;   // both strands (forward + reverse complement)
+
     int status;
     int64_t size = pac_len * sizeof(char);
     char *binary_ref_seq = (char *)_mm_malloc(size, 64);
@@ -325,34 +318,21 @@ int FMI_search::build_index() {
     char binary_ref_name[PATH_MAX];
     strcpy_s(binary_ref_name, PATH_MAX, prefix);
     strcat_s(binary_ref_name, PATH_MAX, ".0123");
-    //sprintf(binary_ref_name, "%s.0123", prefix);
     std::fstream binary_ref_stream (binary_ref_name, std::ios::out | std::ios::binary);
     binary_ref_stream.seekg(0);
+    int64_t count[16];
+    memset(count, 0, sizeof(int64_t) * 16);
     fprintf(stderr, "init ticks = %llu\n", __rdtsc() - startTick);
     startTick = __rdtsc();
-    int64_t i, count[16];
-	memset(count, 0, sizeof(int64_t) * 16);
-    for(i = 0; i < pac_len; i++)
-    {
-        switch(reference_seq[i])
-        {
-            case 'A':
-            binary_ref_seq[i] = 0, ++count[0];
-            break;
-            case 'C':
-            binary_ref_seq[i] = 1, ++count[1];
-            break;
-            case 'G':
-            binary_ref_seq[i] = 2, ++count[2];
-            break;
-            case 'T':
-            binary_ref_seq[i] = 3, ++count[3];
-            break;
-            default:
-            binary_ref_seq[i] = 4;
 
-        }
-    }
+    // Decode the 2-bit .pac directly into the 0..3 both-strand reference in
+    // parallel and count bases. This replaces the previous serial path that built
+    // a multi-GB ASCII std::string and then re-encoded it char-by-char (~100s of
+    // serial work at mammalian-genome scale, the Amdahl tail once the SA build was
+    // parallelized). Since 0<1<2<3 preserves the A<C<G<T order, running libsais on
+    // the 0..3 bytes yields the identical suffix array and thus a byte-identical index.
+    pac2binary(pac_file_name, (uint8_t *)binary_ref_seq, seq_len, count);
+
     count[4]=count[0]+count[1]+count[2]+count[3];
     count[3]=count[0]+count[1]+count[2];
     count[2]=count[0]+count[1];
@@ -368,15 +348,19 @@ int FMI_search::build_index() {
     index_alloc += size;
     assert_not_null(suffix_array, size, index_alloc);
     startTick = __rdtsc();
-	//status = saisxx<const char *, int64_t *, int64_t>(reference_seq.c_str(), suffix_array + 1, pac_len, 4);
-	status = saisxx(reference_seq.c_str(), suffix_array + 1, pac_len);
+    // Parallel suffix-array construction (libsais64_omp, threads=0 => OpenMP
+    // default / all cores) directly on the 0..3 reference. A suffix array is
+    // unique for a given string, so this is byte-identical to the original
+    // single-threaded saisxx build; it just runs on all cores.
+	status = libsais64_omp((const uint8_t *)binary_ref_seq, suffix_array + 1, pac_len, 0, NULL, 0);
 	suffix_array[0] = pac_len;
     fprintf(stderr, "build suffix-array ticks = %llu\n", __rdtsc() - startTick);
     startTick = __rdtsc();
 
+    // build_fm_index takes ownership of binary_ref_seq and frees it internally as
+    // soon as the BWT is built (it is unused thereafter), so do not free it here.
 	build_fm_index(prefix, binary_ref_seq, pac_len, suffix_array, count);
     fprintf(stderr, "build fm-index ticks = %llu\n", __rdtsc() - startTick);
-    _mm_free(binary_ref_seq);
     _mm_free(suffix_array);
     return 0;
 }
@@ -1261,13 +1245,17 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
     
     // uint32_t i;
     int32_t totalCoordCount = 0;
-    int32_t mem_lim = 0, id = 0;
-    
+    int64_t mem_lim = 0, id = 0;
+
     for(int i = 0; i < count; i++)
     {
-        int32_t c = 0;
         SMEM smem = smemArray[i];
-        mem_lim += smem.s;
+        // The write loop below emits at most max_occ entries per SMEM
+        // (inner guard c < max_occ). Sizing to the actually-used bound
+        // Sum(min(s, max_occ)) instead of Sum(s) avoids allocating (and
+        // mmap/munmap-ing) tens of MB per read for highly repetitive seeds
+        // whose s can reach into the millions. Output is unaffected.
+        mem_lim += (smem.s > max_occ) ? max_occ : smem.s;
     }
 
     int64_t *pos_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
@@ -1307,7 +1295,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         map_pos[j] = map_ar[i];
         offset[j] = 0;
         
-        if (pos & SA_COMPX_MASK == 0) {
+        if ((pos & SA_COMPX_MASK) == 0) {
             _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
             _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
         }
@@ -1344,7 +1332,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                     map_pos[k] = map_ar[i++];
                     offset[k] = 0;
                     
-                    if (pos & SA_COMPX_MASK == 0) {
+                    if ((pos & SA_COMPX_MASK) == 0) {
                         _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
                         _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
                     }
@@ -1358,7 +1346,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
             }
             else {
                 working_set[k] = sp;
-                if (sp & SA_COMPX_MASK == 0) {
+                if ((sp & SA_COMPX_MASK) == 0) {
                     _mm_prefetch(&sa_ms_byte[sp >> SA_COMPX], _MM_HINT_T0);
                     _mm_prefetch(&sa_ls_word[sp >> SA_COMPX], _MM_HINT_T0);
                 }
