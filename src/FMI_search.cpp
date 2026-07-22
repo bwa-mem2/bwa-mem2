@@ -92,6 +92,11 @@ void FMI_search::pac2nt(const char *fn_pac, std::string &reference_seq)
     assert(seq_len <= 0x7fffffffffL);
 	fp = xopen(fn_pac, "rb");
 
+	// Reserve the full both-strand length up front: without this the char-by-char
+	// '+=' below reallocates ~log2(2*seq_len) times, and the final reallocation
+	// transiently holds ~2x the string (a multi-GB spike at genome scale).
+	reference_seq.reserve((size_t)seq_len * 2);
+
 	// prepare sequence
 	pac_size = (seq_len>>2) + ((seq_len&3) == 0? 0 : 1);
 	buf2 = (uint8_t*)calloc(pac_size, 1);
@@ -200,6 +205,12 @@ int FMI_search::build_fm_index(const char *ref_file_name, char *binary_seq, int6
     for(i = ref_seq_len; i < ref_seq_len_aligned; i++)
         bwt[i] = DUMMY_CHAR;
 
+    // binary_seq was only needed to derive the BWT above; it is unused for the
+    // rest of this function. Free it now (several GB at genome scale) so it does
+    // not coexist with the cp_occ array we are about to allocate. Ownership note:
+    // build_index() no longer frees this pointer (see comment at its call site).
+    _mm_free(binary_seq);
+    binary_seq = NULL;
 
     printf("CP_SHIFT = %d, CP_MASK = %d\n", CP_SHIFT, CP_MASK);
     printf("sizeof CP_OCC = %ld\n", sizeof(CP_OCC));
@@ -374,9 +385,15 @@ int FMI_search::build_index() {
     fprintf(stderr, "build suffix-array ticks = %llu\n", __rdtsc() - startTick);
     startTick = __rdtsc();
 
+    // reference_seq is only needed as the SAIS input; it is dead from here on.
+    // Release it (~seq bytes, several GB at genome scale) before build_fm_index
+    // allocates bwt + cp_occ, so those do not stack on top of it at peak.
+    std::string().swap(reference_seq);
+
+    // build_fm_index takes ownership of binary_ref_seq and frees it internally as
+    // soon as the BWT is built (it is unused thereafter), so do not free it here.
 	build_fm_index(prefix, binary_ref_seq, pac_len, suffix_array, count);
     fprintf(stderr, "build fm-index ticks = %llu\n", __rdtsc() - startTick);
-    _mm_free(binary_ref_seq);
     _mm_free(suffix_array);
     return 0;
 }
@@ -1261,13 +1278,17 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
     
     // uint32_t i;
     int32_t totalCoordCount = 0;
-    int32_t mem_lim = 0, id = 0;
-    
+    int64_t mem_lim = 0, id = 0;
+
     for(int i = 0; i < count; i++)
     {
-        int32_t c = 0;
         SMEM smem = smemArray[i];
-        mem_lim += smem.s;
+        // The write loop below emits at most max_occ entries per SMEM
+        // (inner guard c < max_occ). Sizing to the actually-used bound
+        // Sum(min(s, max_occ)) instead of Sum(s) avoids allocating (and
+        // mmap/munmap-ing) tens of MB per read for highly repetitive seeds
+        // whose s can reach into the millions. Output is unaffected.
+        mem_lim += (smem.s > max_occ) ? max_occ : smem.s;
     }
 
     int64_t *pos_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
@@ -1307,7 +1328,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         map_pos[j] = map_ar[i];
         offset[j] = 0;
         
-        if (pos & SA_COMPX_MASK == 0) {
+        if ((pos & SA_COMPX_MASK) == 0) {
             _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
             _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
         }
@@ -1344,7 +1365,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                     map_pos[k] = map_ar[i++];
                     offset[k] = 0;
                     
-                    if (pos & SA_COMPX_MASK == 0) {
+                    if ((pos & SA_COMPX_MASK) == 0) {
                         _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
                         _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
                     }
@@ -1358,7 +1379,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
             }
             else {
                 working_set[k] = sp;
-                if (sp & SA_COMPX_MASK == 0) {
+                if ((sp & SA_COMPX_MASK) == 0) {
                     _mm_prefetch(&sa_ms_byte[sp >> SA_COMPX], _MM_HINT_T0);
                     _mm_prefetch(&sa_ls_word[sp >> SA_COMPX], _MM_HINT_T0);
                 }
