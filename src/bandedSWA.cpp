@@ -744,7 +744,7 @@ void BandedPairWiseSW::smithWaterman256_8(uint8_t seq1SoA[],
     
     int8_t i, j;
 
-    uint8_t tlen[SIMD_WIDTH8];
+    uint8_t tlen[SIMD_WIDTH8] __attribute__((aligned(64)));
     uint8_t tail[SIMD_WIDTH8] __attribute((aligned(64)));
     uint8_t head[SIMD_WIDTH8] __attribute((aligned(64)));
     
@@ -1443,7 +1443,7 @@ void BandedPairWiseSW::smithWaterman256_16(uint16_t seq1SoA[],
     
     int16_t i, j;
 
-    uint16_t tlen[SIMD_WIDTH16];
+    uint16_t tlen[SIMD_WIDTH16] __attribute__((aligned(64)));
     uint16_t tail[SIMD_WIDTH16] __attribute((aligned(64)));
     uint16_t head[SIMD_WIDTH16] __attribute((aligned(64)));
     
@@ -2295,7 +2295,7 @@ void BandedPairWiseSW::smithWaterman512_8(uint8_t seq1SoA[],
     int8_t lowInitValue = LOW_INIT_VALUE;
     int16_t i, j;
 
-    uint8_t tlen[SIMD_WIDTH8];
+    uint8_t tlen[SIMD_WIDTH8] __attribute__((aligned(64)));
     uint8_t tail[SIMD_WIDTH8] __attribute((aligned(64)));
     uint8_t head[SIMD_WIDTH8] __attribute((aligned(64)));
     
@@ -2993,7 +2993,7 @@ void BandedPairWiseSW::smithWaterman512_16(uint16_t seq1SoA[],
     
     int16_t i, j;
 
-    uint16_t tlen[SIMD_WIDTH16];
+    uint16_t tlen[SIMD_WIDTH16] __attribute__((aligned(64)));
     uint16_t tail[SIMD_WIDTH16] __attribute((aligned(64)));
     uint16_t head[SIMD_WIDTH16] __attribute((aligned(64)));
     
@@ -3783,7 +3783,7 @@ void BandedPairWiseSW::smithWaterman128_16(uint16_t seq1SoA[],
 
     int16_t i, j;
 
-    uint16_t tlen[SIMD_WIDTH16];
+    uint16_t tlen[SIMD_WIDTH16] __attribute__((aligned(64)));
     uint16_t tail[SIMD_WIDTH16] __attribute((aligned(64)));
     uint16_t head[SIMD_WIDTH16] __attribute((aligned(64)));
     
@@ -4511,7 +4511,7 @@ void BandedPairWiseSW::smithWaterman128_8(uint8_t seq1SoA[],
 
     int8_t i, j;
 
-    uint8_t tlen[SIMD_WIDTH8];
+    uint8_t tlen[SIMD_WIDTH8] __attribute__((aligned(64)));
     uint8_t tail[SIMD_WIDTH8] __attribute((aligned(64)));
     uint8_t head[SIMD_WIDTH8] __attribute((aligned(64)));
     

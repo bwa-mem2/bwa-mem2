@@ -170,17 +170,18 @@ void memoryAlloc(ktp_aux_t *aux, worker_t &w, int32_t nreads, int32_t nthreads)
         w.mmc.wsize_mem_s[l]     = BATCH_MUL * BATCH_SIZE *               readLen;
         w.mmc.wsize_mem_r[l]     = BATCH_MUL * BATCH_SIZE *               readLen;
         w.mmc.matchArray[l]    = (SMEM *) _mm_malloc(w.mmc.wsize_mem[l] * sizeof(SMEM), 64);
-        w.mmc.min_intv_ar[l]   = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
-        w.mmc.query_pos_ar[l]  = (int16_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int16_t));
-        w.mmc.enc_qdb[l]       = (uint8_t *) malloc(w.mmc.wsize_mem[l] * sizeof(uint8_t));
-        w.mmc.rid[l]           = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
+        w.mmc.min_intv_ar[l]   = (int32_t *) malloc(w.mmc.wsize_mem_r[l] * sizeof(int32_t));
+        w.mmc.query_pos_ar[l]  = (int32_t *) malloc(w.mmc.wsize_mem_r[l] * sizeof(int32_t));
+        w.mmc.enc_qdb[l]       = (uint8_t *) malloc(w.mmc.wsize_mem_s[l] * sizeof(uint8_t));
+        w.mmc.rid[l]           = (int32_t *) malloc(w.mmc.wsize_mem_r[l] * sizeof(int32_t));
         w.mmc.lim[l]           = (int32_t *) _mm_malloc((BATCH_SIZE + 32) * sizeof(int32_t), 64); // candidate not for reallocation, deferred for next round of changes.
     }
 
     allocMem = nthreads * BATCH_MUL * BATCH_SIZE * readLen * sizeof(SMEM) +
         nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t) +
-        nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int16_t) +
         nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t) +
+        nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(int32_t) +
+        nthreads * BATCH_MUL * BATCH_SIZE * readLen *sizeof(uint8_t) +
         nthreads * (BATCH_SIZE + 32) * sizeof(int32_t);
     fprintf(stderr, "3. Memory pre-allocation for BWT: %0.4lf MB\n", allocMem/1e6);
     fprintf(stderr, "------------------------------------------\n");

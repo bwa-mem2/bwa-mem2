@@ -628,7 +628,7 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
                        int nseq,
                        SMEM *matchArray,
                        int32_t *min_intv_ar,
-                       int16_t *query_pos_ar,
+                       int32_t *query_pos_ar,
                        uint8_t *enc_qdb,
                        int32_t *rid,
                        mem_cache *mmc,
@@ -640,7 +640,7 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
     int64_t num_smem1 = 0, num_smem2 = 0, num_smem3 = 0;
     int max_readlength = -1;
 
-    int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(nseq * sizeof(int32_t), 64);
+    int64_t *query_cum_len_ar = (int64_t *)_mm_malloc((size_t)nseq * sizeof(int64_t), 64);
 
     // New addition: checks
     // int64_t tot_seq_len = 0;
@@ -655,7 +655,8 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
     //     enc_qdb = mmc->enc_qdb[tid];
     // }
 
-    int offset = 0, max_read_len = 0;
+    int64_t offset = 0;
+    int max_read_len = 0;
     for (int l=0; l<nseq; l++)
     {
         min_intv_ar[l] = 1;
@@ -678,6 +679,25 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
     fmi->getSMEMsAllPosOneThread(enc_qdb, min_intv_ar, rid, nseq, nseq,
                                  seq_, query_cum_len_ar, max_readlength, opt->min_seed_len,
                                  matchArray, &num_smem1);
+
+    // Split-seed metadata can require one entry per first-pass SMEM, not just
+    // one entry per read.
+    if (num_smem1 > mmc->wsize_mem_r[tid])
+    {
+        int64_t old_cap = mmc->wsize_mem_r[tid];
+        int64_t new_cap = num_smem1;
+        int32_t *minp = (int32_t *) realloc(mmc->min_intv_ar[tid],
+                                            (size_t)new_cap * sizeof(int32_t));
+        int32_t *qpos = (int32_t *) realloc(mmc->query_pos_ar[tid],
+                                            (size_t)new_cap * sizeof(int32_t));
+        int32_t *ridp = (int32_t *) realloc(mmc->rid[tid],
+                                            (size_t)new_cap * sizeof(int32_t));
+        assert(minp != NULL && qpos != NULL && ridp != NULL);
+        mmc->min_intv_ar[tid] = min_intv_ar = minp;
+        mmc->query_pos_ar[tid] = query_pos_ar = qpos;
+        mmc->rid[tid] = rid = ridp;
+        mmc->wsize_mem_r[tid] = new_cap;
+    }
     // New addition: checks
     // if (num_smem1 > mmc->wsize_mem_r[tid]) {
     //     fprintf(stderr, "[%0.4d] REA Re-allocating min_intv, query_pos, & rid\n", tid);
@@ -713,32 +733,16 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
         mem_lim += end - start;
     }
 
-    #if 1
-    // fprintf(stderr, "num_smem2: %d, lim: %d\n", num_smem2, mem_lim + num_smem1 + offset);
-    if (mmc->wsize_mem[tid] < mem_lim + num_smem1) {
-        fprintf(stderr, "[%0.4d] REA Re-allocating SMEM data structures after num_smem1\n", tid);
-        int64_t tmp = mmc->wsize_mem[tid];
-        mmc->wsize_mem[tid] = mem_lim + num_smem1;
-        
-        SMEM* ptr1 = mmc->matchArray[tid];
-        // ptr2 = w.mmc.min_intv_ar;
-        // ptr3 =
-        fprintf(stderr, "Realloc size from: %d to :%d\n", tmp, mmc->wsize_mem[tid]);
-        mmc->matchArray[tid]    = (SMEM *) _mm_malloc(mmc->wsize_mem[tid] * sizeof(SMEM), 64);
-        assert(mmc->matchArray[tid] != NULL);
+    int64_t required_smem = mem_lim + num_smem1;
+    if (mmc->wsize_mem[tid] < required_smem) {
+        int64_t old_cap = mmc->wsize_mem[tid];
+        fprintf(stderr, "[%0.4d] Reallocating SMEM capacity from %ld to %ld after num_smem1\n",
+                tid, old_cap, required_smem);
+        mmc->matchArray[tid] = (SMEM *) _mm_realloc(mmc->matchArray[tid],
+                                                     old_cap, required_smem, sizeof(SMEM));
+        mmc->wsize_mem[tid] = required_smem;
         matchArray = mmc->matchArray[tid];
-        // w.mmc.min_intv_ar[l]   = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
-        // w.mmc.query_pos_ar[tid]  = (int16_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int16_t));
-        // w.mmc.enc_qdb[l]       = (uint8_t *) malloc(w.mmc.wsize_mem[l] * sizeof(uint8_t));
-        // w.mmc.rid[l]           = (int32_t *) malloc(w.mmc.wsize_mem[l] * sizeof(int32_t));
-        //w.mmc.lim[l]         = (int32_t *) _mm_malloc((BATCH_SIZE + 32) * sizeof(int32_t), 64);
-        for (int i=0; i<num_smem1; i++) {
-            mmc->matchArray[tid][i] = ptr1[i];
-        }
-        _mm_free(ptr1);
     }
-    #endif
-    
     fmi->getSMEMsOnePosOneThread(enc_qdb,
                                  query_pos_ar,
                                  min_intv_ar,
@@ -755,22 +759,18 @@ SMEM *mem_collect_smem(FMI_search *fmi, const mem_opt_t *opt,
     // fprintwsize_mem_rf(stderr, "num_smem2: %d\n", num_smem2);
     if (opt->max_mem_intv > 0)
     {
-        #if 1
-		if (mmc->wsize_mem[tid] < num_smem2 + offset*1.0/(opt->min_seed_len + 1) + num_smem1) {
-            int64_t tmp = mmc->wsize_mem[tid];
-		    mmc->wsize_mem[tid] = num_smem2 + offset*1.0/(opt->min_seed_len + 1) + num_smem1;
-		    SMEM* ptr1 = mmc->matchArray[tid];
-            fprintf(stderr, "[%0.4d] REA Re-allocating SMEM data structures after num_smem2\n", tid);
-            fprintf(stderr, "Realloc2 size from: %d to :%d\n", tmp, mmc->wsize_mem[tid]);
-		    mmc->matchArray[tid]    = (SMEM *) _mm_malloc(mmc->wsize_mem[tid] * sizeof(SMEM), 64);
-		    assert(mmc->matchArray[tid] != NULL);
-		    matchArray = mmc->matchArray[tid];
-		    for (int i=0; i<num_smem1; i++) {
-		        mmc->matchArray[tid][i] = ptr1[i];
-		    }
-		    _mm_free(ptr1);
-		}
-        #endif
+        int64_t third_pass_bound =
+            (offset + opt->min_seed_len) / (opt->min_seed_len + 1);
+        int64_t required_total = num_smem1 + num_smem2 + third_pass_bound;
+        if (mmc->wsize_mem[tid] < required_total) {
+            int64_t old_cap = mmc->wsize_mem[tid];
+            fprintf(stderr, "[%0.4d] Reallocating SMEM capacity from %ld to %ld after num_smem2\n",
+                    tid, old_cap, required_total);
+            mmc->matchArray[tid] = (SMEM *) _mm_realloc(mmc->matchArray[tid],
+                                                         old_cap, required_total, sizeof(SMEM));
+            mmc->wsize_mem[tid] = required_total;
+            matchArray = mmc->matchArray[tid];
+        }
         for (int l=0; l<nseq; l++)
             min_intv_ar[l] = opt->max_mem_intv;
 
@@ -819,8 +819,7 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
     int64_t smem_ptr = 0;
     int64_t l_pac = bns->l_pac;
 
-    int num[nseq];
-    memset(num, 0, nseq*sizeof(int));
+    std::vector<int> num(nseq, 0);
     int smem_buf_size = 6000;
     int64_t *sa_coord = (int64_t *) _mm_malloc(sizeof(int64_t) * opt->max_occ * smem_buf_size, 64);
     int64_t seedBufCount = 0;
@@ -862,11 +861,20 @@ void mem_chain_seeds(FMI_search *fmi, const mem_opt_t *opt,
 
         // bwt_sa
         // assert(pos - smem_ptr + 1 < 6000);
-        if (pos - smem_ptr + 1 >= smem_buf_size)
+        int64_t smem_count = pos - smem_ptr + 1;
+        if (smem_count > smem_buf_size)
         {
-            int csize = smem_buf_size;
-            smem_buf_size *= 2;
-            sa_coord = (int64_t *) _mm_realloc(sa_coord, csize, opt->max_occ * smem_buf_size,
+            int old_smem_buf_size = smem_buf_size;
+            while (smem_count > smem_buf_size) {
+                if (smem_buf_size > INT_MAX / 2) {
+                    fprintf(stderr, "SMEM buffer size overflow\n");
+                    abort();
+                }
+                smem_buf_size *= 2;
+            }
+            int64_t old_elems = (int64_t)opt->max_occ * old_smem_buf_size;
+            int64_t new_elems = (int64_t)opt->max_occ * smem_buf_size;
+            sa_coord = (int64_t *) _mm_realloc(sa_coord, old_elems, new_elems,
                                                sizeof(int64_t));
             assert(sa_coord != NULL);
         }
@@ -998,33 +1006,43 @@ int mem_kernel1_core(FMI_search *fmi,
         for (i = 0; i < len; ++i)
             seq[i] = seq[i] < 4? seq[i] : nst_nt4_table[(int)seq[i]]; //nst_nt4??
     }
-    // tot_len *= N_SMEM_KERNEL;
-    // fprintf(stderr, "wsize: %d, tot_len: %d\n", mmc->wsize_mem[tid], tot_len);
-    // This covers enc_qdb/SMEM reallocs
-    if (tot_len >= mmc->wsize_mem[tid])
+    // The SMEM, encoded-sequence, and per-read work buffers have independent
+    // capacities.  Growing one must not make the others appear larger.
+    if (tot_len > mmc->wsize_mem_s[tid])
     {
-        fprintf(stderr, "[%0.4d] Re-allocating SMEM data structures due to enc_qdb\n", tid);
-        int64_t tmp = mmc->wsize_mem[tid];
-        mmc->wsize_mem[tid] = tot_len;
+        uint8_t *p = (uint8_t *) realloc(mmc->enc_qdb[tid],
+                                         (size_t)tot_len * sizeof(uint8_t));
+        assert(p != NULL);
+        mmc->enc_qdb[tid] = p;
         mmc->wsize_mem_s[tid] = tot_len;
-        mmc->wsize_mem_r[tid] = tot_len;
-        mmc->matchArray[tid]   = (SMEM *) _mm_realloc(mmc->matchArray[tid],
-                                                      tmp, mmc->wsize_mem[tid], sizeof(SMEM));
-            //realloc(mmc->matchArray[tid], mmc->wsize_mem[tid] *   sizeof(SMEM));
-        mmc->min_intv_ar[tid]  = (int32_t *) realloc(mmc->min_intv_ar[tid],
-                                                     mmc->wsize_mem[tid] *  sizeof(int32_t));
-        mmc->query_pos_ar[tid] = (int16_t *) realloc(mmc->query_pos_ar[tid],
-                                                     mmc->wsize_mem[tid] *  sizeof(int16_t));
-        mmc->enc_qdb[tid]      = (uint8_t *) realloc(mmc->enc_qdb[tid],
-                                                      mmc->wsize_mem[tid] * sizeof(uint8_t));
-        mmc->rid[tid]          = (int32_t *) realloc(mmc->rid[tid],
-                                                      mmc->wsize_mem[tid] * sizeof(int32_t));
-        // w.mmc.lim[l]        = (int32_t *) _mm_malloc((BATCH_SIZE + 32) * sizeof(int32_t), 64);
     }
 
+    if (nseq > mmc->wsize_mem_r[tid])
+    {
+        int64_t new_cap = nseq;
+        int32_t *minp = (int32_t *) realloc(mmc->min_intv_ar[tid],
+                                            (size_t)new_cap * sizeof(int32_t));
+        int32_t *qpos = (int32_t *) realloc(mmc->query_pos_ar[tid],
+                                            (size_t)new_cap * sizeof(int32_t));
+        int32_t *ridp = (int32_t *) realloc(mmc->rid[tid],
+                                            (size_t)new_cap * sizeof(int32_t));
+        assert(minp != NULL && qpos != NULL && ridp != NULL);
+        mmc->min_intv_ar[tid] = minp;
+        mmc->query_pos_ar[tid] = qpos;
+        mmc->rid[tid] = ridp;
+        mmc->wsize_mem_r[tid] = new_cap;
+    }
+
+    if (tot_len > mmc->wsize_mem[tid])
+    {
+        int64_t old_cap = mmc->wsize_mem[tid];
+        mmc->matchArray[tid] = (SMEM *) _mm_realloc(mmc->matchArray[tid],
+                                                     old_cap, tot_len, sizeof(SMEM));
+        mmc->wsize_mem[tid] = tot_len;
+    }
     SMEM    *matchArray   = mmc->matchArray[tid];
     int32_t *min_intv_ar  = mmc->min_intv_ar[tid];
-    int16_t *query_pos_ar = mmc->query_pos_ar[tid];
+    int32_t *query_pos_ar = mmc->query_pos_ar[tid];
     uint8_t *enc_qdb      = mmc->enc_qdb[tid];
     int32_t *rid          = mmc->rid[tid];
     int64_t  *wsize_mem   = &mmc->wsize_mem[tid];
@@ -1044,7 +1062,7 @@ int mem_kernel1_core(FMI_search *fmi,
                                   num_smem,
                                   tid);
 
-    if (num_smem >= *wsize_mem){
+    if (num_smem > *wsize_mem){
         fprintf(stderr, "Error [bug]: num_smem: %ld are more than allocated space %ld.\n",
                 num_smem, *wsize_mem);
         exit(EXIT_FAILURE);
@@ -1831,15 +1849,20 @@ static inline int get_rlen(int n_cigar, const uint32_t *cigar)
 /************************ New functions, version2*****************************************/
 #define _get_pac(pac, l) ((pac)[(l)>>2]>>((~(l)&3)<<1)&3)
 
-void* _mm_realloc(void *ptr, int64_t csize, int64_t nsize, int16_t dsize) {
+void* _mm_realloc(void *ptr, int64_t csize, int64_t nsize, size_t dsize) {
     if (nsize <= csize)
     {
-        fprintf(stderr, "Shringking not supported yet.\n");
         return ptr;
     }
-    void *nptr = _mm_malloc(nsize * dsize, 64);
+    if (csize < 0 || nsize < 0 || dsize == 0 || (uint64_t)nsize > SIZE_MAX / dsize) {
+        fprintf(stderr, "Invalid allocation size in _mm_realloc\n");
+        abort();
+    }
+    size_t old_bytes = (size_t)csize * dsize;
+    size_t new_bytes = (size_t)nsize * dsize;
+    void *nptr = _mm_malloc(new_bytes, 64);
     assert(nptr != NULL);
-    memcpy_bwamem(nptr, nsize * dsize, ptr, csize, __FILE__, __LINE__);
+    memcpy_bwamem(nptr, new_bytes, ptr, old_bytes, __FILE__, __LINE__);
     _mm_free(ptr);
 
     return nptr;
@@ -2098,11 +2121,14 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     int64_t leftRefOffset = 0, rightRefOffset = 0;
     int64_t leftQerOffset = 0, rightQerOffset = 0;
 
-    int srt_size = MAX_SEEDS_PER_READ, fac = FAC;
-    uint64_t *srt = (uint64_t *) malloc(srt_size * 8);
-    uint32_t *srtgg = (uint32_t*) malloc(nseq * SEEDS_PER_READ * fac * sizeof(uint32_t));
+    int srt_size = MAX_SEEDS_PER_READ;
+    uint64_t *srt = (uint64_t *) malloc((size_t)srt_size * sizeof(uint64_t));
+    int64_t srtg_cap = (int64_t)nseq * SEEDS_PER_READ * FAC;
+    assert(srtg_cap > 0 && (uint64_t)srtg_cap <= SIZE_MAX / sizeof(uint32_t));
+    uint32_t *srtgg = (uint32_t*) malloc((size_t)srtg_cap * sizeof(uint32_t));
+    assert(srt != NULL && srtgg != NULL);
 
-    int spos = 0;
+    int64_t spos = 0;
 
     // uint64_t timUP = __rdtsc();
     for (int l=0; l<nseq; l++)
@@ -2191,14 +2217,20 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
             if (c->n > 1)
                 ks_introsort_64(c->n, srt);
 
-            // assert((spos + c->n) < SEEDS_PER_READ * FAC * nseq);
-            if ((spos + c->n) > SEEDS_PER_READ * fac * nseq) {
-                fac <<= 1;
-                srtgg = (uint32_t *) realloc(srtgg, nseq * SEEDS_PER_READ * fac * sizeof(uint32_t));
+            int64_t required_srtg = spos + c->n;
+            if (required_srtg > srtg_cap) {
+                int64_t new_cap = mem_grow_capacity(srtg_cap, required_srtg);
+                assert((uint64_t)new_cap <= SIZE_MAX / sizeof(uint32_t));
+                uint32_t *grown = (uint32_t *) realloc(srtgg,
+                                                       (size_t)new_cap * sizeof(uint32_t));
+                assert(grown != NULL);
+                srtgg = grown;
+                srtg = srtgg;
+                srtg_cap = new_cap;
             }
 
             for (int i = 0; i < c->n; ++i)
-                srtg[spos++] = srt[i];
+                srtg[spos++] = (uint32_t)srt[i];
 
             lim_g[l+1] += c->n;
 
@@ -2235,9 +2267,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
                     if (numPairsLeft >= *wsize_pair) {
                         fprintf(stderr, "[0000][%0.4d] Re-allocating seqPairArrays, in Left\n", tid);
-                        *wsize_pair +=  1024;
-                        // assert(*wsize_pair > numPairsLeft);
-                        *wsize_pair += numPairsLeft + 1024;
+                        *wsize_pair = mem_grow_capacity(*wsize_pair, (int64_t)numPairsLeft + 1);
                         seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
                                                               (*wsize_pair + MAX_LINE_LEN)
                                                               * sizeof(SeqPair));
@@ -2257,13 +2287,12 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     sp.idr = leftRefOffset;
 
                     leftQerOffset += s->qbeg;
-                    if (leftQerOffset >= *wsize_buf_qer)
+                    if (leftQerOffset > *wsize_buf_qer)
                     {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufQers in %s (left)\n",
                                 tid, __func__);
                         int64_t tmp = *wsize_buf_qer;
-                        *wsize_buf_qer *= 2;
-                        assert(*wsize_buf_qer > leftQerOffset);
+                        *wsize_buf_qer = mem_grow_capacity(*wsize_buf_qer, leftQerOffset);
                         
                         uint8_t *seqBufQer_ = (uint8_t*)
                             _mm_realloc(seqBufLeftQer, tmp, *wsize_buf_qer, sizeof(uint8_t));
@@ -2279,12 +2308,12 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
 
                     tmp = s->rbeg - rmax[0];
                     leftRefOffset += tmp;
-                    if (leftRefOffset >= *wsize_buf_ref)
+                    if (leftRefOffset > *wsize_buf_ref)
                     {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s (left)\n",
                                 tid, __func__);
                         int64_t tmp = *wsize_buf_ref;
-                        *wsize_buf_ref *= 2;
+                        *wsize_buf_ref = mem_grow_capacity(*wsize_buf_ref, leftRefOffset);
                         uint8_t *seqBufRef_ = (uint8_t*)
                             _mm_realloc(seqBufLeftRef, tmp, *wsize_buf_ref, sizeof(uint8_t));
                         mmc->seqBufLeftRef[tid*CACHE_LINE] = seqBufLeftRef = seqBufRef_;
@@ -2335,9 +2364,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     if (numPairsRight >= *wsize_pair)
                     {
                         fprintf(stderr, "[0000] [%0.4d] Re-allocating seqPairArrays Right\n", tid);
-                        *wsize_pair += 1024;
-                        // assert(*wsize_pair > numPairsRight);
-                        *wsize_pair += numPairsLeft + 1024;
+                        *wsize_pair = mem_grow_capacity(*wsize_pair, (int64_t)numPairsRight + 1);
                         seqPairArrayAux = (SeqPair *) realloc(seqPairArrayAux,
                                                               (*wsize_pair + MAX_LINE_LEN)
                                                               * sizeof(SeqPair));
@@ -2359,13 +2386,12 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     sp.idr = rightRefOffset;
 
                     rightQerOffset += sp.len2;
-                    if (rightQerOffset >= *wsize_buf_qer)
+                    if (rightQerOffset > *wsize_buf_qer)
                     {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufQers in %s (right)\n",
                                 tid, __func__);
                         int64_t tmp = *wsize_buf_qer;
-                        *wsize_buf_qer *= 2;
-                        assert(*wsize_buf_qer > rightQerOffset);
+                        *wsize_buf_qer = mem_grow_capacity(*wsize_buf_qer, rightQerOffset);
                         
                         uint8_t *seqBufQer_ = (uint8_t*)
                             _mm_realloc(seqBufLeftQer, tmp, *wsize_buf_qer, sizeof(uint8_t));
@@ -2377,12 +2403,12 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                     }
 
                     rightRefOffset += sp.len1;
-                    if (rightRefOffset >= *wsize_buf_ref)
+                    if (rightRefOffset > *wsize_buf_ref)
                     {
                         fprintf(stderr, "[%0.4d] Re-allocating (doubling) seqBufRefs in %s (right)\n",
                                 tid, __func__);
                         int64_t tmp = *wsize_buf_ref;
-                        *wsize_buf_ref *= 2;
+                        *wsize_buf_ref = mem_grow_capacity(*wsize_buf_ref, rightRefOffset);
                         uint8_t *seqBufRef_ = (uint8_t*)
                             _mm_realloc(seqBufLeftRef, tmp, *wsize_buf_ref, sizeof(uint8_t));
                         mmc->seqBufLeftRef[tid*CACHE_LINE] = seqBufLeftRef = seqBufRef_;
@@ -2882,7 +2908,7 @@ void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
     _mm_free(hist);
     // tprof[CRIGHT][tid] += __rdtsc() - timR;
 
-    if (numPairsLeft >= *wsize_pair || numPairsRight >= *wsize_pair)
+    if (numPairsLeft > *wsize_pair || numPairsRight > *wsize_pair)
     {   // refine it!
         fprintf(stderr, "Error: Unexpected behaviour!!!\n");
         fprintf(stderr, "Error: assert failed for seqPair size, "

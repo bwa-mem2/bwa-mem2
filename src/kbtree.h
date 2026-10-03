@@ -44,7 +44,9 @@ typedef struct {
 	int32_t is_internal:1, n:31;
 } kbnode_t;
 
-#define	__KB_KEY(type, x)	((type*)((char*)x + 4))
+#define __KB_ALIGN_UP(n, a)	(((n) + (a) - 1) / (a) * (a))
+#define __KB_KEY_OFF(type)	__KB_ALIGN_UP(sizeof(kbnode_t), __alignof__(type))
+#define	__KB_KEY(type, x)	((type*)((char*)x + __KB_KEY_OFF(type)))
 #define __KB_PTR(btr, x)	((kbnode_t**)((char*)x + btr->off_ptr))
 
 #define __KB_TREE_T(name)						\
@@ -61,14 +63,15 @@ typedef struct {
 		kbtree_##name##_t *b;											\
 		b = (kbtree_##name##_t*)calloc(1, sizeof(kbtree_##name##_t));	\
         assert(b != NULL);                                              \
-		b->t = ((size - 4 - sizeof(void*)) / (sizeof(void*) + sizeof(key_t)) + 1) >> 1; \
+		b->off_key = __KB_KEY_OFF(key_t);\
+		b->t = ((size - b->off_key - sizeof(void*)) / (sizeof(void*) + sizeof(key_t)) + 1) >> 1; \
 		if (b->t < 2) {													\
 			free(b); return 0;											\
 		}																\
 		b->n = 2 * b->t - 1;											\
-		b->off_ptr = 4 + b->n * sizeof(key_t);							\
-		b->ilen = (4 + sizeof(void*) + b->n * (sizeof(void*) + sizeof(key_t)) + 3) >> 2 << 2; \
-		b->elen = (b->off_ptr + 3) >> 2 << 2;							\
+		b->off_ptr = __KB_ALIGN_UP(b->off_key + b->n * sizeof(key_t), __alignof__(kbnode_t*));							\
+		b->ilen = b->off_ptr + (b->n + 1) * sizeof(kbnode_t*); \
+		b->elen = b->off_key + b->n * sizeof(key_t);							\
 		b->root = (kbnode_t*)calloc(1, b->ilen);						\
         assert(b->root != NULL);                                        \
 		++b->n_nodes;													\

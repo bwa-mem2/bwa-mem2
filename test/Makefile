@@ -34,7 +34,7 @@ CXX=		icpc
 CXXFLAGS=	-std=c++11 -fopenmp -mtune=native -march=native
 CPPFLAGS=	-DENABLE_PREFETCH
 INCLUDES=	-I../src
-LIBS=		-L.. -fopenmp -lz -lbwa ../ext/safestringlib/libsafestring.a
+LIBS=		-L.. -fopenmp -lbwa ../ext/safestringlib/libsafestring.a -lz
 
 .PHONY:all clean depend
 .SUFFIXES:.cpp .o

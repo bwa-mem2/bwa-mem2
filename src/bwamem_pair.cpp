@@ -1014,7 +1014,6 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
             SeqPair sp;
             sp.h0 = xtra;
             // assert(pcnt < BATCH_SIZE * SEEDS_PER_READ);
-            assert(pcnt < *wsize_pair);
             
             sp.idq = qerOffset;
             sp.idr = refOffset;
@@ -1023,12 +1022,12 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
             sp.id = sp.score = sp.seqid = sp.gtle = sp.tle = sp.qle = sp.max_off = sp.gscore = -1; // not needed, remove while code cleaning
             
             assert(sp.len1 >= 0 && sp.len2 >= 0);
-            if (refOffset + sp.len1 >= *wsize_buf_ref)
+            if (refOffset + sp.len1 > *wsize_buf_ref)
             {
                 fprintf(stderr, "[0000][%0.4d] Re-allocating (doubling) seqBufRefs in %s\n",
                         tid, __func__);
                 int64_t tmp = *wsize_buf_ref;
-                *wsize_buf_ref *= 2;
+                *wsize_buf_ref = mem_grow_capacity(*wsize_buf_ref, refOffset + sp.len1);
 
                 uint8_t *seqBufRef_ = (uint8_t*)
                     _mm_realloc(seqBufRef, tmp, *wsize_buf_ref, sizeof(uint8_t)); 
@@ -1040,12 +1039,12 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
                 mmc->seqBufRightRef[tid*CACHE_LINE] = seqBufRef_;               
             }
             
-            if (qerOffset + sp.len2 >= *wsize_buf_qer)
+            if (qerOffset + sp.len2 > *wsize_buf_qer)
             {
                 fprintf(stderr, "[0000][%0.4d] Re-allocating (doubling) seqBufQers in %s\n",
                         tid, __func__);
                 int64_t tmp = *wsize_buf_qer;
-                *wsize_buf_qer *= 2;
+                *wsize_buf_qer = mem_grow_capacity(*wsize_buf_qer, qerOffset + sp.len2);
 
                 uint8_t *seqBufQer_ = (uint8_t*)
                     _mm_realloc(seqBufQer, tmp, *wsize_buf_qer, sizeof(uint8_t)); 
@@ -1060,7 +1059,7 @@ int mem_matesw_batch_pre(const mem_opt_t *opt, const bntseq_t *bns,
             if (pcnt >= *wsize_pair)
             {
                 fprintf(stderr, "[0000][%0.4d] Re-allocating seqPairs in %s\n", tid, __func__);
-                *wsize_pair += 1024;
+                *wsize_pair = mem_grow_capacity(*wsize_pair, (int64_t)pcnt + 1);
                 mmc->seqPairArrayAux[tid] = (SeqPair *) realloc(mmc->seqPairArrayAux[tid],
                                                     (*wsize_pair + MAX_LINE_LEN)
                                                     * sizeof(SeqPair));
