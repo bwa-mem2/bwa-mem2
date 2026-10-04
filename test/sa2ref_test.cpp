@@ -89,6 +89,7 @@ int main(int argc, char **argv) {
 	}
 	
     FMI_search *fmiSearch = new FMI_search(argv[1]);
+    fmiSearch->load_index();
 
 	SMEM *smemArray = (SMEM *) _mm_malloc (MAX_NUM_SMEM *
 												   sizeof(SMEM), 64);

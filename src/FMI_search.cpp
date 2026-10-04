@@ -28,6 +28,7 @@ Authors: Sanchit Misra <sanchit.misra@intel.com>; Vasimuddin Md <vasimuddin.md@i
 *****************************************************************************************/
 
 #include <stdio.h>
+#include <vector>
 #include "sais.h"
 #include "FMI_search.h"
 #include "memcpy_bwamem.h"
@@ -494,20 +495,20 @@ void FMI_search::load_index()
 }
 
 void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
-                                         int16_t *query_pos_array,
+                                         int32_t *query_pos_array,
                                          int32_t *min_intv_array,
                                          int32_t *rid_array,
                                          int32_t numReads,
                                          int32_t batch_size,
                                          const bseq1_t *seq_,
-                                         int32_t *query_cum_len_ar,
+                                         int64_t *query_cum_len_ar,
                                          int32_t max_readlength,
                                          int32_t minSeedLen,
                                          SMEM *matchArray,
                                          int64_t *__numTotalSmem)
 {
     int64_t numTotalSmem = *__numTotalSmem;
-    SMEM prevArray[max_readlength];
+    std::vector<SMEM> prevArray(max_readlength);
 
     uint32_t i;
     // Perform SMEM for original reads
@@ -518,7 +519,7 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
         int next_x = x + 1;
 
         int readlength = seq_[rid].l_seq;
-        int offset = query_cum_len_ar[rid];
+        int64_t offset = query_cum_len_ar[rid];
         // uint8_t a = enc_qdb[rid * readlength + x];
         uint8_t a = enc_qdb[offset + x];
 
@@ -581,7 +582,7 @@ void FMI_search::getSMEMsOnePosOneThread(uint8_t *enc_qdb,
             }
 
             SMEM *prev;
-            prev = prevArray;
+            prev = prevArray.data();
 
             int p;
             for(p = 0; p < (numPrev/2); p++)
@@ -675,13 +676,13 @@ void FMI_search::getSMEMsAllPosOneThread(uint8_t *enc_qdb,
                                          int32_t numReads,
                                          int32_t batch_size,
                                          const bseq1_t *seq_,
-                                         int32_t *query_cum_len_ar,
+                                         int64_t *query_cum_len_ar,
                                          int32_t max_readlength,
                                          int32_t minSeedLen,
                                          SMEM *matchArray,
                                          int64_t *__numTotalSmem)
 {
-    int16_t *query_pos_array = (int16_t *)_mm_malloc(numReads * sizeof(int16_t), 64);
+    int32_t *query_pos_array = (int32_t *)_mm_malloc(numReads * sizeof(int32_t), 64);
     
     int32_t i;
     for(i = 0; i < numReads; i++)
@@ -727,7 +728,7 @@ int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
                                                    int32_t *max_intv_array,
                                                    int32_t numReads,
                                                    const bseq1_t *seq_,
-                                                   int32_t *query_cum_len_ar,
+                                                   int64_t *query_cum_len_ar,
                                                    int32_t minSeedLen,
                                                    SMEM *matchArray)
 {
@@ -738,7 +739,7 @@ int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
     for(i = 0; i < numReads; i++)
     {
         int readlength = seq_[i].l_seq;
-        int16_t x = 0;
+        int32_t x = 0;
         while(x < readlength)
         {
             int next_x = x + 1;
@@ -749,7 +750,7 @@ int64_t FMI_search::bwtSeedStrategyAllPosOneThread(uint8_t *enc_qdb,
             smem.m = x;
             smem.n = x;
             
-            int offset = query_cum_len_ar[i];
+            int64_t offset = query_cum_len_ar[i];
             uint8_t a = enc_qdb[offset + x];
             // uint8_t a = enc_qdb[i * readlength + x];
 
@@ -830,7 +831,7 @@ void FMI_search::getSMEMs(uint8_t *enc_qdb,
         int tid = 0; //omp_get_thread_num();   // removed omp
         numTotalSmem[tid] = 0;
         SMEM *myPrevArray = prevArray + tid * readlength;
-        SMEM *myCurrArray = prevArray + tid * readlength;
+        SMEM *myCurrArray = currArray + tid * readlength;
 
         int32_t perThreadQuota = (numReads + (nthreads - 1)) / nthreads;
         int32_t first = tid * perThreadQuota;
@@ -1260,20 +1261,28 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
 {
     
     // uint32_t i;
-    int32_t totalCoordCount = 0;
-    int32_t mem_lim = 0, id = 0;
+    int64_t totalCoordCount = 0;
+    int64_t mem_lim = 0, id = 0;
     
-    for(int i = 0; i < count; i++)
+    for(int64_t i = 0; i < count; i++)
     {
-        int32_t c = 0;
         SMEM smem = smemArray[i];
-        mem_lim += smem.s;
+        if (smem.s < 0) {
+            fprintf(stderr, "Negative SMEM occurrence count\n");
+            abort();
+        }
+        int64_t entries = smem.s > max_occ ? max_occ : smem.s;
+        if (entries > INT64_MAX - mem_lim) {
+            fprintf(stderr, "SA coordinate count overflow\n");
+            abort();
+        }
+        mem_lim += entries;
     }
 
     int64_t *pos_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
     int64_t *map_ar = (int64_t *) _mm_malloc( mem_lim * sizeof(int64_t), 64);
 
-    for(int i = 0; i < count; i++)
+    for(int64_t i = 0; i < count; i++)
     {
         int32_t c = 0;
         SMEM smem = smemArray[i];
@@ -1307,7 +1316,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
         map_pos[j] = map_ar[i];
         offset[j] = 0;
         
-        if (pos & SA_COMPX_MASK == 0) {
+        if ((pos & SA_COMPX_MASK) == 0) {
             _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
             _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
         }
@@ -1344,7 +1353,7 @@ void FMI_search::get_sa_entries_prefetch(SMEM *smemArray, int64_t *coordArray,
                     map_pos[k] = map_ar[i++];
                     offset[k] = 0;
                     
-                    if (pos & SA_COMPX_MASK == 0) {
+                    if ((pos & SA_COMPX_MASK) == 0) {
                         _mm_prefetch(&sa_ms_byte[pos >> SA_COMPX], _MM_HINT_T0);
                         _mm_prefetch(&sa_ls_word[pos >> SA_COMPX], _MM_HINT_T0);
                     }

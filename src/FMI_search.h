@@ -104,13 +104,13 @@ class FMI_search: public indexEle
                   int64_t *numTotalSmem);
     
     void getSMEMsOnePosOneThread(uint8_t *enc_qdb,
-                                 int16_t *query_pos_array,
+                                 int32_t *query_pos_array,
                                  int32_t *min_intv_array,
                                  int32_t *rid_array,
                                  int32_t numReads,
                                  int32_t batch_size,
                                  const bseq1_t *seq_,
-                                 int32_t *query_cum_len_ar,
+                                 int64_t *query_cum_len_ar,
                                  int32_t  max_readlength,
                                  int32_t minSeedLen,
                                  SMEM *matchArray,
@@ -122,7 +122,7 @@ class FMI_search: public indexEle
                                  int32_t numReads,
                                  int32_t batch_size,
                                  const bseq1_t *seq_,
-                                 int32_t *query_cum_len_ar,
+                                 int64_t *query_cum_len_ar,
                                  int32_t max_readlength,
                                  int32_t minSeedLen,
                                  SMEM *matchArray,
@@ -133,7 +133,7 @@ class FMI_search: public indexEle
                                            int32_t *max_intv_array,
                                            int32_t numReads,
                                            const bseq1_t *seq_,
-                                           int32_t *query_cum_len_ar,
+                                           int64_t *query_cum_len_ar,
                                            int32_t minSeedLen,
                                            SMEM *matchArray);
         

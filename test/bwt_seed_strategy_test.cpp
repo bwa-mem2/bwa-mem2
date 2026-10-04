@@ -70,9 +70,10 @@ int main(int argc, char **argv) {
         printf("ERROR! seqs = NULL\n");
         exit(0);
     }
-    int32_t *query_cum_len_ar = (int32_t *)_mm_malloc(numReads * sizeof(int32_t), 64);
+    int64_t *query_cum_len_ar = (int64_t *)_mm_malloc((size_t)numReads * sizeof(int64_t), 64);
 
     FMI_search *fmiSearch = new FMI_search(argv[1]);
+    fmiSearch->load_index();
 
     int readlength=atoi(argv[4]);
     assert(readlength > 0);

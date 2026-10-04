@@ -61,6 +61,18 @@ typedef struct __smem_i smem_i;
 
 #define MEM_F_PE        0x2
 #define MEM_F_NOPAIRING 0x4
+
+static inline int64_t mem_grow_capacity(int64_t current, int64_t required)
+{
+    assert(required >= 0);
+    if (required <= current) return current;
+    if (current < 1) current = 1;
+    while (current < required) {
+        if (current > INT64_MAX / 2) return required;
+        current *= 2;
+    }
+    return current;
+}
 #define MEM_F_ALL       0x8
 #define MEM_F_NO_MULTI  0x10
 #define MEM_F_NO_RESCUE 0x20
@@ -202,7 +214,7 @@ typedef struct
     int32_t *min_intv_ar[MAX_THREADS];
     int32_t *rid[MAX_THREADS];
     int32_t *lim[MAX_THREADS];
-    int16_t *query_pos_ar[MAX_THREADS];
+    int32_t *query_pos_ar[MAX_THREADS];
     uint8_t *enc_qdb[MAX_THREADS];
     
     int64_t wsize_mem[MAX_THREADS];
@@ -268,7 +280,7 @@ int mem_kernel1_core(FMI_search *fmi, const mem_opt_t *opt,
                      mem_cache *mmc,
                      int tid);
 
-void* _mm_realloc(void *ptr, int64_t csize, int64_t nsize, int16_t dsize);
+void* _mm_realloc(void *ptr, int64_t csize, int64_t nsize, size_t dsize);
 
 void mem_chain2aln_across_reads_V2(const mem_opt_t *opt, const bntseq_t *bns,
                                    const uint8_t *pac, bseq1_t *seq_, int nseq,
